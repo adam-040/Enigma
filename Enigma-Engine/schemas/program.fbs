@@ -1,0 +1,186 @@
+// Schema for ProgramSnapshot — persistent analysis state only.
+// No transient runtime objects. No binary bytes.
+
+namespace fbschema;
+
+table AddressRange {
+    space: string;
+    offset: ulong;
+    length: ulong;
+}
+
+table MemoryBlock {
+    name: string;
+    comment: string;
+    start_address: ulong;
+    length: ulong;
+    permissions: string;
+    block_type: string;
+    bytes: [ubyte];
+}
+
+table CodeUnit {
+    address: ulong;
+    length: ushort;
+    unit_type: string;
+    data_type_name: string;
+    flow_override: string;
+}
+
+table FunctionRecord {
+    name: string;
+    entry_point: ulong;
+    body_ranges: [AddressRange];
+    calling_convention: string;
+    return_type: string;
+    return_type_id: ulong = 0;
+    stack_frame_size: ulong;
+    is_external: bool = false;
+    has_no_return: bool = false;
+    is_inline: bool = false;
+    call_fixup: string;
+    signature_source: ubyte = 0;
+    comment: string;
+    params: [ParamRecord];
+}
+
+table ParamRecord {
+    name: string;
+    data_type_name: string;
+    data_type_id: ulong = 0;
+    ordinal: int = -1;
+}
+
+table SymbolRecord {
+    name: string;
+    parent_namespace: string;
+    address: ulong;
+    symbol_type: string;
+    is_primary: bool = false;
+}
+
+table CommentRecord {
+    address: ulong;
+    comment_type: string;
+    text: string;
+}
+
+table ReferenceRecord {
+    from_address: ulong;
+    to_address: ulong;
+    ref_type: string;
+    is_primary: bool = false;
+}
+
+table StructField {
+    name: string;
+    offset: int;
+    data_type_id: ulong;
+}
+
+table EnumValue {
+    name: string;
+    value: long;
+}
+
+table DataTypeRecord {
+    dt_id: ulong;
+    name: string;
+    category_path: string;
+    size: int;
+    type_kind: string;
+    description: string;
+    // Composite types
+    fields: [StructField];
+    enum_values: [EnumValue];
+    // Pointer target type ID
+    pointer_target_id: ulong = 0;
+    // Array info
+    array_element_id: ulong = 0;
+    array_element_count: int = 0;
+    // Typedef base type ID
+    typedef_base_id: ulong = 0;
+}
+
+table BookmarkRecord {
+    address: ulong;
+    category: string;
+    text: string;
+    type: string;
+}
+
+table EquateRecord {
+    name: string;
+    address: ulong;
+    op_index: int;
+    value: long;
+}
+
+table ExternalLocationRecord {
+    name: string;
+    original_import_name: string;
+    library_name: string;
+    address: ulong;
+}
+
+table RelocationRecord {
+    address: ulong;
+    type: string;
+    value: long;
+    bytes: [ubyte];
+}
+
+table SourceMapEntryRecord {
+    address: ulong;
+    source_file_path: string;
+    line_number: int;
+    length: ulong;
+}
+
+table FunctionTagRecord {
+    name: string;
+    comment: string;
+    function_addresses: [ulong];
+}
+
+table PropertyRecord {
+    name: string;
+    value: string;
+}
+
+table ProgramContextRecord {
+    register_name: string;
+    address: ulong;
+    value: string;
+}
+
+table ProgramSnapshot {
+    schema_version: int = 1;
+    binary_name: string;
+    binary_sha256: string;
+    language_id: string;
+    compiler_spec_id: string;
+    image_base: ulong;
+    min_address: ulong;
+    max_address: ulong;
+    creation_timestamp: ulong;
+    is_big_endian: bool = false;
+
+    memory_blocks: [MemoryBlock];
+    code_units: [CodeUnit];
+    functions: [FunctionRecord];
+    symbols: [SymbolRecord];
+    comments: [CommentRecord];
+    references: [ReferenceRecord];
+    data_types: [DataTypeRecord];
+    bookmarks: [BookmarkRecord];
+    equates: [EquateRecord];
+    external_locations: [ExternalLocationRecord];
+    relocations: [RelocationRecord];
+    source_map_entries: [SourceMapEntryRecord];
+    function_tags: [FunctionTagRecord];
+    user_properties: [PropertyRecord];
+    program_context: [ProgramContextRecord];
+}
+
+root_type ProgramSnapshot;

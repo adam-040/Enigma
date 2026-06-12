@@ -1,0 +1,75 @@
+<!DOCTYPE doctype PUBLIC "-//W3C//DTD HTML 4.0 Frameset//EN">
+
+<HTML>
+  <HEAD>
+    <META name="generator" content=
+    "HTML Tidy for Java (vers. 2009-12-01), see jtidy.sourceforge.net">
+
+    <TITLE>Debugger: Troubleshooting</TITLE>
+    <META http-equiv="Content-Type" content="text/html; charset=windows-1252">
+    <LINK rel="stylesheet" type="text/css" href="help/shared/DefaultStyle.css">
+  </HEAD>
+
+  <BODY lang="EN-US">
+    <H1>Debugger: Troubleshooting</H1>
+
+    <P>Often, it's a good idea to troubleshoot by using the target platform's recommended debugger
+    without connecting it to Ghidra. If it doesn't work there, it's not likely to work in Ghidra,
+    since it relies on that debugger. For Linux, use gdb; for macOS, use LLDB; for Windows, use
+    WinDbg.</P>
+
+    <H2>Terminal</H2>
+
+    <P>The first place to look when you're having trouble is the debugger's terminal. If you do not
+    see one, check the <B>Window &rarr; Terminals</B> menu. If there is not one there, then there
+    is no back-end debugger running. See <A href="#plugin_conf">Plugin Configuration</A> in case
+    your Debugger tool is misconfigured.</P>
+
+    <P>If you already have the correct set of TraceRmi-based plugins enabled, but there is still no
+    terminal after attempting to launch, then the launcher is sorely mis-configured, or your system
+    or installation is broken. Use <B>Debugger &rarr; Configure and Launch ...</B> in the menus to
+    examine and modify your configuration and try again. This menu is also avaible in the drop-down
+    next to the <B>Launch</B> <IMG alt="" src="icon.debugger"> button.</P>
+
+    <P>If you do have a terminal, then examine it, starting at the very top, for errors and
+    warnings.</P>
+
+    <H2>Error Console</H2>
+
+    <P>The next place to look is the <A href=
+    "help/topics/DebuggerConsolePlugin/DebuggerConsolePlugin.html">Debug Console</A>. Launchers and
+    plugins for the Debugger often direct their diagnostic messages to this console, and sometimes
+    offer remedies.</P>
+
+    <H2>Application Log</H2>
+
+    <P>The next place to look is Ghidra's application log. From the main project window (not the
+    Debugger tool window), select <B>Help &rarr; Show Log</B> in the menus. This is Ghidra's full
+    application log, so you may need to sift through it for debugger-related entries. Usually
+    searching for "debugger", "launch", "tracermi", or the name of your platform's debugger, etc.,
+    will help. If you're running from Eclipse, you can check its "Console" window.</P>
+
+    <H2><A name="plugin_conf"></A>Plugin Configuration</H2>
+
+    <P>It is possible you have an old or misconfigured Debugger tool. Try re-importing the default
+    Debugger tool.</P>
+
+    <P>Alternatively, use <B>File &rarr; Configure</B> then click the plug <IMG alt="" src=
+    "icon.extension.configure"> icon near the top right to check your tool configuration. The
+    following should be enabled:</P>
+
+    <UL>
+      <LI>TraceRmiPlugin</LI>
+
+      <LI>TraceRmiLauncherServicePlugin</LI>
+
+      <LI>TraceRmiConnectionManagerPlugin</LI>
+
+      <LI>DebuggerModelPlugin</LI>
+    </UL>
+
+    <H2>Tutorial</H2>
+
+    <P>Additional troubleshooting recommendations are given in the Debugger course materials.</P>
+  </BODY>
+</HTML>

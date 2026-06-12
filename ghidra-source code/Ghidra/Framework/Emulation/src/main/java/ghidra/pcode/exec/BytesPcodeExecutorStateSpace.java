@@ -1,0 +1,270 @@
+/* ###
+ * IP: GHIDRA
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package ghidra.pcode.exec;
+
+import java.util.*;
+
+import generic.ULongSpan;
+import generic.ULongSpan.*;
+import ghidra.app.emulator.AdaptedEmulator;
+import ghidra.generic.util.datastruct.SemisparseByteArray;
+import ghidra.pcode.emu.PcodeEmulationCallbacks;
+import ghidra.pcode.exec.PcodeExecutorStatePiece.Reason;
+import ghidra.program.model.address.*;
+import ghidra.program.model.lang.Language;
+import ghidra.program.model.lang.Register;
+import ghidra.util.Msg;
+
+/**
+ * A p-code executor state space for storing and retrieving bytes as arrays
+ */
+public class BytesPcodeExecutorStateSpace {
+	protected final static byte[] EMPTY = new byte[] {};
+
+	protected final Language language; // for logging diagnostics
+	protected final AddressSpace space;
+	protected final AbstractBytesPcodeExecutorStatePiece<?> piece;
+	protected final SemisparseByteArray bytes;
+
+	/**
+	 * Construct an internal space for the given address space
+	 * 
+	 * @param language the language, for logging diagnostics
+	 * @param space the address space
+	 * @param piece the owning piece
+	 */
+	public BytesPcodeExecutorStateSpace(Language language, AddressSpace space,
+			AbstractBytesPcodeExecutorStatePiece<?> piece) {
+		this(language, space, piece, new SemisparseByteArray());
+	}
+
+	protected BytesPcodeExecutorStateSpace(Language language, AddressSpace space,
+			AbstractBytesPcodeExecutorStatePiece<?> piece, SemisparseByteArray bytes) {
+		this.language = language;
+		this.space = space;
+		this.piece = piece;
+		this.bytes = bytes;
+	}
+
+	public BytesPcodeExecutorStateSpace fork(AbstractBytesPcodeExecutorStatePiece<?> piece) {
+		return new BytesPcodeExecutorStateSpace(language, space, piece, bytes.fork());
+	}
+
+	/**
+	 * Write a value at the given offset
+	 * 
+	 * @param offset the offset
+	 * @param val the value
+	 * @param srcOffset offset within val to start
+	 * @param length the number of bytes to write
+	 * @param cb callbacks to receive emulation events
+	 */
+	public void write(long offset, byte[] val, int srcOffset, int length, PcodeStateCallbacks cb) {
+		bytes.putData(offset, val, srcOffset, length);
+		cb.dataWritten(piece, space.getAddress(offset), length, val);
+	}
+
+	/**
+	 * Extension point: Read from backing into this space, when acting as a cache.
+	 * 
+	 * @param uninitialized the ranges which need to be read.
+	 * @return the ranges which remain uninitialized
+	 * @deprecated Please use the {@link PcodeEmulationCallbacks} and/or {@link PcodeStateCallbacks}
+	 *             instead
+	 * @implNote This only remains because of {@link AdaptedEmulator}. Perhaps that should be
+	 *           refactored to use callbacks, too. That's only supposed to exist as an interim,
+	 *           though, so is it worth the effort? We could remove the entire {@code backing}
+	 *           concept if we did, though.
+	 */
+	@Deprecated(forRemoval = true)
+	protected ULongSpanSet readUninitializedFromBacking(ULongSpanSet uninitialized) {
+		return uninitialized;
+	}
+
+	/**
+	 * Read a value from cache (or raw space if not acting as a cache) at the given offset
+	 * 
+	 * @param offset the offset
+	 * @param size the number of bytes to read (the size of the value)
+	 * @return the bytes read
+	 */
+	protected byte[] readBytes(long offset, int size, Reason reason) {
+		byte[] data = new byte[size];
+		bytes.getData(offset, data);
+		return data;
+	}
+
+	protected AddressRange addrRng(ULongSpan span) {
+		return new AddressRangeImpl(
+			space.getAddress(span.min()),
+			space.getAddress(span.max()));
+	}
+
+	protected ULongSpan spanRng(AddressRange range) {
+		return ULongSpan.span(
+			range.getMinAddress().getOffset(),
+			range.getMaxAddress().getOffset());
+	}
+
+	protected AddressSet addInPlace(AddressSet set, ULongSpanSet spanSet) {
+		for (ULongSpan span : spanSet.spans()) {
+			set.add(addrRng(span));
+		}
+		return set;
+	}
+
+	protected AddressSet addrSet(ULongSpanSet set) {
+		return addInPlace(new AddressSet(), set);
+	}
+
+	/**
+	 * This assumes without assertion that the set is contained in this space
+	 * 
+	 * @param set the address set
+	 * @return the unsigned long span set
+	 */
+	protected ULongSpanSet spanSet(AddressSetView set) {
+		MutableULongSpanSet result = new DefaultULongSpanSet();
+		for (AddressRange range : set) {
+			result.add(spanRng(range));
+		}
+		return result;
+	}
+
+	protected Set<Register> getRegs(AddressSetView set) {
+		Set<Register> regs = new TreeSet<>();
+		for (AddressRange rng : set) {
+			Register r = language.getRegister(rng.getMinAddress(), (int) rng.getLength());
+			if (r != null) {
+				regs.add(r);
+			}
+			else {
+				regs.addAll(Arrays.asList(language.getRegisters(rng.getMinAddress())));
+			}
+		}
+		return regs;
+	}
+
+	protected void warnAddressSet(String message, AddressSetView set) {
+		Set<Register> regs = getRegs(set);
+		if (regs.isEmpty()) {
+			Msg.warn(this, message + ": " + set);
+		}
+		else {
+			Msg.warn(this, message + ": " + set + " (registers " + regs + ")");
+		}
+	}
+
+	protected void warnUninit(AddressSetView uninitialized) {
+		warnAddressSet("Emulator read from uninitialized state", uninitialized);
+	}
+
+	/**
+	 * Compute the uninitialized span set, considering possible wrap-around
+	 * 
+	 * @param offset the offset
+	 * @param size the number of bytes
+	 * @return the uninitialized offset ranges
+	 */
+	protected AddressSetView computeUninitialized(long offset, int size) {
+		if (size == 0) {
+			return new AddressSet();
+		}
+		long max = offset + size - 1;
+		if (Long.compareUnsigned(max, space.getMaxAddress().getOffset()) <= 0 &&
+			Long.compareUnsigned(offset, max) <= 0) {
+			return addrSet(bytes.getUninitialized(offset, max));
+		}
+		long end = space.getMinAddress().getOffset() + max - space.getMaxAddress().getOffset() - 1;
+		AddressSet result = new AddressSet();
+		addInPlace(result, bytes.getUninitialized(offset, space.getMaxAddress().getOffset()));
+		addInPlace(result, bytes.getUninitialized(space.getMinAddress().getOffset(), end));
+		return result;
+	}
+
+	/**
+	 * Read a value from the space at the given offset
+	 * 
+	 * <p>
+	 * If this space is not acting as a cache, this simply delegates to
+	 * {@link #readBytes(long, int, Reason)}. Otherwise, it will first ensure the cache covers the
+	 * requested value.
+	 * 
+	 * @param offset the offset
+	 * @param size the number of bytes to read (the size of the value)
+	 * @param reason the reason for reading state
+	 * @param cb callbacks to receive emulation events
+	 * @return the bytes read
+	 */
+	public byte[] read(long offset, int size, Reason reason, PcodeStateCallbacks cb) {
+		AddressSetView uninitialized = computeUninitialized(offset, size);
+		if (uninitialized.isEmpty()) {
+			return readBytes(offset, size, reason);
+		}
+		uninitialized = cb.readUninitialized(piece, uninitialized, reason);
+		if (uninitialized.isEmpty()) {
+			return readBytes(offset, size, reason);
+		}
+
+		/**
+		 * The decoder will buffer ahead, so give it as much as we can, but no more than is actually
+		 * initialized. If it's a (non-decode) read, give it everything, but invoke the warning.
+		 */
+		if (reason == Reason.EXECUTE_DECODE) {
+			Address min = space.getAddress(offset);
+			AddressSet init = new AddressSet(min, min.add(size - 1));
+			init.delete(uninitialized);
+			if (!init.isEmpty()) {
+				if (init.getMinAddress().equals(min)) {
+					return readBytes(offset, (int) init.getFirstRange().getLength(), reason);
+				}
+			}
+		}
+
+		if (reason == Reason.EXECUTE_READ) {
+			warnUninit(uninitialized);
+		}
+		else if (reason == Reason.EXECUTE_DECODE) {
+			/**
+			 * The callers may be reading ahead, so it's not appropriate to throw an exception here.
+			 * Instead, communicate there's no more. If the buffer's empty on their end, they'll
+			 * handle the error as appropriate. If it's in the emulator, the instruction decoder
+			 * should eventually throw the decode exception.
+			 */
+			return EMPTY;
+		}
+		return readBytes(offset, size, reason);
+	}
+
+	public Map<Register, byte[]> getRegisterValues(List<Register> registers) {
+		Map<Register, byte[]> result = new HashMap<>();
+		for (Register reg : registers) {
+			long min = reg.getAddress().getOffset();
+			long max = min + reg.getNumBytes();
+			if (!bytes.isInitialized(min, max)) {
+				continue;
+			}
+			byte[] data = new byte[reg.getNumBytes()];
+			bytes.getData(min, data);
+			result.put(reg, data);
+		}
+		return result;
+	}
+
+	public void clear() {
+		bytes.clear();
+	}
+}

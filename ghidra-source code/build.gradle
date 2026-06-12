@@ -1,0 +1,483 @@
+/* ###
+ * IP: GHIDRA
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+apply plugin: 'eclipse'
+
+apply from: 'gradle/root/eclipse.gradle'
+apply from: "gradle/support/loadApplicationProperties.gradle"
+
+
+/***************************************************************************************
+* Print current Java and Gradle version and make sure the correct version of gradle is being used
+***************************************************************************************/
+import org.gradle.util.GradleVersion;
+println "Java: " + JavaVersion.current()
+println "Gradle: " + GradleVersion.current().version
+checkGradleVersion()
+
+/***************************************************************************************
+ * Define the location of JAVA_HOME
+ ***************************************************************************************/
+if (System.env.JAVA_HOME) {
+	// Allow Gradle's default JAVA_HOME to be overridden by an environment variable we set
+	project.ext.JAVA_HOME = System.env.JAVA_HOME;
+}
+else {
+	project.ext.JAVA_HOME = "${System.properties.'java.home'}"
+}
+
+/***************************************************************************************
+ * Make sure Gradle wasn't launched with a 32-bit Java...it can cause confusing errors
+ ***************************************************************************************/
+if ("32".equals(System.getProperty("sun.arch.data.model"))) {
+	throw new GradleException("\n\n\t32-bit Java detected!  Please use 64-bit Java.\n\n");
+}
+
+/***************************************************************************************
+ * Identify supported Python command
+ ***************************************************************************************/
+project.ext.PYTHON3 = findPython3(true)
+project.ext.PYTHON_DEPS = new HashMap<Project, Set<File>>()
+
+/*********************************************************************************
+ *  Define the location of bin repo
+ *********************************************************************************/
+project.ext.GHIDRA_GROUP = "Z Ghidra"
+project.ext.ROOT_PROJECT_DIR = projectDir.absolutePath
+project.ext.BIN_REPO = file("${projectDir}/../ghidra.bin").absolutePath
+project.ext.DEPS_DIR = file("${projectDir}/dependencies")
+
+/*********************************************************************************
+ *  Prevent forked Java processes from stealing focus
+ *********************************************************************************/
+allprojects {
+	tasks.withType(JavaForkOptions) {
+		jvmArgs '-Djava.awt.headless=true'
+	}
+
+	// enable generating lock files for gradle dependencies
+	dependencyLocking {
+		lockAllConfigurations()
+	}
+}
+
+
+/*********************************************************************************
+ *  Use flat directory-style repository if flatRepo directory is present.
+ *********************************************************************************/
+def flatRepo = file("${DEPS_DIR}/flatRepo") 
+if (flatRepo.isDirectory()) {
+	allprojects {
+		repositories {
+			mavenLocal()
+			mavenCentral()
+			flatDir name: "flat", dirs:["$flatRepo"]
+		}
+	}
+}
+else {	
+	File f = file("ghidra.repos.config")
+	if (!f.exists()) {
+		throw new GradleException("\n\n\n\tUnable to find the local maven repo." +  
+			"  Ensure you have created the ${flatRepo.getName()} directory or ${f.getName()} file.\n\n\n");
+	}
+}
+
+/*********************************************************************************
+ *  Force all project compile classpaths to be resolved at configuration time.
+ *********************************************************************************/
+allprojects {
+	gradle.taskGraph.whenReady {
+		configurations.matching { it.name.endsWith("compileClasspath") }.all { cfg ->
+			if (cfg.canBeResolved) {
+				try {
+					cfg.files   // trigger resolution safely now
+				} catch (ignored) { }
+			}
+		}
+	}
+}
+
+/*********************************************************************************
+ *  Store :MarkdownSupport ClassPath to fix issues with Gradle 9.
+ *********************************************************************************/
+ext.markdownDeps = []
+
+/*********************************************************************************
+ * Imports
+ *  For these tasks to be available on all subprojects, this MUST be placed 
+ *	after the "setupJava" configuration.
+ *
+ * Note: Distribution.gradle and distributionNew.gradle must not be applied at the
+ * 		same time; they have tasks with the same name. The former is the 'old' way
+ * 		of building (produces several zips) while the former produces only one. 
+ * 		Eventually distribution.gradle will be removed entirely, but it is included
+ *		here for the time being for those who need it.
+ *********************************************************************************/
+apply from: "GPL/utils.gradle"                // adds utilities used in both Ghidra and GPL projects
+apply from: "GPL/nativePlatforms.gradle"      // adds native platform support
+apply from: "gradle/root/test.gradle"         // adds tasks for running tests
+apply from: "gradle/root/prepDev.gradle"      // adds prepDev task for each subproject
+apply from: 'gradle/root/distribution.gradle' // adds zip tasks
+apply from: 'gradle/root/usage.gradle'        // adds task documentation
+apply from: "gradle/root/svg.gradle"          // adds task to process svg files
+apply from: "gradle/root/jacoco.gradle"       // adds tasks for java code coverage
+apply from: "gradle/root/venv.gradle"         // adds tasks python virtual environments
+
+
+apply plugin: 'base'
+clean {
+	delete "$buildDir"
+}
+
+/*********************************************************************************
+ * Throws a GradleException if the current Gradle version is outside of the supported
+ * Gradle version range defined in application.properties.
+ *
+ * NOTE: This function is duplicated in buildExtension.gradle
+ *********************************************************************************/
+import org.gradle.util.GradleVersion;
+def checkGradleVersion() {
+	GradleVersion min = null;
+	GradleVersion max = null;
+	try {
+		min = GradleVersion.version("${rootProject.GRADLE_MIN}")
+	}
+	catch (IllegalArgumentException e) {
+		String defaultMin = "1.0"
+		println "Invalid minimum Gradle version specified in application.properties...using ${defaultMin}"
+		min = GradleVersion.version(defaultMin)
+	}
+	try {
+		if (rootProject.GRADLE_MAX) {
+			max = GradleVersion.version("${rootProject.GRADLE_MAX}")
+		}
+	}
+	catch (IllegalArgumentException e) {
+		println "Invalid maximum Gradle version specified in application.properties...ignoring"
+	}
+	String gradleRange = "at least ${min}"
+	if (max) {
+		gradleRange += " and less than ${max}"		
+	}
+	if (GradleVersion.current() < min || (max && GradleVersion.current() >= max)) {
+		throw new GradleException("Requires ${gradleRange}, but was run with $gradle.gradleVersion")
+	}
+}
+
+
+/*********************************************************************************
+ * Identifies supported python3 command to be used when building and checks for pip install.
+ * Although warnings may be produced no exception is thrown since python only required
+ * for specific build tasks and is not required for prepdev
+ *********************************************************************************/
+def checkPythonVersion(List<String> pyCmd) {
+	try {
+		return providers.exec {
+			commandLine pyCmd
+			args "-c", "import sys; print('{0}.{1}'.format(*sys.version_info))"
+		}.standardOutput.asText.get().strip()
+	}
+	catch (Exception e) {
+		return "ABSENT"
+	}
+}
+
+def getPythonExecutable(List<String> pyCmd) {
+	try {
+		return providers.exec {
+			commandLine pyCmd
+			args "-c", "import sys; print(sys.executable)"
+		}.standardOutput.asText.get().strip()
+	}
+	catch (Exception e) {
+		return "ABSENT"
+	}
+}
+
+def checkPip(List<String> pyCmd, boolean shouldPrint) {
+	try {
+		def version = providers.exec {
+			commandLine pyCmd
+			args "-c", "import pip; print(pip.__version__)"
+		}.standardOutput.asText.get().strip()
+		if (shouldPrint) {
+			if (version.length() == 0) {
+				println("Warning: Python3 pip not installed (required for build)")
+			}
+			else {
+				println("Python3 pip version: ${version}")
+			}
+		}
+		return version
+	}
+	catch (Exception e) {
+		if (shouldPrint) {
+			println("Warning: Python3 pip not installed (required for build)")
+		}
+	}
+}
+
+def findPython3(boolean shouldPrint) {
+	def supportedVersions = "${PYTHON_SUPPORTED}".split(",").collect {
+		try {
+			GradleVersion.version(it.trim()).getVersion() // use GradleVersion to validate version format
+		}
+		catch (IllegalArgumentException e) {
+			throw new GradleException("Invalid supported Python version list specified in application.properties.\n" + e.message);
+		}	
+	}
+
+	def pyCmds = supportedVersions.collectMany { [["python$it"], ["py", "-$it"]] }
+	pyCmds += [['python3'], ['python'], ['py']]
+	for (pyCmd in pyCmds) {	
+		def pyVer = checkPythonVersion(pyCmd)
+		def pyExe = getPythonExecutable(pyCmd)
+		if (pyVer in supportedVersions) {
+			if (shouldPrint) {
+				println("Python3 command: ${pyCmd} (${pyVer}, ${pyExe})")
+			}
+			checkPip(pyCmd, shouldPrint)
+			return pyCmd
+		}
+	}
+
+	if (shouldPrint) {
+		println("Warning: Supported Python [${PYTHON_SUPPORTED}] not found (required for build)")
+	}
+	
+	// Don't fail until task execution. Just retun null, which can be gracefully handled later.
+	return null
+}
+
+/******************************************************************************************
+ *
+ * Utility methods used by multiple build.gradle files
+ *
+ *****************************************************************************************/	
+
+/*********************************************************************************
+ * Returns a relative path from the root (ghidra) to the project's directory.
+ * This is used to determine where inside a zip file to place a particular artifact
+ *  (we want them to all start at "Ghidra/...."
+ *
+ * ie: If we have the following:
+ * 			project dir = /Users/<blah>/git/ghidra.master/ghidra/Ghidra/Features/Base
+ *	 		root project = /Users/<blah>/git/ghidra.master/ghidra/Ghidra
+ *
+ *	 	Then the returned value will be:
+ *	 		Ghidra/Features/Base 
+ * 
+ *  There are two special cases - Projects that live outside ghidra and projects
+ *  that are extension projects.  Projects that live outside ghidra will
+ *  have zip paths that make the project appear as if it did live in ghidra.
+ *  Projects that extend other projects will appear as though they live in the project
+ *  that they extend.  See the note at the top of the distribution.gradle file for more details.
+ *********************************************************************************/
+def getZipPath(Project p) {
+	
+	String path = getGhidraRelativePath(p)
+		
+	// if the project has been defined as an "extension" to another project, change its
+	// zip path to the path of its "base" project.  A project is an extension if it has
+	// defined an "extendsFromProject" property.
+	
+	if (p.hasProperty('extendsFromProject')) {
+		Project baseProject = p.extendsFromProject
+		path = getGhidraRelativePath(baseProject);
+	}
+	
+	if (p.hasProperty("pathExtension")) {
+		path = path + "/" + p.pathExtension
+	}
+
+	return path
+}
+
+def getBaseProjectName(Project p) {
+	if (p.hasProperty('extendsFromProject')) {
+		Project baseProject = p.extendsFromProject
+		return baseProject.name
+	}
+	
+	return p.name
+}
+
+/*********************************************************************************
+ * Returns the current date formatted as yyyyMMdd.
+ *********************************************************************************/
+def getCurrentDate() {
+
+	def date = new Date()
+	def formattedDate = date.format('yyyyMMdd')
+	return formattedDate
+}
+
+/*********************************************************************************
+ * Returns the current date/time formatted as yyyyMMdd-HHmm.
+ *********************************************************************************/
+def getCurrentDateTime() {
+
+	def date = new Date()
+	def formattedDate = date.format('yyyyMMdd-HHmm')
+	return formattedDate
+}
+
+/*********************************************************************************
+ * Returns the current date/time formatted as yyyy-MMM-dd HHmm z.
+ *********************************************************************************/
+def getCurrentDateTimeLong() {
+
+	def date = new Date()
+	def formattedDate = date.format('yyyy-MMM-dd HHmm z')
+	return formattedDate
+}
+
+/*********************************************************************************
+ * Returns the project object from the given projectDependency
+ *********************************************************************************/
+def getDependencyProject(p, projectDependency) {
+    if (projectDependency.hasProperty("path")) {
+        // Supported by Gradle 8.11 and later
+        return p.project(projectDependency.path)
+    }
+    else {
+        // Supported in Gradle 8.5, removed in Gradle 9
+        return projectDependency.dependencyProject
+    }
+}
+
+/*********************************************************************************
+ * Returns true if 'project' has a direct or transitive API project dependency
+ * on the project with path 'targetPath'. The 'targetPath' should be specified
+ * in the form ":<project-name>"
+ *********************************************************************************/
+boolean hasApiProjectDependency(Project project, String targetPath) {
+    def visited = [] as Set
+
+    def walk
+    walk = { Project p ->
+        if (!visited.add(p)) return false
+
+        def apiDeps = p.configurations.api
+            .allDependencies
+            .withType(org.gradle.api.artifacts.ProjectDependency)
+
+        if (apiDeps.any { getDependencyProject(p, it).path == targetPath }) {
+            return true
+        }
+
+        return apiDeps.any { walk(getDependencyProject(p, it)) }
+    }
+
+    walk(project)
+}
+
+
+/*********************************************************************************
+ * Returns a list of all the external library paths declared as dependencies for the 
+ *         given project  
+ *
+ *********************************************************************************/
+List<String> getExternalRuntimeDependencies(Project project) {
+	List<String> list = new ArrayList<String>()
+
+	if (project.configurations.find { it.name == 'api' }) {
+		list.addAll(getExternalRuntimeDependencies(project, project.configurations.api));
+	}
+	if (project.configurations.find { it.name == 'implementation' }) {
+		list.addAll(getExternalRuntimeDependencies(project, project.configurations.implementation));
+	}
+	if (project.configurations.find { it.name == 'runtimeOnly' }) {
+		list.addAll(getExternalRuntimeDependencies(project, project.configurations.runtimeOnly));
+	}
+
+	return list
+}
+
+List<String> getExternalRuntimeDependencies(Project project, Configuration configuration) {
+	List<String> list = new ArrayList<>();
+	configuration.dependencies.each { dep ->
+
+		// if the dependency is an external jar
+		if (dep instanceof ExternalDependency) { 	
+			String name = dep.getName()
+			Set<String> classifiers = dep.artifacts.classifier
+			String group = dep.getGroup()
+			String version = dep.getVersion()	
+			String searchString = name
+
+			if (version != null) {
+				searchString = name+"-"+version;
+			}
+
+			if (!classifiers.empty) {
+				String cls = classifiers.first()
+				if (cls != null) {
+					searchString+= "-$cls"
+				}
+			}
+			// search for the dependency in the runtime class path
+			String depPath = project.configurations.runtimeClasspath.find {
+				it.name.contains(searchString)
+			}
+
+			if (depPath == null) {
+				println("****************DID NOT FIND DEPENDENCY: name = "+name+" version = "+version)
+			}
+			// if we found the path, then add it to the list
+			if (depPath) {
+				list.add(depPath)
+			}
+		}	
+	}
+	return list;
+}
+
+
+
+/******************************************************************************************
+ * 
+ * Creates a file that lists the libraries used by each module.
+ *
+ ******************************************************************************************/
+String generateLibraryDependencyMapping() {
+	File libsFile = file("$buildDir/libraryDependencies.txt")
+	
+	// Check to make sure the build folder exists - if it doesn't, the 'libsFile.withWriter'
+	// call (below) will fail miserably.
+	def buildFolder = file ("$buildDir")
+	if (!buildFolder.exists()) {
+		buildFolder.mkdirs()
+	}
+	
+	libsFile.withWriter { out ->
+		subprojects { p ->
+			p.plugins.withType(JavaPlugin) {
+				List<String> libs = getExternalRuntimeDependencies(p);
+				if (libs != null) {
+					out.println "Module: $p.name"
+					libs.each { path ->
+						out.println "\t$path"
+					}
+				}
+			}
+		}
+	}
+	return libsFile.absolutePath
+}
+
+task allSleighCompile {
+}

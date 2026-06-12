@@ -1,0 +1,404 @@
+/* ###
+ * IP: GHIDRA
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package ghidra.app.plugin.core.debug.gui.modules;
+
+import java.awt.BorderLayout;
+import java.awt.event.MouseEvent;
+import java.math.BigInteger;
+import java.net.URL;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.function.Function;
+
+import javax.swing.*;
+
+import db.Transaction;
+import docking.ActionContext;
+import docking.action.DockingAction;
+import docking.action.DockingActionIf;
+import docking.widgets.table.*;
+import ghidra.app.plugin.core.debug.DebuggerPluginPackage;
+import ghidra.app.plugin.core.debug.gui.DebuggerProvider;
+import ghidra.app.plugin.core.debug.gui.DebuggerResources;
+import ghidra.app.plugin.core.debug.gui.DebuggerResources.*;
+import ghidra.app.plugin.core.debug.utils.DebouncedRowWrappedEnumeratedColumnTableModel;
+import ghidra.app.services.*;
+import ghidra.docking.settings.FormatSettingsDefinition;
+import ghidra.docking.settings.SettingsDefinition;
+import ghidra.framework.model.DomainObjectEvent;
+import ghidra.framework.plugintool.*;
+import ghidra.framework.plugintool.annotation.AutoServiceConsumed;
+import ghidra.program.model.address.*;
+import ghidra.program.model.listing.Program;
+import ghidra.program.util.ProgramLocation;
+import ghidra.program.util.ProgramSelection;
+import ghidra.trace.model.*;
+import ghidra.trace.model.modules.TraceStaticMapping;
+import ghidra.trace.model.modules.TraceStaticMappingManager;
+import ghidra.trace.util.TraceEvents;
+import ghidra.util.MathUtilities;
+import ghidra.util.Msg;
+import ghidra.util.database.ObjectKey;
+import ghidra.util.table.GhidraTableFilterPanel;
+import ghidra.util.table.column.GColumnRenderer;
+
+public class DebuggerStaticMappingProvider extends ComponentProviderAdapter
+		implements DebuggerProvider {
+
+	protected static final HexDefaultGColumnRenderer<BigInteger> LENGTH_RENDERER =
+		new HexDefaultGColumnRenderer<>();
+	protected static final HexDefaultGColumnRenderer<Long> SHIFT_RENDERER =
+		new HexDefaultGColumnRenderer<>();
+	protected static final SettingsDefinition[] SETTINGS_DEFS =
+		new SettingsDefinition[] { FormatSettingsDefinition.DEF_HEX, };
+
+	protected enum StaticMappingTableColumns
+		implements EnumeratedTableColumn<StaticMappingTableColumns, StaticMappingRow> {
+		DYNAMIC_ADDRESS("Dynamic Address", Address.class, StaticMappingRow::getTraceAddress) {
+			@Override
+			public GColumnRenderer<?> getRenderer() {
+				return CustomToStringCellRenderer.MONO_OBJECT;
+			}
+		},
+		STATIC_URL("Static Program", URL.class, StaticMappingRow::getStaticProgramURL),
+		STATIC_ADDRESS("Static Address", String.class, StaticMappingRow::getStaticAddress) {
+			@Override
+			public GColumnRenderer<?> getRenderer() {
+				return CustomToStringCellRenderer.MONO_OBJECT;
+			}
+		},
+		LENGTH("Length", BigInteger.class, StaticMappingRow::getBigLength) {
+			@Override
+			public GColumnRenderer<?> getRenderer() {
+				return LENGTH_RENDERER;
+			}
+
+			@Override
+			public SettingsDefinition[] getSettingsDefinitions() {
+				return SETTINGS_DEFS;
+			}
+		},
+		SHIFT("Shift", Long.class, StaticMappingRow::getShift) {
+			@Override
+			public GColumnRenderer<?> getRenderer() {
+				return SHIFT_RENDERER;
+			}
+
+			@Override
+			public SettingsDefinition[] getSettingsDefinitions() {
+				return SETTINGS_DEFS;
+			}
+		},
+		LIFESPAN("Lifespan", Lifespan.class, StaticMappingRow::getLifespan);
+
+		private final String header;
+		private final Class<?> cls;
+		private final Function<StaticMappingRow, ?> getter;
+
+		<T> StaticMappingTableColumns(String header, Class<T> cls,
+				Function<StaticMappingRow, T> getter) {
+			this.header = header;
+			this.cls = cls;
+			this.getter = getter;
+		}
+
+		@Override
+		public String getHeader() {
+			return header;
+		}
+
+		@Override
+		public Class<?> getValueClass() {
+			return cls;
+		}
+
+		@Override
+		public Object getValueOf(StaticMappingRow row) {
+			return getter.apply(row);
+		}
+	}
+
+	protected static class MappingTableModel extends DebouncedRowWrappedEnumeratedColumnTableModel<
+		StaticMappingTableColumns, ObjectKey, StaticMappingRow, TraceStaticMapping> {
+
+		public MappingTableModel(PluginTool tool) {
+			super(tool, "Mappings", StaticMappingTableColumns.class,
+				TraceStaticMapping::getObjectKey, StaticMappingRow::new,
+				StaticMappingRow::getMapping);
+		}
+	}
+
+	protected class ListenerForStaticMappingDisplay extends TraceDomainObjectListener {
+		public ListenerForStaticMappingDisplay() {
+			listenForUntyped(DomainObjectEvent.RESTORED, e -> objectRestored());
+			listenFor(TraceEvents.MAPPING_ADDED, this::staticMappingAdded);
+			listenFor(TraceEvents.MAPPING_DELETED, this::staticMappingDeleted);
+		}
+
+		private void objectRestored() {
+			loadMappings();
+		}
+
+		private void staticMappingAdded(TraceStaticMapping mapping) {
+			mappingTableModel.addItem(mapping);
+		}
+
+		private void staticMappingDeleted(TraceStaticMapping mapping) {
+			mappingTableModel.deleteItem(mapping);
+		}
+	}
+
+	private final DebuggerStaticMappingPlugin plugin;
+
+	private final DebuggerAddMappingDialog addMappingDialog;
+
+	@AutoServiceConsumed
+	private DebuggerStaticMappingService mappingService;
+	// TODO: Use events to track selections? This can only work with the main listings.
+	@AutoServiceConsumed
+	private CodeViewerService codeViewerService;
+	@AutoServiceConsumed
+	private DebuggerListingService listingService;
+	@AutoServiceConsumed
+	private DebuggerTraceManagerService traceManager;
+	@SuppressWarnings("unused")
+	private final AutoService.Wiring autoWiring;
+
+	private Trace currentTrace;
+
+	private ListenerForStaticMappingDisplay listener = new ListenerForStaticMappingDisplay();
+
+	protected final MappingTableModel mappingTableModel;
+
+	private JPanel mainPanel = new JPanel(new BorderLayout());
+	protected GTable mappingTable;
+	private GhidraTableFilterPanel<StaticMappingRow> mappingFilterPanel;
+
+	DockingAction actionAdd;
+	DockingAction actionRemove;
+	DockingAction actionSelectCurrent;
+
+	ActionContext myActionContext;
+
+	public DebuggerStaticMappingProvider(final DebuggerStaticMappingPlugin plugin) {
+		super(plugin.getTool(), DebuggerResources.TITLE_PROVIDER_MAPPINGS, plugin.getName(), null);
+		this.plugin = plugin;
+
+		mappingTableModel = new MappingTableModel(tool);
+
+		this.addMappingDialog = new DebuggerAddMappingDialog();
+		this.autoWiring = AutoService.wireServicesConsumed(plugin, this);
+
+		setIcon(DebuggerResources.ICON_PROVIDER_MAPPINGS);
+		setHelpLocation(DebuggerResources.HELP_PROVIDER_MAPPINGS);
+		setWindowMenuGroup(DebuggerPluginPackage.NAME);
+
+		buildMainPanel();
+		setVisible(true);
+		createActions();
+	}
+
+	void dispose() {
+		addMappingDialog.dispose();
+	}
+
+	@AutoServiceConsumed
+	private void setMappingService(DebuggerStaticMappingService mappingService) {
+		addMappingDialog.setMappingService(mappingService);
+	}
+
+	@Override
+	public void addLocalAction(DockingActionIf action) {
+		super.addLocalAction(action);
+	}
+
+	@Override
+	public JComponent getComponent() {
+		return mainPanel;
+	}
+
+	@Override
+	public ActionContext getActionContext(MouseEvent event) {
+		if (myActionContext == null) {
+			return super.getActionContext(event);
+		}
+		return myActionContext;
+	}
+
+	private void loadMappings() {
+		mappingTableModel.clear();
+		if (currentTrace == null) {
+			return;
+		}
+		TraceStaticMappingManager manager = currentTrace.getStaticMappingManager();
+		mappingTableModel.addAllItems(manager.getAllEntries());
+	}
+
+	protected void buildMainPanel() {
+		mappingTable = new GTable(mappingTableModel);
+		mainPanel.add(new JScrollPane(mappingTable));
+		mappingFilterPanel = new GhidraTableFilterPanel<>(mappingTable, mappingTableModel);
+		mainPanel.add(mappingFilterPanel, BorderLayout.SOUTH);
+		mappingTable.getSelectionModel().addListSelectionListener(evt -> {
+			myActionContext = new DebuggerStaticMappingActionContext(this,
+				mappingFilterPanel.getSelectedItems(), mappingTable);
+			contextChanged();
+		});
+
+		String namePrefix = "Static Mappings";
+		mappingTable.setAccessibleNamePrefix(namePrefix);
+		mappingFilterPanel.setAccessibleNamePrefix(namePrefix);
+	}
+
+	protected void createActions() {
+		actionAdd = AddAction.builder(plugin)
+				.description("Add Mapping from Listing Selections")
+				.onAction(this::activatedAdd)
+				.buildAndInstallLocal(this);
+		actionRemove = RemoveAction.builder(plugin)
+				.withContext(DebuggerStaticMappingActionContext.class)
+				.enabledWhen(ctx -> !ctx.getSelectedMappings().isEmpty())
+				.onAction(this::activatedRemove)
+				.buildAndInstallLocal(this);
+		actionSelectCurrent = SelectRowsAction.builder(plugin)
+				.description("Select mappings by trace selection")
+				.enabledWhen(ctx -> currentTrace != null)
+				.onAction(this::activatedSelectCurrent)
+				.buildAndInstallLocal(this);
+
+		contextChanged();
+	}
+
+	private void activatedAdd(ActionContext ignore) {
+		tool.showDialog(addMappingDialog);
+		// Try to populate the dialog based on selection, if applicable
+
+		if (codeViewerService == null || listingService == null) {
+			return;
+		}
+		ProgramLocation progLoc = codeViewerService.getCurrentLocation();
+		ProgramLocation traceLoc = listingService.getCurrentLocation();
+
+		if (progLoc == null || traceLoc == null) {
+			return;
+		}
+
+		ProgramSelection progSel = codeViewerService.getCurrentSelection();
+		ProgramSelection traceSel = listingService.getCurrentSelection();
+
+		if (progSel != null && progSel.getNumAddressRanges() > 1) {
+			return;
+		}
+		if (traceSel != null && traceSel.getNumAddressRanges() > 1) {
+			return;
+		}
+
+		long progLen = progSel == null ? 0 : progSel.getNumAddresses();
+		long traceLen = traceSel == null ? 0 : traceSel.getNumAddresses();
+		if (progLen == 0 && traceLen == 0) {
+			return;
+		}
+
+		long length = progLen == 0 ? traceLen
+				: traceLen == 0 ? progLen : MathUtilities.unsignedMin(progLen, traceLen);
+		Address progStart = progLen != 0 ? progSel.getMinAddress() : progLoc.getAddress();
+		Address traceStart = traceLen != 0 ? traceSel.getMinAddress() : traceLoc.getAddress();
+		long snap = traceManager.getCurrentSnap();
+
+		try {
+			addMappingDialog.setValues(progLoc.getProgram(), currentTrace, progStart, traceStart,
+				length, Lifespan.nowOn(snap));
+		}
+		catch (AddressOverflowException e) {
+			Msg.showError(this, null, "Add Mapping", "Error populating dialog");
+		}
+	}
+
+	private void activatedRemove(DebuggerStaticMappingActionContext ctx) {
+		// TODO: Action to adjust life span?
+		// Note: provider displays mappings for all time, so delete means delete, not truncate
+		try (Transaction tid = currentTrace.openTransaction("Remove Static Mappings")) {
+			for (StaticMappingRow mapping : ctx.getSelectedMappings()) {
+				mapping.getMapping().delete();
+			}
+		}
+	}
+
+	private void activatedSelectCurrent(ActionContext ignored) {
+		if (listingService == null || traceManager == null || currentTrace == null) {
+			return;
+		}
+		// TODO: Select from other listings?
+		ProgramSelection progSel = listingService.getCurrentSelection();
+
+		TraceStaticMappingManager mappingManager = currentTrace.getStaticMappingManager();
+		if (progSel != null && !progSel.isEmpty()) {
+			Set<TraceStaticMapping> mappingSel = new HashSet<>();
+			for (AddressRange range : progSel) {
+				mappingSel.addAll(mappingManager.findAllOverlapping(range,
+					Lifespan.at(traceManager.getCurrentSnap())));
+			}
+			setSelectedMappings(mappingSel);
+			return;
+		}
+		ProgramLocation progLoc = listingService.getCurrentLocation();
+		if (progLoc != null) {
+			TraceStaticMapping mapping =
+				mappingManager.findContaining(progLoc.getAddress(), traceManager.getCurrentSnap());
+			if (mapping != null) {
+				setSelectedMappings(Set.of(mapping));
+				return;
+			}
+		}
+
+		// TODO: Select none on error? Report the error? Other SelectRowsAction uses?
+	}
+
+	public void setSelectedMappings(Set<TraceStaticMapping> sel) {
+		DebuggerResources.setSelectedRows(sel, StaticMappingRow::getMapping, mappingTable,
+			mappingFilterPanel);
+	}
+
+	private void removeOldListeners() {
+		if (currentTrace == null) {
+			return;
+		}
+		currentTrace.removeListener(listener);
+	}
+
+	private void addNewListeners() {
+		if (currentTrace == null) {
+			return;
+		}
+		currentTrace.addListener(listener);
+	}
+
+	public void setTrace(Trace trace) {
+		if (currentTrace == trace) {
+			return;
+		}
+		removeOldListeners();
+		currentTrace = trace;
+		addNewListeners();
+		loadMappings();
+
+		addMappingDialog.setTrace(trace);
+	}
+
+	public void setProgram(Program program) {
+		addMappingDialog.setProgram(program);
+	}
+}

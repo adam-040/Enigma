@@ -1,0 +1,25 @@
+// Schema for ProjectMetadata + BranchPointer
+
+namespace fbschema;
+
+table BranchPointer {
+    name: string;
+    head_commit_id: string;
+}
+
+table ProjectMetadata {
+    schema_version: int = 1;
+    storage_format_version: int = 1;
+    project_name: string;
+    binary_name: string;
+    binary_sha256: string;
+    created_timestamp: ulong;
+    last_modified_timestamp: ulong;
+    current_branch: string;
+    branches: [BranchPointer];
+    language_id: string;
+    compiler_spec_id: string;
+    image_base: ulong;
+}
+
+root_type ProjectMetadata;

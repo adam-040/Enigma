@@ -1,0 +1,713 @@
+/* ###
+ * IP: GHIDRA
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package docking;
+
+import java.awt.Component;
+import java.awt.event.*;
+import java.util.*;
+
+import javax.swing.*;
+
+import org.jdom2.Element;
+
+import docking.actions.KeyBindingUtils;
+import docking.widgets.OptionDialog;
+import docking.widgets.tabbedpane.DockingTabRenderer;
+import ghidra.util.HelpLocation;
+import ghidra.util.exception.AssertException;
+import help.HelpService;
+
+/**
+ * Node object for managing one or more components. If more that one managed component
+ * is active, then this node will create a tabbedPane object to contain the active components.
+ */
+class ComponentNode extends Node {
+	private static final HelpLocation RENAME_HELP =
+		new HelpLocation("DockingWindows", "Renaming_Windows");
+	private static final HelpLocation CLOSE_HELP =
+		new HelpLocation("DockingWindows", "Closing_Tabs");
+	private ComponentPlaceholder top;
+	private int lastActiveTabIndex;
+	private List<ComponentPlaceholder> windowPlaceholders;
+	private JComponent comp;
+	private boolean isDisposed;
+
+	/**
+	 * Constructs a new component node with the given docking windows manager.
+	 * @param windowManager the docking windows manager that this node belongs to.
+	 */
+	ComponentNode(DockingWindowManager windowManager) {
+		super(windowManager);
+		windowPlaceholders = new ArrayList<>();
+	}
+
+	/**
+	 * Constructs a new component node from the given xml element.
+	 * @param element the xml element describing the configuration of this node.
+	 * @param windowManager the docking windows manager
+	 * @param parent the parent node for this node.
+	 * @param restoredPlaceholders the list into which any restored placeholders will be placed
+	 */
+	ComponentNode(Element element, DockingWindowManager windowManager, Node parent,
+			List<ComponentPlaceholder> restoredPlaceholders) {
+		super(windowManager);
+
+		this.parent = parent;
+		windowPlaceholders = new ArrayList<>();
+
+		int topIndex = Integer.parseInt(element.getAttributeValue("TOP_INFO"));
+
+		List<?> children = element.getChildren();
+		Iterator<?> it = children.iterator();
+
+		while (it.hasNext()) {
+			Element e = (Element) it.next();
+			String name = e.getAttributeValue("NAME");
+			String owner = e.getAttributeValue("OWNER");
+			String title = e.getAttributeValue("TITLE");
+			String group = e.getAttributeValue("GROUP");
+			if (group == null || group.trim().isEmpty()) {
+				group = ComponentProvider.DEFAULT_WINDOW_GROUP;
+			}
+
+			boolean isActive = Boolean.valueOf(e.getAttributeValue("ACTIVE")).booleanValue();
+
+			long uniqueID = getUniqueID(e, 0);
+
+			String mappedOwner = ComponentProvider.getMappedOwner(owner, name);
+			if (mappedOwner != null) {
+				name = ComponentProvider.getMappedName(owner, name);
+				owner = mappedOwner;
+			}
+
+			ComponentPlaceholder placeholder =
+				new ComponentPlaceholder(name, owner, group, title, isActive, this, uniqueID);
+
+			if (!containsPlaceholder(placeholder)) {
+				windowPlaceholders.add(placeholder);
+				restoredPlaceholders.add(placeholder);
+			}
+		}
+		if (topIndex >= 0 && topIndex < windowPlaceholders.size()) {
+			top = windowPlaceholders.get(topIndex);
+		}
+	}
+
+	private void focusComponent(Component component) {
+		if (component == null) {
+			return;
+		}
+		ComponentPlaceholder placeholder = getPlaceHolderForComponent(component);
+		if (placeholder != null) {
+			placeholder.requestFocusWhenReady();
+		}
+	}
+
+	private boolean containsPlaceholder(ComponentPlaceholder placeholder) {
+		// Note: we purposely didn't override equals here, as other code here relies on the default
+		// equals() implementation to locate placeholders
+
+		String group = placeholder.getGroup();
+		if (group == null) {
+			group = "";
+		}
+
+		String owner = placeholder.getOwner();
+		String name = placeholder.getName();
+		String title = placeholder.getTitle();
+		for (ComponentPlaceholder existingPlaceholder : windowPlaceholders) {
+			if (existingPlaceholder.getOwner().equals(owner) &&
+				existingPlaceholder.getName().equals(name) &&
+				existingPlaceholder.getGroup().equals(group) &&
+				existingPlaceholder.getTitle().equals(title)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private long getUniqueID(Element e, long defaultValue) {
+		String attributeValue = e.getAttributeValue("INSTANCE_ID");
+		if (attributeValue == null) {
+			return defaultValue;
+		}
+		return Long.parseLong(attributeValue);
+	}
+
+	@Override
+	List<Node> getChildren() {
+		return Collections.emptyList(); // this class is a leaf
+	}
+
+	@Override
+	public String toString() {
+		return printTree();
+	}
+
+	@Override
+	String getDescription() {
+		return windowPlaceholders.toString();
+	}
+
+	/**
+	 * Adds a component to this node.
+	 * @param placeholder the component placeholder containing the component to be added.
+	 */
+	void add(ComponentPlaceholder placeholder) {
+		windowPlaceholders.add(placeholder);
+		placeholder.setNode(this);
+
+		if (placeholder.isActive()) {
+			top = placeholder;
+			invalidate();
+		}
+		WindowNode topLevelNode = getTopLevelNode();
+		topLevelNode.componentAdded(placeholder);
+	}
+
+	/**
+	 * Removes the component from this node, but not from the manager. Used when
+	 * the component is moved.  If component is active, it will remain active.
+	 * @param placeholder the object containing the component to be removed.
+	 */
+	void remove(ComponentPlaceholder placeholder) {
+		if (getTopLevelNode() == null) {
+			return;   // this node has been disconnected.
+		}
+
+		if (placeholder.isActive()) {
+			if (top == placeholder) {
+				top = null;
+			}
+			invalidate();
+		}
+
+		WindowNode topLevelNode = getTopLevelNode();
+		topLevelNode.componentRemoved(placeholder);
+		doRemove(placeholder);
+	}
+
+	private void doRemove(ComponentPlaceholder placeholder) {
+		windowPlaceholders.remove(placeholder);
+		placeholder.setNode(null);
+		if (windowPlaceholders.isEmpty()) {
+			parent.removeNode(this);
+		}
+	}
+
+	/**
+	 * Removes the component from this node (and the manager), but possibly keeps an empty object as
+	 * a placeholder.
+	 * @param placeholder the placeholder object to be removed.
+	 * @param keepEmptyPlaceholder flag indicating to keep a placeholder object.
+	 */
+	void remove(ComponentPlaceholder placeholder, boolean keepEmptyPlaceholder) {
+		if (placeholder.isActive()) {
+			placeholder.show(false);
+			if (top == placeholder) {
+				top = null;
+			}
+			invalidate();
+			winMgr.scheduleUpdate();
+		}
+
+		placeholder.setProvider(null);
+		if (!keepEmptyPlaceholder) {
+			doRemove(placeholder);
+		}
+	}
+
+	@Override
+	int getComponentCount() {
+		// we may be a single component or in a tabbed pane of components
+		List<ComponentPlaceholder> activeComponents = new ArrayList<>();
+		populateActiveComponents(activeComponents);
+		return activeComponents.size();
+	}
+
+	@Override
+	void close() {
+		List<ComponentPlaceholder> list = new ArrayList<>(windowPlaceholders);
+		for (ComponentPlaceholder placeholder : list) {
+			placeholder.close();
+		}
+	}
+
+	@Override
+	JComponent getComponent() {
+
+		if (isDisposed) {
+			throw new AssertException("Attempted to reuse a disposed component window node");
+		}
+
+		if (!invalid) {
+			return comp;
+		}
+
+		if (comp instanceof JTabbedPane) {
+			comp.removeAll();
+		}
+		comp = null;
+
+		List<ComponentPlaceholder> activeComponents = new ArrayList<>();
+		populateActiveComponents(activeComponents);
+		int count = activeComponents.size();
+		if (count == 1) {
+			top = activeComponents.get(0);
+			comp = top.getComponent();
+			comp.setBorder(BorderFactory.createRaisedBevelBorder());
+
+			installRenameMenu(top);
+		}
+		else if (count > 1) {
+			JTabbedPane tabbedPane =
+				new JTabbedPane(SwingConstants.BOTTOM, JTabbedPane.SCROLL_TAB_LAYOUT);
+			setupFocusUpdateListeners(tabbedPane);
+			comp = tabbedPane;
+
+			int activeIndex = addComponentsToTabbedPane(activeComponents, tabbedPane);
+
+			DockableComponent activeComp =
+				(DockableComponent) tabbedPane.getComponentAt(activeIndex);
+
+			top = activeComp.getComponentWindowingPlaceholder();
+			tabbedPane.setSelectedComponent(activeComp);
+		}
+		invalid = false;
+		return comp;
+	}
+
+	private int addComponentsToTabbedPane(List<ComponentPlaceholder> activeComponents,
+			JTabbedPane tabbedPane) {
+
+		// When rebuilding tabs, we wish to restore the tab location for users so the UI doesn't 
+		// jump around.  How we do this depends on if the user has closed or opened a new view.
+		// We will use the last active tab index to restore the active tab after the user has closed
+		// a tab.  We use the 'top' variable to find the active tab when the user opens a new tab.
+		int count = activeComponents.size();
+		int activeIndex = lastActiveTabIndex;
+		if (activeIndex >= count) {
+			activeIndex = count - 1;
+		}
+
+		for (int i = 0; i < count; i++) {
+			ComponentPlaceholder placeholder = activeComponents.get(i);
+			installRenameMenu(placeholder);
+
+			DockableComponent c = placeholder.getComponent();
+			c.setBorder(BorderFactory.createEmptyBorder());
+
+			// The renderer uses use the full title as the tooltip for the tab
+			String fullTitle = placeholder.getFullTitle();
+			String tabText = placeholder.getTabText();
+
+			DockableComponent component = placeholder.getComponent();
+			tabbedPane.add(fullTitle, component);
+
+			DockingTabRenderer tabRenderer =
+				createTabRenderer(tabbedPane, placeholder, fullTitle, tabText, component);
+			c.installDragDropTarget(tabbedPane);
+			tabRenderer.installPopupMenu(createTabPopupMenu(activeComponents, placeholder));
+
+			tabbedPane.setTabComponentAt(i, tabRenderer);
+
+			Icon icon = placeholder.getIcon();
+			tabbedPane.setTitleAt(i, tabText);
+			tabbedPane.setIconAt(i, icon);
+			tabRenderer.setIcon(icon);
+
+			if (placeholder == top) {
+				activeIndex = i;
+			}
+		}
+
+		return activeIndex;
+	}
+
+	private void setupFocusUpdateListeners(JTabbedPane tabbedPane) {
+		registerActionToTransferFocusToTabbedComponent(tabbedPane);
+		tabbedPane.addMouseListener(new MouseAdapter() {
+			@Override
+			public void mousePressed(MouseEvent e) {
+				int index = tabbedPane.indexAtLocation(e.getX(), e.getY());
+				if (index >= 0) {
+					Component selectedComponent = tabbedPane.getComponentAt(index);
+					focusComponent(selectedComponent);
+				}
+			}
+		});
+	}
+
+	/**
+	 * Registers a keybinding that allows the user to press the space bar to transfer focus to the 
+	 * component inside of the current tab of the tabbed pane. When using keyboard navigation, the 
+	 * tabbed pane will place focus on its tabs, not on the components in the tabs.  Adding the 
+	 * space bar trigger makes keyboard navigation easier by giving the user a method to focus the 
+	 * component represented by the tab.
+	 * @param tabbedPane the JTabbedPane 
+	 */
+	private void registerActionToTransferFocusToTabbedComponent(JTabbedPane tabbedPane) {
+		Action focusAction = new AbstractAction("Focus") {
+			@Override
+			public void actionPerformed(ActionEvent ev) {
+				Component selectedComponent = tabbedPane.getSelectedComponent();
+				focusComponent(selectedComponent);
+			}
+		};
+
+		KeyBindingUtils.registerAction(tabbedPane, KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, 0),
+			focusAction, JComponent.WHEN_FOCUSED);
+
+	}
+
+	private DockingTabRenderer createTabRenderer(JTabbedPane pane, ComponentPlaceholder placeholder,
+			String title, String tabText, final DockableComponent component) {
+		DockingTabRenderer tabRenderer =
+			new DockingTabRenderer(pane, title, tabText, e -> closeTab(component));
+
+		return tabRenderer;
+	}
+
+	private JPopupMenu createTabPopupMenu(List<ComponentPlaceholder> activeProviders,
+			ComponentPlaceholder placeholder) {
+		JPopupMenu menu = new JPopupMenu();
+
+		// add rename action if applicable
+		ComponentProvider provider = placeholder.getProvider();
+		if (provider.isTransient() && !provider.isSnapshot()) {
+			ActionListener renameAction = new RenameProviderAction(placeholder);
+			JMenuItem rename = createMenuItem("Rename", renameAction, RENAME_HELP);
+			menu.add(rename);
+		}
+
+		// add close others action always (we know there is more than one or we wouldn't be here)
+		List<ComponentPlaceholder> closeList = new ArrayList<>(activeProviders);
+		closeList.remove(placeholder);
+		menu.add(createMenuItem("Close Others", new CloseProvidersAction(closeList), CLOSE_HELP));
+
+		// add close to the left if the current provider is not first
+		int index = activeProviders.indexOf(placeholder);
+		if (index > 0) {
+			closeList = new ArrayList<>(activeProviders.subList(0, index));
+			menu.add(createMenuItem("Close Tabs to the Left", new CloseProvidersAction(closeList),
+				CLOSE_HELP));
+		}
+
+		// add close to the right if the current provider is not last
+		if (index < activeProviders.size() - 1) {
+			closeList = new ArrayList<>(activeProviders.subList(index + 1, activeProviders.size()));
+			menu.add(createMenuItem("Close Tabs to the Right", new CloseProvidersAction(closeList),
+				CLOSE_HELP));
+		}
+
+		return menu;
+	}
+
+	private static JMenuItem createMenuItem(String name, ActionListener actionListener,
+			HelpLocation help) {
+		JMenuItem menuItem = new JMenuItem(name);
+		menuItem.addActionListener(actionListener);
+		HelpService helpService = DockingWindowManager.getHelpService();
+		helpService.registerHelp(menuItem, help);
+		return menuItem;
+	}
+
+	private void installRenameMenu(ComponentPlaceholder placeholder) {
+
+		final ComponentProvider provider = placeholder.getProvider();
+		if (!provider.isTransient() || provider.isSnapshot()) {
+			return; // don't muck with the title of 'real' providers--only transients, like search
+		}
+
+		// for use on the header
+		DockableComponent dockableComponent = placeholder.getComponent();
+		DockableHeader header = dockableComponent.getHeader();
+		header.installRenameAction(new RenameMouseListener(placeholder));
+	}
+
+	@Override
+	void populateActiveComponents(List<ComponentPlaceholder> list) {
+		for (ComponentPlaceholder placeholder : windowPlaceholders) {
+			if (placeholder.isActive()) {
+				list.add(placeholder);
+			}
+		}
+	}
+
+	@Override
+	void removeNode(Node node) {
+		throw new UnsupportedOperationException();
+	}
+
+	@Override
+	void replaceNode(Node oldNode, Node newNode) {
+		// I have no child nodes so ignore
+	}
+
+	/**
+	 * Replaces this node in its parent with a new split node that contains this node as one
+	 * child and a new componentNode containing the source placeholders as the other child. 
+	 * 
+	 * @param source the placeholder to share the current space with. 
+	 * @param dropCode int value specifying the split order and orientation.
+	 */
+	void split(ComponentPlaceholder source, WindowPosition dropCode) {
+		ComponentNode sourceNode = new ComponentNode(winMgr);
+		source.setNode(sourceNode);
+		SplitNode splitNode;
+		Node parentNode = parent;
+		switch (dropCode) {
+			case LEFT:
+				splitNode = new SplitNode(winMgr, sourceNode, this, true);
+				break;
+			case RIGHT:
+				splitNode = new SplitNode(winMgr, this, sourceNode, true);
+				break;
+			case TOP:
+				splitNode = new SplitNode(winMgr, sourceNode, this, false);
+				break;
+			case BOTTOM:
+				splitNode = new SplitNode(winMgr, this, sourceNode, false);
+				break;
+			default:
+				// default to the right
+				splitNode = new SplitNode(winMgr, this, sourceNode, true);
+
+		}
+
+		parentNode.replaceNode(this, splitNode);
+		sourceNode.add(source);
+	}
+
+	/**
+	 * Returns true if there are currently more than one active component in this node.
+	 * @return true if there are currently more than one active component in this node.
+	 */
+	boolean isStacked() {
+		return comp instanceof JTabbedPane;
+	}
+
+	/**
+	 * Makes the component the selected tab.
+	 * @param placeholder the component placeholder object of the component to be shown in the active tab.
+	 */
+	public void makeSelectedTab(ComponentPlaceholder placeholder) {
+		if (invalid) {
+			return;
+		}
+
+		if (!(comp instanceof JTabbedPane)) {
+			return;
+		}
+
+		DockableComponent dc = placeholder.getComponent();
+		if (dc == null) {
+			return;
+		}
+
+		top = placeholder;
+		JTabbedPane tab = (JTabbedPane) comp;
+		if (tab.getSelectedComponent() != dc) {
+			tab.setSelectedComponent(dc);
+			lastActiveTabIndex = tab.getSelectedIndex();
+		}
+	}
+
+	@Override
+	Element saveToXML() {
+		Element root = new Element("COMPONENT_NODE");
+		int topIndex = 0;
+		if (top != null) {
+			for (int i = 0; i < windowPlaceholders.size(); i++) {
+				ComponentPlaceholder placeholder = windowPlaceholders.get(i);
+				if (placeholder == top) {
+					topIndex = i;
+					break;
+				}
+			}
+		}
+		root.setAttribute("TOP_INFO", "" + topIndex);
+		for (ComponentPlaceholder placeholder : windowPlaceholders) {
+
+			Element elem = new Element("COMPONENT_INFO");
+			elem.setAttribute("NAME", placeholder.getName());
+			elem.setAttribute("OWNER", placeholder.getOwner());
+			elem.setAttribute("TITLE", placeholder.getTitle());
+			elem.setAttribute("ACTIVE", "" + placeholder.isActive());
+			elem.setAttribute("GROUP", placeholder.getGroup());
+			elem.setAttribute("INSTANCE_ID", Long.toString(placeholder.getInstanceID()));
+			root.addContent(elem);
+		}
+		return root;
+	}
+
+	@Override
+	boolean contains(ComponentPlaceholder placeholder) {
+		for (ComponentPlaceholder ph : windowPlaceholders) {
+			if (ph.isActive() && ph.equals(placeholder)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	void titleChanged(ComponentPlaceholder placeholder) {
+		if (!(comp instanceof JTabbedPane)) {
+			return;
+		}
+
+		JTabbedPane pane = (JTabbedPane) comp;
+		int index = pane.indexOfComponent(placeholder.getComponent());
+		if (index == -1) {
+			return;
+		}
+
+		DockingTabRenderer renderer = (DockingTabRenderer) pane.getTabComponentAt(index);
+		Icon icon = placeholder.getIcon();
+		renderer.setIcon(icon);
+		pane.setIconAt(index, icon);
+
+		String tabText = placeholder.getTabText();
+		String fullTitle = placeholder.getTitle();
+		renderer.setTitle(tabText, fullTitle);
+		pane.setTitleAt(index, tabText);
+	}
+
+	public void iconChanged(ComponentPlaceholder placeholder) {
+		if (!(comp instanceof JTabbedPane)) {
+			return;
+		}
+
+		JTabbedPane pane = (JTabbedPane) comp;
+		int index = pane.indexOfComponent(placeholder.getComponent());
+		if (index == -1) {
+			return;
+		}
+
+		DockingTabRenderer renderer = (DockingTabRenderer) pane.getTabComponentAt(index);
+		renderer.setIcon(placeholder.getIcon());
+		pane.setIconAt(index, placeholder.getIcon());
+	}
+
+	private void closeTab(Component tabComponent) {
+		if (!(comp instanceof JTabbedPane)) {
+			return; // shouldn't happen since this is usually a callback from a widget on a tab
+		}
+
+		ComponentPlaceholder placeholder = getPlaceHolderForComponent(tabComponent);
+		if (placeholder != null) {
+			// this shouldn't be null, but there seems to be some timing issue where this can 
+			// be null when rapidly closing tabs
+			placeholder.close();
+		}
+	}
+
+	private ComponentPlaceholder getPlaceHolderForComponent(Component component) {
+		for (ComponentPlaceholder placeholder : windowPlaceholders) {
+			if (component == placeholder.getComponent()) {
+				return placeholder;
+			}
+		}
+		return null;
+	}
+
+	@Override
+	WindowNode getTopLevelNode() {
+		if (parent != null) {
+			return parent.getTopLevelNode();
+		}
+		return null;
+	}
+
+	@Override
+	void dispose() {
+		isDisposed = true;
+		if (top != null) {
+			top.dispose();
+		}
+		windowPlaceholders.clear();
+	}
+
+//==================================================================================================
+// Inner Classes
+//==================================================================================================
+	private static class RenameMouseListener extends MouseAdapter {
+
+		private ActionListener renameAction;
+
+		RenameMouseListener(ComponentPlaceholder placeholder) {
+			renameAction = new RenameProviderAction(placeholder);
+		}
+
+		@Override
+		public void mouseClicked(MouseEvent e) {
+			// Note: we don't really care about the type of mouse event; we just want the location.
+			//      (the event may not actually be a clicked event, depending on the platform)
+
+			JMenuItem rename = createMenuItem("Rename", renameAction, RENAME_HELP);
+			JPopupMenu menu = new JPopupMenu();
+			menu.add(rename);
+			menu.show(e.getComponent(), e.getX(), e.getY());
+		}
+
+	}
+
+	private static class RenameProviderAction implements ActionListener {
+
+		private ComponentPlaceholder placeholder;
+
+		RenameProviderAction(ComponentPlaceholder placeHolder) {
+			this.placeholder = placeHolder;
+		}
+
+		@Override
+		public void actionPerformed(ActionEvent event) {
+			ComponentProvider provider = placeholder.getProvider();
+			JComponent component = provider.getComponent();
+			String currentTabText = provider.getTabText();
+			String newName = OptionDialog.showInputSingleLineDialog(component, "Rename Tab",
+				"New name:", currentTabText);
+			if (newName == null || newName.isEmpty()) {
+				return; // cancelled
+			}
+
+			// If the user changes the name, then we want to replace all of the parts of the 
+			// title with that name.  We do not supply a custom subtitle, as that doesn't make 
+			// sense in this case, but we clear it so the user's title is the only thing 
+			// visible.  This means that providers can still update the subtitle later.
+			provider.setCustomTitle(newName);   // title on window
+			provider.setSubTitle("");           // part after the title
+			provider.setCustomTabText(newName); // text on the tab
+		}
+	}
+
+	private static class CloseProvidersAction implements ActionListener {
+
+		private List<ComponentPlaceholder> placeholdersToClose;
+
+		public CloseProvidersAction(List<ComponentPlaceholder> placeholdersToClose) {
+			this.placeholdersToClose = placeholdersToClose;
+		}
+
+		@Override
+		public void actionPerformed(ActionEvent e) {
+			for (ComponentPlaceholder placeholder : placeholdersToClose) {
+				placeholder.getProvider().closeComponent();
+			}
+		}
+
+	}
+}

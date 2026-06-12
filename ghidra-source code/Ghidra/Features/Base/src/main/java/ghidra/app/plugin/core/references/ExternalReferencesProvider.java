@@ -1,0 +1,508 @@
+/* ###
+ * IP: GHIDRA
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package ghidra.app.plugin.core.references;
+
+import java.awt.BorderLayout;
+import java.awt.event.MouseEvent;
+import java.util.*;
+
+import javax.swing.*;
+
+import org.apache.commons.lang3.StringUtils;
+
+import docking.ActionContext;
+import docking.DefaultActionContext;
+import docking.action.builder.ActionBuilder;
+import docking.widgets.dialogs.InputDialog;
+import docking.widgets.table.AbstractGTableModel;
+import generic.theme.GIcon;
+import ghidra.app.cmd.refs.*;
+import ghidra.framework.cmd.Command;
+import ghidra.framework.cmd.CompoundCmd;
+import ghidra.framework.main.*;
+import ghidra.framework.model.DomainFile;
+import ghidra.framework.model.DomainObjectListener;
+import ghidra.framework.plugintool.ComponentProviderAdapter;
+import ghidra.program.model.listing.Library;
+import ghidra.program.model.listing.Program;
+import ghidra.program.model.symbol.ExternalManager;
+import ghidra.program.model.symbol.SourceType;
+import ghidra.util.HelpLocation;
+import ghidra.util.Msg;
+import ghidra.util.table.GhidraTable;
+import resources.Icons;
+
+/**
+ * ComponentProvider that displays a table of External Programs.
+ */
+public class ExternalReferencesProvider extends ComponentProviderAdapter {
+	private static Icon ADD_ICON = Icons.ADD_ICON;
+	private static Icon DELETE_ICON = Icons.DELETE_ICON;
+	private static Icon UP_ICON = Icons.UP_ICON;
+	private static Icon DOWN_ICON = Icons.DOWN_ICON;
+	private static Icon EDIT_ICON = new GIcon("icon.base.edit.bytes");
+	private static Icon CLEAR_ICON = Icons.CLEAR_ICON;
+
+	private JPanel mainPanel;
+	private ExternalNamesTableModel tableModel;
+	private GhidraTable table;
+	private Program program;
+	private String rowToHighlightDuringNextReload; // hack to reselect a renamed row during the next reload.	
+
+	private DomainObjectListener domainObjectListener = ev -> {
+		if (isVisible()) {
+			tableModel.updateTableData();
+			if (rowToHighlightDuringNextReload != null) {
+				int row = tableModel.indexOf(rowToHighlightDuringNextReload);
+				rowToHighlightDuringNextReload = null;
+				if (row >= 0) {
+					table.selectRow(row);
+				}
+			}
+		}
+	};
+
+	public ExternalReferencesProvider(ReferencesPlugin plugin) {
+		super(plugin.getTool(), "External Programs", plugin.getName());
+		mainPanel = buildMainPanel();
+		createActions();
+		setHelpLocation(new HelpLocation("ReferencesPlugin", "ExternalNamesDialog"));
+		addToTool();
+	}
+
+	private void createActions() {
+		new ActionBuilder("Add External Program Name", getOwner())
+				.popupMenuPath("Add External Program")
+				.popupMenuIcon(ADD_ICON)
+				.toolBarIcon(ADD_ICON)
+				.enabledWhen(ac -> program != null)
+				.onAction(ac -> addExternalProgram())
+				.buildAndInstallLocal(this);
+
+		new ActionBuilder("Delete External Program Name", getOwner())
+				.popupMenuPath("Delete External Program")
+				.popupMenuIcon(DELETE_ICON)
+				.toolBarIcon(DELETE_ICON)
+				.enabledWhen(ac -> hasSelectedRows())
+				.onAction(ac -> deleteExternalProgram())
+				.buildAndInstallLocal(this);
+
+		new ActionBuilder("Move Library Up", getOwner())
+				.popupMenuPath("Move Library Up")
+				.popupMenuIcon(UP_ICON)
+				.toolBarIcon(UP_ICON)
+				.enabledWhen(ac -> canDecrementSelectedLibraryOrdinal())
+				.onAction(ac -> adjustLibraryOrdinal(true))
+				.buildAndInstallLocal(this);
+
+		new ActionBuilder("Move Library Down", getOwner())
+				.popupMenuPath("Move Library Down")
+				.popupMenuIcon(DOWN_ICON)
+				.toolBarIcon(DOWN_ICON)
+				.enabledWhen(ac -> canIncrementSelectedLibraryOrdinal())
+				.onAction(ac -> adjustLibraryOrdinal(false))
+				.buildAndInstallLocal(this);
+
+		new ActionBuilder("Set External Name Association", getOwner())
+				.popupMenuPath("Set External Name Association")
+				.popupMenuIcon(EDIT_ICON)
+				.toolBarIcon(EDIT_ICON)
+				.enabledWhen(ac -> isSingleRowSelected())
+				.onAction(ac -> setExternalProgramAssociation())
+				.buildAndInstallLocal(this);
+
+		new ActionBuilder("Clear External Name Association", getOwner())
+				.popupMenuPath("Clear External Name Association")
+				.popupMenuIcon(CLEAR_ICON)
+				.toolBarIcon(CLEAR_ICON)
+				.enabledWhen(ac -> hasSelectedRows())
+				.onAction(ac -> clearExternalAssociation())
+				.buildAndInstallLocal(this);
+
+	}
+
+	@Override
+	public JComponent getComponent() {
+		return mainPanel;
+	}
+
+	void setProgram(Program program) {
+		rowToHighlightDuringNextReload = null;
+		if (this.program != null) {
+			this.program.removeListener(domainObjectListener);
+		}
+		this.program = program;
+		if (this.program != null) {
+			this.program.addListener(domainObjectListener);
+		}
+
+		if (isVisible()) {
+			tableModel.updateTableData();
+		}
+	}
+
+	@Override
+	public void componentHidden() {
+		tableModel.updateTableData();
+	}
+
+	@Override
+	public void componentShown() {
+		tableModel.updateTableData();
+	}
+
+	@Override
+	public ActionContext getActionContext(MouseEvent event) {
+		return new DefaultActionContext(this, table);
+	}
+
+	private JPanel buildMainPanel() {
+		JPanel panel = new JPanel(new BorderLayout());
+		tableModel = new ExternalNamesTableModel();
+		table = new GhidraTable(tableModel);
+		table.getSelectionModel().addListSelectionListener(e -> {
+			if (e.getValueIsAdjusting()) {
+				return;
+			}
+
+			contextChanged();
+		});
+		table.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
+		table.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
+		ToolTipManager.sharedInstance().registerComponent(table);
+
+		JScrollPane sp = new JScrollPane(table);
+		panel.add(sp, BorderLayout.CENTER);
+
+		String namePrefix = "External Programs";
+		table.setName(namePrefix);
+		table.getAccessibleContext().setAccessibleName(namePrefix);
+
+		return panel;
+	}
+
+	private boolean isSingleRowSelected() {
+		return table.getSelectedRowCount() == 1;
+	}
+
+	private boolean hasSelectedRows() {
+		return table.getSelectedRowCount() > 0;
+	}
+
+	public List<String> getSelectedExternalNames() {
+		List<String> externalNames = new ArrayList<>();
+		for (int rowIndex : table.getSelectedRows()) {
+			ExternalNamesRow row = tableModel.getRowObject(rowIndex);
+			externalNames.add(row.getName());
+		}
+		return externalNames;
+	}
+
+	void dispose() {
+		table.dispose();
+	}
+
+	private void addExternalProgram() {
+		InputDialog dialog = new InputDialog("New External Program", "Enter Name");
+		dialog.setHelpLocation(new HelpLocation("ReferencesPlugin", "Add_External_Program_Name"));
+		getTool().showDialog(dialog, ExternalReferencesProvider.this);
+		if (dialog.isCanceled()) {
+			return;
+		}
+		String newExternalName = dialog.getValue().trim();
+		if (newExternalName.isEmpty()) {
+			Msg.showError(this, dialog.getComponent(), "Invalid Input",
+				"External program name cannot be empty");
+			return;
+		}
+		AddExternalNameCmd cmd = new AddExternalNameCmd(newExternalName, SourceType.USER_DEFINED);
+		getTool().execute(cmd, program);
+	}
+
+	private void deleteExternalProgram() {
+		ExternalManager externalManager = program.getExternalManager();
+		StringBuilder buf = new StringBuilder();
+		CompoundCmd<Program> cmd = new CompoundCmd<>("Delete External Program Name");
+		for (String externalName : getSelectedExternalNames()) {
+			boolean hasLocations = externalManager.getExternalLocations(externalName).hasNext();
+			if (hasLocations) {
+				buf.append("\n     ");
+				buf.append(externalName);
+			}
+			else {
+				cmd.add(new RemoveExternalNameCmd(externalName));
+			}
+		}
+		if (cmd.size() > 0) {
+			getTool().execute(cmd, program);
+		}
+		if (buf.length() > 0) {
+			Msg.showError(this, mainPanel, "Delete Failure",
+				"The following external reference names could not be deleted\n" +
+					"because they contain external locations:\n" + buf.toString());
+		}
+	}
+
+	private void adjustLibraryOrdinal(boolean moveUp) {
+		if ((moveUp && !canDecrementSelectedLibraryOrdinal()) ||
+			(!moveUp && !canIncrementSelectedLibraryOrdinal())) {
+			return;
+		}
+		int ordinalAdjustment = moveUp ? -1 : 1;
+		List<String> selectedExternalNames = getSelectedExternalNames();
+		String externalName = selectedExternalNames.get(0);	// must be exactly one for us to be enabled.
+		ExternalManager externalManager = program.getExternalManager();
+		Library externalLibrary = externalManager.getExternalLibrary(externalName);
+		if (externalLibrary != null) {
+			program.withTransaction("Adjust Library Order", () -> {
+				int ordinal = externalManager.getLibraryOrdinal(externalName);
+				if (ordinal < 0) {
+					Msg.showError(this, mainPanel, "Library Ordering Change Error",
+						"Failed to update Library ordinal for: " + externalName);
+					return;
+				}
+				externalManager.setLibraryOrdinal(externalName, ordinal + ordinalAdjustment);
+			});
+		}
+	}
+
+	private boolean canDecrementSelectedLibraryOrdinal() {
+		int[] selectedRows = table.getSelectedRows();
+		if (selectedRows.length == 1 && selectedRows[0] != 0) {
+			ExternalNamesRow rowBefore = tableModel.getRowObject(selectedRows[0] - 1);
+			return !Library.UNKNOWN.equals(rowBefore.getName()); // cannot displace UNKNOWN Library
+		}
+		return false;
+	}
+
+	private boolean canIncrementSelectedLibraryOrdinal() {
+		int lastRow = table.getRowCount() - 1;
+		int[] selectedRows = table.getSelectedRows();
+		if (selectedRows.length == 1 && selectedRows[0] != lastRow) {
+			ExternalNamesRow row = tableModel.getRowObject(selectedRows[0]);
+			return !Library.UNKNOWN.equals(row.getName()); // cannot alter UNKNOWN Library ordinal
+		}
+		return false;
+	}
+
+	private void setExternalProgramAssociation() {
+		List<String> selectedExternalNames = getSelectedExternalNames();
+		String externalName = selectedExternalNames.get(0);	// must be exactly one for us to be enabled.
+		DataTreeDialog dialog = new ProgramFileChooser(mainPanel,
+			"Choose External Program (" + externalName + ")", AppInfo.getActiveProject());
+
+		dialog.setSearchText(externalName);
+
+		dialog.addOkActionListener(e1 -> {
+			DomainFile domainFile = dialog.getDomainFile();
+			if (domainFile == null) {
+				return;
+			}
+			String pathName = domainFile.toString();
+			dialog.close();
+			ExternalManager externalManager = program.getExternalManager();
+			String externalLibraryPath = externalManager.getExternalLibraryPath(externalName);
+			if (!pathName.equals(externalLibraryPath)) {
+				Command<Program> cmd =
+					new SetExternalNameCmd(externalName, domainFile.getPathname());
+				getTool().execute(cmd, program);
+			}
+		});
+		dialog.setHelpLocation(new HelpLocation("ReferencesPlugin", "ChooseExternalProgram"));
+		getTool().showDialog(dialog);
+	}
+
+	private void clearExternalAssociation() {
+		CompoundCmd<Program> cmd = new CompoundCmd<>("Clear External Program Associations");
+		for (String externalName : getSelectedExternalNames()) {
+			cmd.add(new ClearExternalPathCmd(externalName));
+		}
+		getTool().execute(cmd, program);
+	}
+
+	//-----------------------------------------------------------------------------------------
+	private static class ExternalNamesRow {
+
+		private String name;
+		private String path;
+
+		ExternalNamesRow(String name, String path) {
+			this.name = name;
+			this.path = path;
+		}
+
+		String getName() {
+			return name;
+		}
+
+		String getPath() {
+			return path;
+		}
+
+		@Override
+		public int hashCode() {
+			final int prime = 31;
+			int result = 1;
+			result = prime * result + ((name == null) ? 0 : name.hashCode());
+			result = prime * result + ((path == null) ? 0 : path.hashCode());
+			return result;
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj) {
+				return true;
+			}
+			if (obj == null) {
+				return false;
+			}
+			if (getClass() != obj.getClass()) {
+				return false;
+			}
+
+			ExternalNamesRow other = (ExternalNamesRow) obj;
+			if (!Objects.equals(name, other.name)) {
+				return false;
+			}
+			if (!Objects.equals(path, other.path)) {
+				return false;
+			}
+			return true;
+		}
+
+	}
+
+	class ExternalNamesTableModel extends AbstractGTableModel<ExternalNamesRow> {
+
+		final static int NAME_COL = 0;
+		final static int PATH_COL = 1;
+		final static String EXTERNAL_NAME = "Name";
+		final static String PATH_NAME = "Ghidra Program";
+		private final List<String> columns = List.of(EXTERNAL_NAME, PATH_NAME);
+
+		private List<ExternalNamesRow> paths = new ArrayList<>();
+
+		void updateTableData() {
+
+			paths.clear();
+
+			if (program != null && isVisible()) {
+				ExternalManager extMgr = program.getExternalManager();
+				// NOTE: Keep table in ordinal sequence as provided by external manager
+				String[] programNames = extMgr.getExternalLibraryNames();
+
+				for (String programName : programNames) {
+					if (Library.UNKNOWN.equals(programName)) {
+						continue;
+					}
+					ExternalNamesRow path = new ExternalNamesRow(programName,
+						extMgr.getExternalLibraryPath(programName));
+					paths.add(path);
+				}
+			}
+			tableModel.fireTableDataChanged();
+		}
+
+		private boolean rowAlreadyExists(String name) {
+			return indexOf(name) != -1;
+		}
+
+		private int indexOf(String name) {
+			for (int i = 0; i < paths.size(); i++) {
+				ExternalNamesRow path = paths.get(i);
+				if (path.getName().equals(name)) {
+					return i;
+				}
+			}
+			return -1;
+		}
+
+		@Override
+		public void dispose() {
+			super.dispose();
+			paths.clear();
+		}
+
+		@Override
+		public int getColumnCount() {
+			return columns.size();
+		}
+
+		@Override
+		public String getColumnName(int column) {
+			return columns.get(column);
+		}
+
+		@Override
+		public String getName() {
+			return "External Programs Model";
+		}
+
+		@Override
+		public boolean isCellEditable(int rowIndex, int columnIndex) {
+			if (columnIndex == NAME_COL) {
+				return true;
+			}
+			return false;
+		}
+
+		@Override
+		public List<ExternalNamesRow> getModelData() {
+			return paths;
+		}
+
+		@Override
+		public Object getColumnValueForRow(ExternalNamesRow t, int columnIndex) {
+
+			switch (columnIndex) {
+				case NAME_COL:
+					return t.getName();
+				case PATH_COL:
+					return t.getPath();
+			}
+			return "Unknown Column!";
+		}
+
+		@Override
+		public void setValueAt(Object aValue, int row, int column) {
+			if (column != NAME_COL) {
+				return;
+			}
+
+			String newName = ((String) aValue).trim();
+			ExternalNamesRow path = paths.get(row);
+			if (StringUtils.isBlank(newName) || path.getName().equals(newName)) {
+				return;
+			}
+
+			if (rowAlreadyExists(newName)) {
+				Msg.showInfo(getClass(), mainPanel, "Duplicate Name",
+					"Name already exists: " + newName);
+				return;
+			}
+
+			rowToHighlightDuringNextReload = newName;
+			String oldName = path.getName();
+			Command<Program> cmd =
+				new UpdateExternalNameCmd(oldName, newName, SourceType.USER_DEFINED);
+			if (!tool.execute(cmd, program)) {
+				tool.setStatusInfo(cmd.getStatusMsg());
+			}
+		}
+
+	}
+
+}

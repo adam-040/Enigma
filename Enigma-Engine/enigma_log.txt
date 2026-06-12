@@ -1,0 +1,6 @@
+Enigma GUI starting...
+QApplication OK
+MainWindow shown
+Enigma GUI starting...
+QApplication OK
+MainWindow shown

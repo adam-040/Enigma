@@ -1,0 +1,31 @@
+﻿/* ###
+ * IP: GHIDRA (translated to C++ for Enigma Engine)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ */
+/// \file Complex8DataType.cpp
+/// \brief complex8 data type
+#include "ghidra/Complex8DataType.h"
+
+namespace ghidra {
+
+Complex8DataType& Complex8DataType::dataType() {
+    static Complex8DataType instance;
+    return instance;
+}
+
+Complex8DataType::Complex8DataType(DataTypeManager* dtm)
+    : AbstractComplexDataType("complex8", &Float4DataType::dataType(), dtm) {}
+
+DataType* Complex8DataType::clone(DataTypeManager* dtm) const {
+    if (dtm == getDataTypeManager()) {
+        return const_cast<Complex8DataType*>(this);
+    }
+    return new Complex8DataType(dtm);
+}
+
+} // namespace ghidra

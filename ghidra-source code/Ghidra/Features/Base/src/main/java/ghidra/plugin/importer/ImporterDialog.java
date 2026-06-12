@@ -1,0 +1,656 @@
+/* ###
+ * IP: GHIDRA
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package ghidra.plugin.importer;
+
+import static ghidra.framework.main.DataTreeDialogType.*;
+
+import java.awt.*;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
+import java.io.IOException;
+import java.util.*;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import javax.swing.*;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
+
+import org.apache.commons.io.FilenameUtils;
+import org.apache.commons.lang3.StringUtils;
+
+import docking.DialogComponentProvider;
+import docking.widgets.EmptyBorderButton;
+import docking.widgets.button.BrowseButton;
+import docking.widgets.combobox.GhidraComboBox;
+import docking.widgets.dialogs.MultiLineMessageDialog;
+import docking.widgets.label.GLabel;
+import docking.widgets.list.GComboBoxCellRenderer;
+import docking.widgets.textfield.ElidingFilePathTextField;
+import generic.theme.GIcon;
+import generic.theme.Gui;
+import ghidra.app.services.ProgramManager;
+import ghidra.app.util.*;
+import ghidra.app.util.bin.ByteProvider;
+import ghidra.app.util.opinion.*;
+import ghidra.formats.gfilesystem.*;
+import ghidra.framework.main.AppInfo;
+import ghidra.framework.main.DataTreeDialog;
+import ghidra.framework.model.*;
+import ghidra.framework.plugintool.PluginTool;
+import ghidra.framework.preferences.Preferences;
+import ghidra.framework.store.local.LocalFileSystem;
+import ghidra.program.model.address.AddressFactory;
+import ghidra.program.model.lang.LanguageCompilerSpecPair;
+import ghidra.program.model.lang.LanguageNotFoundException;
+import ghidra.util.HelpLocation;
+import ghidra.util.Msg;
+import ghidra.util.layout.*;
+import ghidra.util.task.TaskBuilder;
+
+/**
+ * Dialog for importing a file into Ghidra as a program.
+ */
+public class ImporterDialog extends DialogComponentProvider {
+
+	private static final String PREFERENCES_LAST_FOLDER = "IMPORTER_DIALOG_LAST_FOLDER";
+
+	protected PluginTool tool;
+	private ProgramManager programManager;
+	protected FSRL fsrl;
+	protected List<Option> options;
+	private LoaderMap loaderMap;
+	protected LanguageCompilerSpecPair selectedLanguage;
+	private DomainFolder destinationFolder;
+	private boolean languageNeeded;
+	private String suggestedDestinationPath;
+	private String previousName;
+
+	protected ByteProvider byteProvider;
+	protected JTextField nameTextField;
+	private boolean userHasChangedName;
+	protected JButton folderButton;
+	protected JButton languageButton;
+	protected JTextField languageTextField;
+	protected JCheckBox mirrorFsCheckBox;
+	protected JButton optionsButton;
+	protected ElidingFilePathTextField folderNameTextField;
+	protected GhidraComboBox<Loader> loaderComboBox;
+
+	/**
+	 * Construct a new dialog for importing a file as a new program into Ghidra.
+	 * @param tool the active tool that spawned this dialog.
+	 * @param programManager program manager to open imported file with or null
+	 * @param loaderMap the loaders and their corresponding load specifications
+	 * @param byteProvider the ByteProvider for getting the bytes from the file to be imported.  The
+	 *        dialog takes ownership of the ByteProvider and it will be closed when the dialog is closed
+	 * @param suggestedDestinationPath optional string path that will be pre-pended to the destination
+	 * name.  Any path specified in the destination name field will be created when
+	 * the user performs the import (as opposed to the {@link #setDestinationFolder(DomainFolder) destination folder}
+	 * option which requires the DomainFolder to already exist). The two destination paths work together
+	 * to specify the final Ghidra project folder where the imported binary is placed.
+	 */
+	public ImporterDialog(PluginTool tool, ProgramManager programManager, LoaderMap loaderMap,
+			ByteProvider byteProvider, String suggestedDestinationPath) {
+		this("Import " + byteProvider.getFSRL().getPath(), tool, loaderMap, byteProvider,
+			suggestedDestinationPath);
+		this.programManager = programManager;
+	}
+
+	protected ImporterDialog(String title, PluginTool tool, LoaderMap loaderMap,
+			ByteProvider byteProvider, String suggestedDestinationPath) {
+		super(title);
+		this.tool = tool;
+		this.programManager = tool.getService(ProgramManager.class);
+		this.fsrl = byteProvider.getFSRL();
+		this.loaderMap = loaderMap;
+		this.byteProvider = byteProvider;
+		this.suggestedDestinationPath = suggestedDestinationPath;
+
+		if (FileSystemService.getInstance().isLocal(fsrl)) {
+			Preferences.setProperty(Preferences.LAST_IMPORT_FILE, fsrl.getPath());
+		}
+		else if (fsrl.getFS().getContainer() != null) {
+			Preferences.setProperty(Preferences.LAST_IMPORT_FILE,
+				fsrl.getFS().getContainer().getPath());
+		}
+
+		addWorkPanel(buildWorkPanel());
+		addOKButton();
+		addCancelButton();
+		setDefaultButton(okButton);
+		setOkEnabled(false);
+
+		DomainFolder folder = initializeDestinationFolder();
+		setDestinationFolder(folder);
+		selectedLoaderChanged();
+		setMinimumSize(new Dimension(500, getPreferredSize().height));
+		setRememberSize(false);
+		setHelpLocation(new HelpLocation("ImporterPlugin", "Importer_Dialog"));
+	}
+
+	/**
+	 * Sets the destination folder for the imported program.
+	 * @param folder the folder to store the imported program.
+	 */
+	public void setDestinationFolder(DomainFolder folder) {
+		destinationFolder = folder;
+		folderNameTextField.setText(destinationFolder.getPathname());
+		validateFormInput();
+	}
+
+	private JComponent buildWorkPanel() {
+		JPanel panel = new JPanel(new VerticalLayout(5));
+		panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+		panel.add(buildMainPanel());
+		panel.add(buildButtonPanel());
+		panel.getAccessibleContext().setAccessibleName("Importer");
+		return panel;
+	}
+
+	private Component buildMainPanel() {
+		JPanel panel = new JPanel(new ThreeColumnLayout(5, 5, 0));
+		panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+		panel.add(new GLabel("Format: ", SwingConstants.RIGHT));
+		panel.add(buildLoaderChooser());
+		panel.add(buildLoaderButtons());
+
+		panel.add(new GLabel("Language: ", SwingConstants.RIGHT));
+		panel.add(buildLanguageField());
+		panel.add(buildLanguageButton());
+
+		panel.add(new GLabel("Destination Folder: ", SwingConstants.RIGHT));
+		panel.add(buildFolderNameField());
+		panel.add(buildFolderNameBrowseButton());
+
+		panel.add(new GLabel("Program Name: ", SwingConstants.RIGHT));
+		panel.add(buildNameTextField());
+		panel.add(new JLabel());
+
+		panel.getAccessibleContext().setAccessibleName("Importer Details");
+		return panel;
+	}
+
+	private Component buildNameTextField() {
+		String initalSuggestedName =
+			FSUtilities.appendPath(suggestedDestinationPath, getSuggestedName());
+		int columns = (initalSuggestedName.length() > 50) ? 50 : 0;
+		nameTextField = new JTextField(initalSuggestedName, columns);
+
+		// Use a key listener to track users edits.   We can't use the document listener, as
+		// we change the name field ourselves when other fields are changed.
+		nameTextField.addKeyListener(new KeyAdapter() {
+			@Override
+			public void keyTyped(KeyEvent e) {
+				// tracking all key events; are there any that we don't want to track?
+				userHasChangedName = true;
+			}
+		});
+		nameTextField.getDocument().addDocumentListener(new DocumentListener() {
+			@Override
+			public void changedUpdate(DocumentEvent e) {
+				// don't care
+			}
+
+			@Override
+			public void insertUpdate(DocumentEvent e) {
+				validateFormInput();
+			}
+
+			@Override
+			public void removeUpdate(DocumentEvent e) {
+				validateFormInput();
+			}
+		});
+		nameTextField.getAccessibleContext().setAccessibleName("Name");
+		return nameTextField;
+	}
+
+	private String getSuggestedName() {
+		Loader loader = getSelectedLoader();
+		if (loader != null) {
+			return loader.getPreferredFileName(byteProvider);
+		}
+		return fsrl.getName();
+	}
+
+	private Component buildFolderNameField() {
+		folderNameTextField = new ElidingFilePathTextField();
+		folderNameTextField.setColumns(20);
+		folderNameTextField.setEditable(false);
+		folderNameTextField.setFocusable(false);
+		folderNameTextField.getAccessibleContext().setAccessibleName("Folder Name");
+		return folderNameTextField;
+	}
+
+	private Component buildFolderNameBrowseButton() {
+		folderButton = new BrowseButton();
+		folderButton.addActionListener(e -> chooseProjectFolder());
+		folderButton.getAccessibleContext().setAccessibleName("Folder Name Browse");
+		Gui.registerFont(folderButton, Font.BOLD);
+
+		return folderButton;
+	}
+
+	private JComponent buildLanguageField() {
+		languageTextField = new JTextField();
+		languageTextField.setEditable(false);
+		languageTextField.setFocusable(false);
+		languageTextField.getAccessibleContext().setAccessibleName("Language");
+
+		return languageTextField;
+	}
+
+	private Component buildLanguageButton() {
+		languageButton = new BrowseButton();
+		languageButton.getAccessibleContext().setAccessibleName("Language Browse");
+		languageButton.addActionListener(e -> {
+			Object selectedItem = loaderComboBox.getSelectedItem();
+			if (selectedItem instanceof Loader) {
+				Loader loader = (Loader) selectedItem;
+				ImporterLanguageDialog dialog =
+					new ImporterLanguageDialog(loaderMap.get(loader), tool, selectedLanguage);
+				dialog.show(getComponent());
+				LanguageCompilerSpecPair dialogResult = dialog.getSelectedLanguage();
+				if (dialogResult != null) {
+					setSelectedLanguage(dialogResult);
+				}
+			}
+			validateFormInput();
+		});
+		Gui.registerFont(languageButton, Font.BOLD);
+
+		return languageButton;
+	}
+
+	private Component buildLoaderChooser() {
+		Set<Loader> orderedLoaders = new LinkedHashSet<>(loaderMap.keySet()); // maintain order
+		loaderComboBox = new GhidraComboBox<>(orderedLoaders);
+		loaderComboBox.addItemListener(e -> selectedLoaderChanged());
+		loaderComboBox.getAccessibleContext().setAccessibleName("Loader Choices");
+		loaderComboBox.setRenderer(
+			GComboBoxCellRenderer.createDefaultTextRenderer(loader -> loader.getName()));
+
+		if (!orderedLoaders.isEmpty()) {
+			loaderComboBox.setSelectedIndex(0);
+		}
+
+		return loaderComboBox;
+	}
+
+	private Component buildLoaderButtons() {
+
+		EmptyBorderButton helpButton = new EmptyBorderButton(new GIcon("icon.information"));
+		helpButton.setToolTipText("Show list of supported format/loaders");
+		helpButton.getAccessibleContext().setAccessibleName("Loader Info");
+		helpButton.addActionListener(e -> showSupportedImportFormats());
+
+		JPanel panel = new JPanel();
+		panel.setLayout(new BoxLayout(panel, BoxLayout.X_AXIS));
+		panel.setBorder(BorderFactory.createEmptyBorder());
+
+		panel.add(helpButton);
+
+		return panel;
+	}
+
+	private void showSupportedImportFormats() {
+		String s = LoaderService.getAllLoaderNames().stream().collect(Collectors.joining("\n"));
+		MultiLineMessageDialog.showModalMessageDialog(null, "Supported Formats", null, s,
+			MultiLineMessageDialog.PLAIN_MESSAGE);
+	}
+
+	protected void selectedLoaderChanged() {
+		// when selected item changes, clear out selected language and options...
+		Loader loader = loaderComboBox.getItemAt(loaderComboBox.getSelectedIndex());
+		if (loader != null) {
+			languageNeeded = isLanguageNeeded(loader);
+			setSelectedLanguage(getPreferredLanguage(loader));
+			String newSuggestedName =
+				FSUtilities.appendPath(suggestedDestinationPath, getSuggestedName());
+			setName(newSuggestedName);
+		}
+		else {
+			languageNeeded = true;
+			setSelectedLanguage(null);
+		}
+		options = null;
+		validateFormInput();
+	}
+
+	private boolean isLanguageNeeded(Loader loader) {
+		return loaderMap.get(loader).stream().anyMatch(spec -> spec.requiresLanguageCompilerSpec());
+	}
+
+	private Component buildButtonPanel() {
+		JPanel panel = new JPanel(new BorderLayout());
+		JPanel innerPanel = new JPanel(new HorizontalLayout(5));
+		innerPanel.add(buildMirrorFsCheckbox());
+		innerPanel.add(buildOptionsButton());
+		panel.add(innerPanel, BorderLayout.EAST);
+		panel.getAccessibleContext().setAccessibleName("Buttons");
+		return panel;
+	}
+
+	private Component buildMirrorFsCheckbox() {
+		mirrorFsCheckBox = new JCheckBox("Mirror Filesystem", false);
+		mirrorFsCheckBox.addActionListener(e -> mirrorFs());
+		mirrorFsCheckBox.getAccessibleContext().setAccessibleName("Mirror");
+		return mirrorFsCheckBox;
+	}
+
+	private Component buildOptionsButton() {
+		optionsButton = new JButton("Options...");
+		optionsButton.addActionListener(e -> showOptions());
+		optionsButton.getAccessibleContext().setAccessibleName("Options");
+		return optionsButton;
+	}
+
+	@Override
+	protected void okCallback() {
+		if (!validateFormInput()) {
+			return;
+		}
+
+		Loader loader = getSelectedLoader();
+		LoadSpec loadSpec = getSelectedLoadSpec(loader);
+		options = getOptions(loadSpec, false);  // make sure you get the options now, before the ByteProvider is closed.
+
+		//@formatter:off
+		new TaskBuilder("Import File", monitor -> {
+			ImporterUtilities.importSingleFile(tool, programManager, fsrl, 
+				destinationFolder.getPathname(), mirrorFsCheckBox.isSelected(), loadSpec, 
+				removeTrailingSlashes(getName()), options, monitor);
+		})
+		.setLaunchDelay(0)
+		.launchNonModal();
+		//@formatter:on
+
+		close();
+
+		saveLastUsedFolder();
+	}
+
+	private void saveLastUsedFolder() {
+
+		String path = destinationFolder.getPathname();
+		Preferences.setProperty(PREFERENCES_LAST_FOLDER, path);
+		Preferences.store();
+	}
+
+	private String removeTrailingSlashes(String path) {
+		while (path.endsWith("/")) {
+			path = path.substring(0, path.length() - 1);
+		}
+		return path;
+	}
+
+	@Override
+	public void close() {
+		super.close();
+		try {
+			byteProvider.close();
+		}
+		catch (IOException e) {
+			Msg.showError(this, null, "Unexpected exception closing byte provider.", e);
+		}
+	}
+
+	protected List<Option> getOptions(LoadSpec loadSpec, boolean forceRefresh) {
+		if (options == null || forceRefresh) {
+			options = loadSpec.getLoader()
+					.getDefaultOptions(byteProvider, loadSpec, null, false,
+						mirrorFsCheckBox.isSelected());
+		}
+		return options;
+	}
+
+	private void mirrorFs() {
+		nameTextField.setEnabled(!mirrorFsCheckBox.isSelected());
+		if (mirrorFsCheckBox.isSelected()) {
+			previousName = getName();
+			String path = FSUtilities.mirroredProjectPath(fsrl.getPath());
+			nameTextField.setText(path);
+			nameTextField.setCaretPosition(path.length());
+		}
+		else if (previousName != null) {
+			nameTextField.setText(previousName);
+			nameTextField.setCaretPosition(previousName.length());
+		}
+	}
+
+	private void showOptions() {
+		try {
+			Loader loader = getSelectedLoader();
+			AddressFactory addressFactory = selectedLanguage.getLanguage().getAddressFactory();
+			LoadSpec loadSpec = getSelectedLoadSpec(loader);
+			OptionValidator validator =
+				optionList -> loader.validateOptions(byteProvider, loadSpec, optionList, null);
+
+			AddressFactoryService service = () -> addressFactory;
+
+			List<Option> currentOptions = getOptions(loadSpec, true);
+			if (currentOptions.isEmpty()) {
+				Msg.showInfo(this, null, "Options", "There are no options for this importer!");
+				return;
+			}
+
+			OptionsDialog optionsDialog = new OptionsDialog(currentOptions, validator, service);
+			optionsDialog.setHelpLocation(
+				new HelpLocation("ImporterPlugin", getAnchorForSelectedLoader(loader)));
+			tool.showDialog(optionsDialog);
+			if (!optionsDialog.wasCancelled()) {
+				options = optionsDialog.getOptions();
+			}
+			validateFormInput();
+		}
+		catch (LanguageNotFoundException e) {
+			Msg.showError(this, null, "Language Error",
+				"Can't get the language for " + selectedLanguage);
+		}
+	}
+
+	private String getAnchorForSelectedLoader(Loader loader) {
+		return "Options_" + loader.getName();
+	}
+
+	protected LoadSpec getSelectedLoadSpec(Loader loader) {
+		Collection<LoadSpec> loadSpecs = loaderMap.get(loader);
+		long imageBase = 0;
+		if (loadSpecs != null && !loadSpecs.isEmpty()) {
+			imageBase = loadSpecs.iterator().next().getDesiredImageBase();
+		}
+		return new LoadSpec(loader, imageBase, selectedLanguage, false);
+	}
+
+	protected Loader getSelectedLoader() {
+		return (Loader) loaderComboBox.getSelectedItem();
+	}
+
+	protected boolean validateFormInput() {
+		setOkEnabled(false);
+		languageButton.setEnabled(languageNeeded);
+		optionsButton.setEnabled(false);
+		if (loaderComboBox.getSelectedIndex() == -1) {
+			setStatusText("Please select a format.");
+			return false;
+		}
+		if (languageNeeded && selectedLanguage == null) {
+			setStatusText("Please select a language.");
+			return false;
+		}
+		optionsButton.setEnabled(selectedLanguage != null);
+		if (!validateName()) {
+			return false;
+		}
+		setStatusText("");
+		setOkEnabled(true);
+		return true;
+	}
+
+	private boolean validateName() {
+		Loader loader = getSelectedLoader();
+		boolean loadsIntoFolder = loader.loadsIntoNewFolder();
+		String destType = loadsIntoFolder ? "folder" : "file name";
+		if (getName().isEmpty()) {
+			setStatusText("Please enter a destination " + destType + ".");
+			return false;
+		}
+		if (warnedAboutInvalidNameChars()) {
+			return false;
+		}
+		if (isMissingName()) {
+			setStatusText("Destination path does not specify " + destType + ".");
+			return false;
+		}
+		if (isDuplicateName(loadsIntoFolder)) {
+			setStatusText("Destination " + destType + " already exists.");
+			return false;
+		}
+		if (isNameTooLong()) {
+			setStatusText("Destination " + destType + " is too long. ( >" +
+				tool.getProject().getProjectData().getMaxNameLength() + ")");
+			return false;
+		}
+		return true;
+	}
+
+	private boolean warnedAboutInvalidNameChars() {
+		String name = getName();
+		for (int i = 0; i < name.length(); i++) {
+			char ch = name.charAt(i);
+			if (!LocalFileSystem.isValidNameCharacter(ch) && ch != '/') {
+				setStatusText("Invalid character " + ch + " in name.");
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private boolean isMissingName() {
+		String name = FilenameUtils.getName(getName());
+		return StringUtils.isBlank(name);
+	}
+
+	private boolean isDuplicateName(boolean isFolder) {
+		String pathName = getName();
+		String parentPath = FilenameUtils.getFullPathNoEndSeparator(pathName);
+		String fileOrFolderName = FilenameUtils.getName(pathName);
+		DomainFolder localDestFolder =
+			(parentPath != null) ? ProjectDataUtils.getDomainFolder(destinationFolder, parentPath)
+					: destinationFolder;
+		if (localDestFolder != null) {
+			if (isFolder && localDestFolder.getFolder(fileOrFolderName) != null ||
+				!isFolder && localDestFolder.getFile(fileOrFolderName) != null) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private boolean isNameTooLong() {
+		int maxNameLen = tool.getProject().getProjectData().getMaxNameLength();
+		for (String pathPart : getName().split("/")) {
+			if (pathPart.length() >= maxNameLen) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private String getName() {
+		return nameTextField.getText().trim();
+	}
+
+	private void setName(String s) {
+		if (userHasChangedName && validateName()) {
+			// Changing the user's text is really annoying. Keep the user's name, if it is valid
+			return;
+		}
+
+		nameTextField.setText(s);
+		nameTextField.setCaretPosition(s.length());
+	}
+
+	protected void setSelectedLanguage(LanguageCompilerSpecPair lcsPair) {
+		this.selectedLanguage = lcsPair;
+		if (selectedLanguage == null) {
+			languageTextField.setText("");
+		}
+		else {
+			languageTextField.setText(selectedLanguage.toString());
+		}
+	}
+
+	private LanguageCompilerSpecPair getPreferredLanguage(Loader loader) {
+		LanguageCompilerSpecPair preferredSpecPair = null;
+		for (LoadSpec loadSpec : loaderMap.get(loader)) {
+			if (loadSpec.isPreferred()) {
+				if (preferredSpecPair != null) {
+					return null;
+				}
+				preferredSpecPair = loadSpec.getLanguageCompilerSpec();
+			}
+		}
+		return preferredSpecPair;
+	}
+
+	private DomainFolder initializeDestinationFolder() {
+		Project project = AppInfo.getActiveProject();
+		ProjectData projectData = project.getProjectData();
+		String lastFolderPath = Preferences.getProperty(PREFERENCES_LAST_FOLDER);
+		if (lastFolderPath == null) {
+			return projectData.getRootFolder();
+		}
+
+		DomainFolder folder = projectData.getFolder(lastFolderPath);
+		if (folder != null) {
+			return folder;
+		}
+
+		return projectData.getRootFolder();
+	}
+
+	private void chooseProjectFolder() {
+		JComponent component = getComponent();
+		DataTreeDialog dataTreeDialog =
+			new DataTreeDialog(component, "Choose a Project Folder", CHOOSE_FOLDER);
+		dataTreeDialog.setSelectedFolder(destinationFolder);
+		dataTreeDialog.showComponent();
+		DomainFolder folder = dataTreeDialog.getDomainFolder();
+		if (folder != null) {
+			setDestinationFolder(folder);
+		}
+	}
+
+	public DomainFolder getDestinationFolder() {
+		return destinationFolder;
+	}
+
+	JComboBox<Loader> getFormatComboBox() {
+		return loaderComboBox;
+	}
+
+	JTextField getLanguageTextField() {
+		return languageTextField;
+	}
+
+	JTextField getNameTextField() {
+		return nameTextField;
+	}
+
+}

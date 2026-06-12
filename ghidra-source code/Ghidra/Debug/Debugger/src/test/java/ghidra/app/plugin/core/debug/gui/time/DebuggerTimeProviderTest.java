@@ -1,0 +1,413 @@
+/* ###
+ * IP: GHIDRA
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package ghidra.app.plugin.core.debug.gui.time;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
+import java.util.Calendar;
+import java.util.List;
+
+import org.junit.Before;
+import org.junit.Test;
+
+import db.Transaction;
+import docking.widgets.dialogs.InputDialog;
+import ghidra.app.plugin.core.debug.gui.AbstractGhidraHeadedDebuggerTest;
+import ghidra.app.plugin.core.debug.gui.listing.DebuggerListingPlugin;
+import ghidra.app.plugin.core.debug.gui.listing.DebuggerListingProvider;
+import ghidra.trace.database.time.DBTraceSnapshot;
+import ghidra.trace.database.time.DBTraceTimeManager;
+import ghidra.trace.model.thread.TraceThread;
+import ghidra.trace.model.time.TraceSnapshot;
+import ghidra.trace.model.time.schedule.TraceSchedule;
+import ghidra.util.DateUtils;
+
+public class DebuggerTimeProviderTest extends AbstractGhidraHeadedDebuggerTest {
+
+	protected DebuggerTimePlugin timePlugin;
+	protected DebuggerTimeProvider timeProvider;
+
+	@Before
+	public void setUpTimeProviderTest() throws Exception {
+		timePlugin = addPlugin(tool, DebuggerTimePlugin.class);
+		timeProvider = waitForComponentProvider(DebuggerTimeProvider.class);
+	}
+
+	protected void addSnapshots() {
+		DBTraceTimeManager timeManager = tb.trace.getTimeManager();
+		try (Transaction tx = tb.startTransaction()) {
+			TraceSnapshot first = timeManager.createSnapshot("First");
+			Calendar c = Calendar.getInstance(); // System time zone
+			c.set(2020, 0, 1, 9, 0, 0);
+			first.setRealTime(c.getTimeInMillis());
+			TraceSnapshot second = timeManager.getSnapshot(10, true);
+			second.setDescription("Snap 10");
+			second.setSchedule(TraceSchedule.parse("0:5;t1-5"));
+		}
+	}
+
+	protected void addScratchSnapshot() {
+		DBTraceTimeManager timeManager = tb.trace.getTimeManager();
+		try (Transaction tx = tb.startTransaction()) {
+			TraceSnapshot scratch = timeManager.getSnapshot(Long.MIN_VALUE, true);
+			scratch.setDescription("Scratch");
+			scratch.setSchedule(TraceSchedule.parse("0:t0-5"));
+		}
+	}
+
+	protected void assertProviderEmpty() {
+		assertTrue(timeProvider.mainPanel.snapshotTableModel.getModelData().isEmpty());
+	}
+
+	protected void assertProviderPopulated() {
+		List<SnapshotRow> snapsDisplayed = timeProvider.mainPanel.snapshotTableModel.getModelData();
+		// I should be able to assume this is sorted by key
+		assertEquals(2, snapsDisplayed.size());
+
+		SnapshotRow firstRow = snapsDisplayed.get(0);
+		assertEquals(0, firstRow.getSnap());
+		assertEquals("First", firstRow.getDescription());
+		assertEquals("0", firstRow.getSchedule().toString()); // Snap 0 has "0" schedule
+		assertEquals("Jan 01, 2020 09:00 AM",
+			DateUtils.formatDateTimestamp(firstRow.getTimeStamp()));
+
+		SnapshotRow secondRow = snapsDisplayed.get(1);
+		assertEquals(10, secondRow.getSnap());
+		assertEquals("Snap 10", secondRow.getDescription());
+		assertEquals("0:5;t1-5", secondRow.getSchedule().toString());
+		// Timestamp is left unchecked, since default is current time
+	}
+
+	@Test // Technically, this is a plugin action.... Different test case?
+	public void testActionRenameSnapshot() throws Exception {
+		// More often than not, this action will be used from the dynamic listing
+		addPlugin(tool, DebuggerListingPlugin.class);
+		DebuggerListingProvider listingProvider =
+			waitForComponentProvider(DebuggerListingProvider.class);
+		assertDisabled(listingProvider, timePlugin.actionRenameSnapshot);
+
+		createSnaplessTrace();
+		addSnapshots();
+		waitForBusyTool(tool);
+		assertDisabled(listingProvider, timePlugin.actionRenameSnapshot);
+
+		traceManager.openTrace(tb.trace);
+		waitForBusyTool(tool);
+		assertDisabled(listingProvider, timePlugin.actionRenameSnapshot);
+
+		traceManager.activateTrace(tb.trace);
+		waitForBusyTool(tool);
+		assertEnabled(listingProvider, timePlugin.actionRenameSnapshot);
+
+		traceManager.activateSnap(10);
+		waitForBusyTool(tool);
+		performEnabledAction(listingProvider, timePlugin.actionRenameSnapshot, false);
+		InputDialog dialog = waitForDialogComponent(InputDialog.class);
+		assertEquals("Snap 10", dialog.getValue());
+
+		dialog.setValue("My Snapshot");
+		dialog.close(); // isCancelled (private) defaults to false
+		waitForBusyTool(tool);
+
+		DBTraceSnapshot snapshot = tb.trace.getTimeManager().getSnapshot(10, false);
+		assertEquals("My Snapshot", snapshot.getDescription());
+
+		// LATER?: Test cancelled has no effect
+	}
+
+	@Test
+	public void testEmpty() {
+		waitForBusyTool(tool);
+		assertProviderEmpty();
+	}
+
+	@Test
+	public void testActivateThenAddSnapshotsPopulatesProvider() throws Exception {
+		createSnaplessTrace();
+		traceManager.openTrace(tb.trace);
+		traceManager.activateTrace(tb.trace);
+		waitForBusyTool(tool);
+
+		assertProviderEmpty();
+
+		addSnapshots();
+		waitForDomainObject(tb.trace);
+		waitForBusyTool(tool);
+
+		assertProviderPopulated();
+	}
+
+	@Test
+	public void testActivateByThreadThenAddSnapshotsPopulatesProvider() throws Exception {
+		createSnaplessTrace();
+		TraceThread thread;
+		try (Transaction tx = tb.startTransaction()) {
+			tb.createRootObject("Target");
+			thread = tb.trace.getThreadManager().createThread("Threads[1]", 0);
+		}
+		traceManager.openTrace(tb.trace);
+		traceManager.activateThread(thread);
+		waitForBusyTool(tool);
+
+		assertProviderEmpty();
+
+		addSnapshots();
+		waitForDomainObject(tb.trace);
+		waitForBusyTool(tool);
+
+		assertProviderPopulated();
+	}
+
+	@Test
+	public void testAddSnapshotsThenActivatePopulatesProvider() throws Exception {
+		createSnaplessTrace();
+		traceManager.openTrace(tb.trace);
+		addSnapshots();
+		waitForDomainObject(tb.trace);
+		waitForBusyTool(tool);
+
+		assertProviderEmpty();
+
+		traceManager.activateTrace(tb.trace);
+		waitForBusyTool(tool);
+
+		assertProviderPopulated();
+	}
+
+	@Test
+	public void testDeleteSnapshotUpdatesProvider() throws Exception {
+		createSnaplessTrace();
+		traceManager.openTrace(tb.trace);
+		addSnapshots();
+		waitForDomainObject(tb.trace);
+		waitForBusyTool(tool);
+
+		assertProviderEmpty();
+
+		traceManager.activateTrace(tb.trace);
+		waitForBusyTool(tool);
+
+		assertProviderPopulated();
+
+		try (Transaction tx = tb.startTransaction()) {
+			tb.trace.getTimeManager().getSnapshot(10, false).delete();
+		}
+		waitForDomainObject(tb.trace);
+		waitForBusyTool(tool);
+
+		assertEquals(1, timeProvider.mainPanel.snapshotTableModel.getModelData().size());
+	}
+
+	@Test
+	public void testUndoRedo() throws Exception {
+		createSnaplessTrace();
+		traceManager.openTrace(tb.trace);
+		traceManager.activateTrace(tb.trace);
+		waitForBusyTool(tool);
+
+		assertProviderEmpty();
+
+		addSnapshots();
+		waitForDomainObject(tb.trace);
+		waitForBusyTool(tool);
+
+		assertProviderPopulated();
+
+		undo(tb.trace);
+		waitForBusyTool(tool);
+
+		assertProviderEmpty();
+
+		redo(tb.trace);
+		waitForBusyTool(tool);
+
+		assertProviderPopulated();
+	}
+
+	@Test
+	public void testAbort() throws Exception {
+		createSnaplessTrace();
+		traceManager.openTrace(tb.trace);
+		traceManager.activateTrace(tb.trace);
+		waitForBusyTool(tool);
+
+		assertProviderEmpty();
+
+		try (Transaction tx = tb.startTransaction()) {
+			addSnapshots();
+			waitForDomainObject(tb.trace);
+			waitForBusyTool(tool);
+
+			assertProviderPopulated();
+
+			tx.abort();
+		}
+		waitForDomainObject(tb.trace);
+		waitForBusyTool(tool);
+
+		assertProviderEmpty();
+	}
+
+	@Test
+	public void testCloseEmptiesProvider() throws Exception {
+		createSnaplessTrace();
+		traceManager.openTrace(tb.trace);
+		addSnapshots();
+		waitForDomainObject(tb.trace);
+
+		assertProviderEmpty();
+
+		traceManager.activateTrace(tb.trace);
+		waitForBusyTool(tool);
+
+		assertProviderPopulated();
+
+		traceManager.closeTrace(tb.trace);
+		waitForSwing();
+
+		assertProviderEmpty();
+	}
+
+	@Test
+	public void testEditDescription() throws Exception {
+		createSnaplessTrace();
+		traceManager.openTrace(tb.trace);
+		addSnapshots();
+		waitForDomainObject(tb.trace);
+		waitForBusyTool(tool);
+
+		assertProviderEmpty();
+
+		traceManager.activateTrace(tb.trace);
+		waitForBusyTool(tool);
+
+		SnapshotRow row = timeProvider.mainPanel.snapshotTableModel.getModelData().get(0);
+		runSwing(() -> row.setDescription("Custom Description"));
+		waitForDomainObject(tb.trace);
+		waitForBusyTool(tool);
+
+		assertEquals("Custom Description",
+			tb.trace.getTimeManager().getSnapshot(0, false).getDescription());
+	}
+
+	// TODO: Test activation bolds the row
+
+	@Test
+	public void testDoubleClickRowActivatesSnap() throws Exception {
+		createSnaplessTrace();
+		traceManager.openTrace(tb.trace);
+		addSnapshots();
+		waitForDomainObject(tb.trace);
+		waitForBusyTool(tool);
+
+		assertProviderEmpty();
+
+		traceManager.activateTrace(tb.trace);
+		waitForBusyTool(tool);
+
+		clickTableCell(timeProvider.mainPanel.snapshotTable, 0, 0, 2);
+		assertEquals(0, traceManager.getCurrentSnap());
+
+		clickTableCell(timeProvider.mainPanel.snapshotTable, 1, 0, 2);
+		assertEquals(10, traceManager.getCurrentSnap());
+	}
+
+	@Test
+	public void testAddScratchThenActivateIsShown() throws Exception {
+		createSnaplessTrace();
+		traceManager.openTrace(tb.trace);
+		addSnapshots();
+		addScratchSnapshot();
+		waitForDomainObject(tb.trace);
+		waitForBusyTool(tool);
+
+		traceManager.activateTrace(tb.trace);
+		waitForBusyTool(tool);
+
+		assertEquals(3, timeProvider.mainPanel.snapshotTableModel.getModelData().size());
+	}
+
+	@Test
+	public void testActivateThenAddScratchIsShown() throws Exception {
+		createSnaplessTrace();
+		traceManager.openTrace(tb.trace);
+		addSnapshots();
+		waitForDomainObject(tb.trace);
+		waitForBusyTool(tool);
+
+		traceManager.activateTrace(tb.trace);
+		waitForBusyTool(tool);
+
+		assertEquals(2, timeProvider.mainPanel.snapshotTableModel.getModelData().size());
+
+		addScratchSnapshot();
+		waitForDomainObject(tb.trace);
+		waitForBusyTool(tool);
+
+		assertEquals(3, timeProvider.mainPanel.snapshotTableModel.getModelData().size());
+	}
+
+	@Test
+	public void testAddScratchThenActivateThenToggleIsShown() throws Exception {
+		createSnaplessTrace();
+		traceManager.openTrace(tb.trace);
+		addSnapshots();
+		addScratchSnapshot();
+		waitForDomainObject(tb.trace);
+		waitForBusyTool(tool);
+
+		traceManager.activateTrace(tb.trace);
+		waitForBusyTool(tool);
+
+		assertEquals(false, timeProvider.hideScratch);
+		assertEquals(3, timeProvider.mainPanel.snapshotTableModel.getModelData().size());
+
+		performAction(timeProvider.actionHideScratch);
+		waitForBusyTool(tool);
+
+		assertEquals(true, timeProvider.hideScratch);
+		assertEquals(2, timeProvider.mainPanel.snapshotTableModel.getModelData().size());
+
+		performAction(timeProvider.actionHideScratch);
+		waitForBusyTool(tool);
+
+		assertEquals(false, timeProvider.hideScratch);
+		assertEquals(3, timeProvider.mainPanel.snapshotTableModel.getModelData().size());
+	}
+
+	@Test
+	public void testToggleThenAddScratchThenActivateIsHidden() throws Exception {
+		performAction(timeProvider.actionHideScratch);
+
+		createSnaplessTrace();
+		traceManager.openTrace(tb.trace);
+		addSnapshots();
+		addScratchSnapshot();
+		waitForDomainObject(tb.trace);
+		waitForBusyTool(tool);
+
+		traceManager.activateTrace(tb.trace);
+		waitForBusyTool(tool);
+
+		assertEquals(true, timeProvider.hideScratch);
+		List<SnapshotRow> data = timeProvider.mainPanel.snapshotTableModel.getModelData();
+		assertEquals(2, data.size());
+		for (SnapshotRow row : data) {
+			assertTrue(row.getSnap() >= 0);
+		}
+	}
+}

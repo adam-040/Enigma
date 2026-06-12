@@ -1,0 +1,63 @@
+#pragma once
+
+#include <string>
+#include <cstdint>
+#include <stdexcept>
+#include <vector>
+#include <functional>
+
+namespace ghidra {
+
+class Address;
+class AddressFactory;
+
+class SymbolUtilities {
+public:
+    static constexpr int MAX_SYMBOL_NAME_LENGTH = 2000;
+
+    static constexpr const char* DEFAULT_SUBROUTINE_PREFIX = "SUB_";
+    static constexpr const char* DEFAULT_SYMBOL_PREFIX = "LAB_";
+    static constexpr const char* DEFAULT_DATA_PREFIX = "DAT_";
+    static constexpr const char* DEFAULT_UNKNOWN_PREFIX = "UNK_";
+    static constexpr const char* DEFAULT_EXTERNAL_ENTRY_PREFIX = "EXT_";
+    static constexpr const char* DEFAULT_FUNCTION_PREFIX = "FUN_";
+    static constexpr const char* DEFAULT_INTERNAL_REF_PREFIX = "OFF_";
+    static constexpr const char* ORDINAL_PREFIX = "Ordinal_";
+
+    static constexpr int UNK_LEVEL = 0;
+    static constexpr int DAT_LEVEL = 1;
+    static constexpr int LAB_LEVEL = 2;
+    static constexpr int SUB_LEVEL = 3;
+    static constexpr int EXT_LEVEL = 5;
+    static constexpr int FUN_LEVEL = 6;
+
+    static constexpr char INVALIDCHARS[] = { ' ', '\0' };
+
+    static constexpr const char* DYNAMIC_PREFIX_ARRAY[] = {
+        DEFAULT_UNKNOWN_PREFIX,
+        DEFAULT_DATA_PREFIX,
+        DEFAULT_SYMBOL_PREFIX,
+        DEFAULT_SUBROUTINE_PREFIX,
+        DEFAULT_UNKNOWN_PREFIX,
+        DEFAULT_EXTERNAL_ENTRY_PREFIX,
+        DEFAULT_FUNCTION_PREFIX
+    };
+
+    static int getOrdinalValue(const std::string& symbolName);
+    static bool containsInvalidChars(const std::string& str);
+    static bool isInvalidChar(char c);
+    static std::string replaceInvalidChars(const std::string& str, bool replaceWithUnderscore);
+    static std::string getDefaultFunctionName(const Address& addr);
+    static std::string getAddressString(const Address& addr);
+    static std::string getDefaultExternalFunctionName(const Address& addr);
+    static std::string getDynamicOffcutName(const Address& addr);
+    static std::string getDynamicName(int referenceLevel, const Address& addr);
+    static std::string getDiffString(int64_t diff);
+    static bool startsWithDefaultDynamicPrefix(const std::string& name);
+    static std::string getDefaultParamName(int ordinal);
+    static bool isDefaultParameterName(const std::string& name);
+
+    static void validateName(const std::string& name);
+};
+
+} // namespace ghidra

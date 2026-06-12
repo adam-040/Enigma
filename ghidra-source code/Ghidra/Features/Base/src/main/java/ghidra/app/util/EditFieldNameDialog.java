@@ -1,0 +1,144 @@
+/* ###
+ * IP: GHIDRA
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package ghidra.app.util;
+
+import java.awt.BorderLayout;
+import java.awt.Dimension;
+import java.util.Objects;
+
+import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import javax.swing.border.TitledBorder;
+
+import docking.DialogComponentProvider;
+import docking.widgets.OptionDialog;
+import ghidra.framework.plugintool.PluginTool;
+import ghidra.program.model.data.*;
+import ghidra.program.model.listing.Program;
+import ghidra.util.HelpLocation;
+
+public class EditFieldNameDialog extends DialogComponentProvider {
+
+	private PluginTool tool;
+	private TitledBorder nameBorder;
+	private JTextField fieldName;
+
+	private Program program;
+	private DataTypeComponent dtComp;
+
+	/**
+	 * Construct a new dialog.
+	 *
+	 * @param title title for the dialog, null value is acceptable if no title
+	 * @param tool the plugin tool
+	 */
+	public EditFieldNameDialog(String title, PluginTool tool) {
+		super(title, true, true, true, false);
+		this.tool = tool;
+		setHelpLocation(new HelpLocation(HelpTopics.LABEL, "EditFieldNameDialog"));
+
+		addWorkPanel(create());
+
+		setFocusComponent(fieldName);
+
+		addOKButton();
+		addCancelButton();
+
+		setDefaultButton(okButton);
+
+		setMinimumSize(new Dimension(300, 50));
+	}
+
+	private String getCurrentFieldName() {
+		String name = dtComp.getFieldName();
+		if (name == null) {
+			name = dtComp.getDefaultFieldName();
+		}
+		return name;
+	}
+
+	/**
+	 * This method gets called when the user clicks on the OK Button.  The base
+	 * class calls this method.
+	 */
+	@Override
+	protected void okCallback() {
+
+		String newName = InternalDataTypeComponent.cleanupFieldName(fieldName.getText());
+		if (Objects.equals(newName, dtComp.getDefaultFieldName())) {
+			newName = null;
+		}
+		if (Objects.equals(newName, dtComp.getFieldName())) {
+			close();
+			return;
+		}
+
+		DataType parent = dtComp.getParent();
+		if (newName != null && parent instanceof Composite composite &&
+			composite.findComponent(newName) != null) {
+
+			// Warn user and confirm rename when duplicate name is used
+			if (OptionDialog.OPTION_ONE != OptionDialog.showOptionDialog(getComponent(),
+				"Duplicate Field Name",
+				"Duplicate field name. Proceed with rename?",
+				"Rename!", OptionDialog.WARNING_MESSAGE)) {
+				return;
+			}
+		}
+
+		int txId = program.startTransaction("Edit Field Name");
+		try {
+			dtComp.setFieldName(newName);
+		}
+		finally {
+			program.endTransaction(txId, true);
+		}
+
+		dtComp = null;
+		program = null;
+		close();
+	}
+
+	public void editField(DataTypeComponent dataTypeComponent, Program p) {
+		this.dtComp = dataTypeComponent;
+		this.program = p;
+		String name = getCurrentFieldName();
+		setTitle("Edit Field Name: " + dataTypeComponent.getParent().getName() + "." + name);
+		fieldName.setText(name);
+		fieldName.selectAll();
+		clearStatusText();
+		tool.showDialog(this);
+	}
+
+	/**
+	 * Define the Main panel for the dialog here.
+	 */
+	private JPanel create() {
+		fieldName = new JTextField();
+
+		JPanel mainPanel = new JPanel(new BorderLayout());
+
+		nameBorder = BorderFactory.createTitledBorder("Enter Field Name");
+		mainPanel.setBorder(nameBorder);
+		fieldName.getAccessibleContext().setAccessibleName("Name");
+		mainPanel.add(fieldName, BorderLayout.CENTER);
+
+		mainPanel.setBorder(new EmptyBorder(5, 5, 5, 5));
+		mainPanel.getAccessibleContext().setAccessibleName("Edit Field Name");
+		return mainPanel;
+	}
+
+}

@@ -1,0 +1,206 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+
+<HTML>
+  <HEAD>
+    <TITLE>Extension Installation</TITLE>
+    <META http-equiv="content-type" content="text/html; charset=windows-1252">
+    <LINK rel="stylesheet" type="text/css" href="help/shared/DefaultStyle.css">
+  </HEAD>
+
+  <BODY>
+    <H1><A name="Extensions"></A> Ghidra Extensions</H1>
+
+    <P>Ghidra Extensions are Ghidra software modules that can be installed 
+    into a Ghidra distribution.  This allows users to create and share new plugins and scripts.
+    Ghidra ships with some pre-built extensions that not installed by default. 
+    </P>
+    <P>Ghidra Extensions can be installed and uninstalled at runtime, <U>with the changes taking effect
+    when Ghidra is restarted</U>. The extension installation dialog can
+    be opened by selecting the <B>Install Extensions</B> option on the project <B>File</B> menu.</P>
+
+	<BLOCKQUOTE>
+    <CENTER>
+      <TABLE border="0" width="100%">
+        <TR>
+          <TD width="100%" align="center"><IMG alt="" border="0" src=
+          "images/ConfigureExtensions.png"></TD>
+        </TR>
+      </TABLE>
+    </CENTER>
+    <BR>
+    <BR>
+    </BLOCKQUOTE>
+     
+
+	<BLOCKQUOTE>
+	   <P>Installed extensions provide new functionality to Ghidra, such as Plugins, Analyzers and 
+		other Extension Points.   Non-plugin Extension Points will be automatically discovered and
+		loaded at startup.  This is <B>not</B> the case for Plugins.  Plugins must be manually 
+		enabled inside of the tool that is being used.  For example, when running the Code Browser,
+		use the <A href="help/topics/Tool/Configure_Tool.htm">
+			<B>File</B><IMG src="help/shared/arrow.gif" border="0"><B>Congfigure</B></A> menu to 
+		enable any plugins added by newly installed extensions.
+	   </P>
+	   
+	   <BLOCKQUOTE>
+	      <P><IMG src="help/shared/tip.png" alt="" border="0">The easiest way to find the plugins 
+			for a given extension is to use the table view of all known plugins.  To see all plugins
+		 	for an extension:</P>
+			<OL>
+				<LI>
+					Configure plugins via <B>File</B><IMG src="help/shared/arrow.gif" border="0">
+						<B>Congfigure</B>
+				</LI>
+				<LI>
+					Click the <img src="images/plugin.png" /> icon to show all plugins
+				</LI>
+				<LI>
+					If not already visible, add the <B>Module</B> table column via the right-click
+					menu of the table header.  (Extensions are modules.)
+				</LI>
+				<LI>
+					Sort on the <B>Module</B> table column
+				</LI>
+				<LI>
+					Optionally, you can type the name of the extension into the filter to hide other modules
+				</LI>
+			</OL>
+	   </BLOCKQUOTE>
+	   
+	</BLOCKQUOTE>
+	
+	
+    <H2>Dialog Components</H2>
+
+    <H3>Extensions Table</H3>
+
+    <BLOCKQUOTE>
+		
+	<P>To install an extension, select the extension's checkbox.  To unininstall, deselect the 
+		checkbox.</P>
+		
+		
+		<BLOCKQUOTE>
+		   <P><IMG src="help/shared/note.png" alt="" border="0">If the checkbox is not editable, 
+			that means that means the extension is installed and canont be uninistalled.  This can
+			happen in development mode with extensions that live in source control.</P>
+		</BLOCKQUOTE>
+		
+		
+      <P>The list of extensions is populated when the dialog is launched. To build the list, Ghidra
+      looks in several locations:</P>
+
+      <UL>
+        <LI>Extension Installation Directories: Contains any extensions that have been installed.
+        The directories are located at:</LI>
+
+        <LI style="list-style: none">
+          <UL>
+            <LI><I>[user settings]/Extensions</I> - Installed/uninstalled from
+            this dialog</LI>
+
+            <LI><I>[installation dir]/Ghidra/Extensions/</I> - Installed/uninstalled from
+            filesystem manually</LI>
+          </UL>
+        </LI>
+
+        <LI>Extensions Archive Directory: This is where archive files (zips) that are bundled with
+        the distribution are stored. It is
+        located at <I>[installation dir]/Extensions/Ghidra/</I>.  This directory is not intended for
+        end-user extensions.
+        </LI>
+      </UL>
+
+	  	<BLOCKQUOTE>
+	        <P><IMG src="help/shared/tip.png" alt="" border="0">The color red is used in the table
+	        to indicate that the extension version does not match the Ghidra version.</P>
+	     </BLOCKQUOTE>
+	
+
+      <P><B>Note:</B> Extensions that have been installed directly into the Ghidra installation
+      directory cannot be uninstalled from this dialog. They must be manually removed from the
+      filesystem.</P>
+    </BLOCKQUOTE>
+
+    <H3>Description Panel</H3>
+
+    <BLOCKQUOTE>
+      <P>Displays metadata about the extension selected in the Extensions List. The information
+      displayed is extracted from the <CODE><I>extensions.properties</I></CODE> file associated with the
+      extension.</P>
+
+      <P>The existence of this file is what tells Ghidra that the folder or zip file is a Ghidra
+      Extension. It is a simple property file that can contain the following attributes:</P>
+
+      <UL>
+        <LI><B>name</B>: Human-readable name of the extension. This is what will be displayed in
+        the dialog.</LI>
+
+        <LI><B>description</B>: Brief description of the extension.</LI>
+
+        <LI><B>author</B>: Creator of the extension.</LI>
+
+        <LI><B>createdOn</B>: Date of extension creation, in the format mm/dd/yyyy.</LI>
+        
+        <LI><B>version</B>: The version of Ghidra for which this extension was built.</LI>
+      </UL>
+    </BLOCKQUOTE>
+
+    <H3><A name="ExtensionTools"></A>Tools Panel</H3>
+
+    <BLOCKQUOTE>
+      <UL>
+        <LI><IMG alt="" border="0" src="images/Plus.png">&nbsp; Allows the user to install a
+        new extension. An extension can be any folder or zip file that contains an
+        <I>extensions.properties</I> file. When one of these is selected, it will be copied to the
+        extension installation folder and extracted (if it is a zip).</LI>
+
+        <LI>&nbsp;<IMG alt="" border="0" src="Icons.REFRESH_ICON">&nbsp; Reloads the Extensions
+        List</LI>
+      </UL>
+    </BLOCKQUOTE>
+
+	
+	<H2>Building Extensions</H2>
+	<BLOCKQUOTE>
+	<P>
+	An extension is simply a Ghidra module that contains an <CODE>extension.properties</CODE> file.
+	Building an extension is very similar to building a ghidra module, which is done by using
+	<CODE>gradle</CODE>.
+	</P>
+	<P>
+	Ghidra includes a <CODE>Skeleton</CODE> module in the distribution that is meant to be used as
+	a template when creating extensions.   This module can be found at
+	</P>
+		<BLOCKQUOTE>
+		<P>
+		<CODE CLASS="path">&lt;GHIDRA_INSTALL_DIR&gt;/Extensions/Ghidra</CODE>
+		</P>
+		</BLOCKQUOTE>
+	<P>
+	Copy and rename this directory to get started writing your own module.  You can then use 
+	<CODE>gradle</CODE> to build the extension by running this command from within your extension 
+	directory:
+	</P>
+		<BLOCKQUOTE>
+		<P>
+		<CODE CLASS="path">gradle -PGHIDRA_INSTALL_DIR=/path/to/ghidra/ghidra_&lt;version&gt;/ buildExtension</CODE>
+		</P>
+		</BLOCKQUOTE>
+	</BLOCKQUOTE>
+	<BR>
+	<BR>
+	<BR>
+
+
+	<P class="relatedtopic">Related Topics:</P>
+    <UL>
+      <LI><A href="help/topics/Tool/Configure_Tool.htm">Configuring Tool Plugins</A></LI>
+    </UL>	
+	
+	<BR>
+	<BR>
+	<BR>
+
+  </BODY>
+</HTML>

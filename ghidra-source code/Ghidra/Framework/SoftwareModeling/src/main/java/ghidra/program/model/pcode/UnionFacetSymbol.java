@@ -1,0 +1,130 @@
+/* ###
+ * IP: GHIDRA
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package ghidra.program.model.pcode;
+
+import static ghidra.program.model.pcode.AttributeId.*;
+import static ghidra.program.model.pcode.ElementId.*;
+
+import java.io.IOException;
+
+import ghidra.program.model.address.Address;
+import ghidra.program.model.data.*;
+
+/**
+ * A specialized HighSymbol that directs the decompiler to use a specific field of a union,
+ * when interpreting a particular PcodeOp that accesses a Varnode whose data-type involves the
+ * union. The symbol is stored as a dynamic variable annotation.  The data-type must either be the
+ * union itself or a pointer to the union. The firstUseOffset and dynamic hash
+ * identify the particular PcodeOp and Varnode affected.  The field number is the ordinal
+ * of the desired field (DataTypeComponent) within the union.  It is currently stored by
+ * encoding it in the symbol name.
+ */
+public class UnionFacetSymbol extends HighSymbol {
+	public static String BASENAME = "unionfacet";
+	private int fieldNumber;		// Ordinal of field within union being selected
+	private boolean isAddrBased;		// Controls facets for any op at the address
+
+	public UnionFacetSymbol(long uniqueId, String nm, DataType dt, HighFunction func) {
+		super(uniqueId, nm, dt, func);
+		category = 2;
+		fieldNumber = extractFieldNumber(nm);
+		isAddrBased = extractAddressBased(nm);
+	}
+
+	@Override
+	public void encode(Encoder encoder) throws IOException {
+		encoder.openElement(ELEM_FACETSYMBOL);
+		encodeHeader(encoder);
+		encoder.writeSignedInteger(ATTRIB_FIELD, fieldNumber);
+		encoder.writeBool(ATTRIB_ADDRTIED, isAddrBased);
+		dtmanage.encodeTypeRef(encoder, type, getSize());
+		encoder.closeElement(ELEM_FACETSYMBOL);
+	}
+
+	/**
+	 * Generate an automatic symbol name, given a field number and address
+	 * @param fldNum is the field number
+	 * @param addr is the Address
+	 * @param isAddr is true if the facet should be address based
+	 * @return the name
+	 */
+	public static String buildSymbolName(int fldNum, Address addr, boolean isAddr) {
+		StringBuilder buffer = new StringBuilder();
+		buffer.append(BASENAME);
+		if (isAddr) {
+			buffer.append('a');
+		}
+		buffer.append(fldNum + 1).append('_');
+		buffer.append(Long.toHexString(addr.getOffset()));
+		return buffer.toString();
+	}
+
+	/**
+	 * The actual field number is encoded in the symbol name
+	 * @param nm is the symbol name
+	 * @return the field number or -1 if we cannot parse
+	 */
+	public static int extractFieldNumber(String nm) {
+		int pos = nm.indexOf(BASENAME);
+		if (pos < 0) {
+			return -1;
+		}
+		pos += BASENAME.length();
+		if (nm.length() > pos && nm.charAt(pos) == 'a') {
+			pos = pos + 1;
+		}
+		int endpos = nm.indexOf('_', pos);
+		if (endpos < 0) {
+			return -1;
+		}
+		return Integer.decode(nm.substring(pos, endpos)) - 1;
+	}
+
+	/**
+	 * First character of 'a' after BASENAME indicates an address based facet
+	 * @param nm is the symbol name
+	 * @return true if the facet is address based
+	 */
+	public static boolean extractAddressBased(String nm) {
+		int pos = nm.indexOf(BASENAME);
+		if (pos < 0 || nm.length() <= pos) {
+			return false;
+		}
+		return nm.charAt(pos + BASENAME.length()) == 'a';
+	}
+
+	/**
+	 * Return true if the given data-type is either a union or a pointer to a union
+	 * and is suitable for being the data-type of UnionFacetSymbol
+	 * @param dt is the given data-type
+	 * @return true if the data-type is a union or a pointer to a union
+	 */
+	public static boolean isUnionType(DataType dt) {
+		if (dt instanceof TypeDef) {
+			dt = ((TypeDef) dt).getBaseDataType();
+		}
+		if (dt instanceof Pointer) {
+			dt = ((Pointer) dt).getDataType();
+			if (dt == null) {
+				return false;
+			}
+			if (dt instanceof TypeDef) {
+				dt = ((TypeDef) dt).getBaseDataType();
+			}
+		}
+		return (dt instanceof Union);
+	}
+}

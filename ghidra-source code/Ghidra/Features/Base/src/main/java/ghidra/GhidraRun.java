@@ -1,0 +1,344 @@
+/* ###
+ * IP: GHIDRA
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package ghidra;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.util.List;
+
+import javax.swing.ToolTipManager;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import docking.framework.SplashScreen;
+import generic.jar.ResourceFile;
+import ghidra.base.help.GhidraHelpService;
+import ghidra.framework.*;
+import ghidra.framework.client.RepositoryAdapter;
+import ghidra.framework.main.FrontEndTool;
+import ghidra.framework.model.*;
+import ghidra.framework.plugintool.PluginTool;
+import ghidra.framework.project.DefaultProjectManager;
+import ghidra.framework.store.LockException;
+import ghidra.util.*;
+import ghidra.util.exception.UsrException;
+import ghidra.util.extensions.ExtensionUtils;
+import ghidra.util.task.TaskLauncher;
+
+/**
+ * Main Ghidra application class. Creates
+ * the .ghidra folder that contains the user preferences and tools if it does
+ * not exist. Initializes JavaHelp and attempts to restore the last opened
+ * project.
+ * <p> A list of classes for plugins, data types, and language providers is
+ * maintained so that a search of the classpath is not done every time
+ * Ghidra is run. The list is maintained in the GhidraClasses.xml file
+ * in the user's .ghidra folder. A search of the classpath is done if the
+ * (1) GhidraClasses.xml file is not found, (2) the classpath is different
+ * from when the last time Ghidra was run, (3) a class in the file was
+ * not found,  or (4) a modification date specified in the classes file for
+ * a jar file is older than the actual jar file's modification date.
+ *
+ * <p><strong>Note</strong>: The Plugin path is a user preference that
+ * indicates locations for where classes for plugins and data types should
+ * be searched; the Plugin path can include jar files just like a classpath.
+ * The Plugin path can be changed by using the <i>Edit Plugin Path</i> dialog,
+ * displayed from the <i>Edit-&gt;Edit Plugin Path...</i> menu option on the main
+ * Ghidra project window.
+ *
+ * @see ghidra.GhidraLauncher
+ */
+public class GhidraRun implements GhidraLaunchable {
+
+	private Logger log; // intentionally load later, after initialization
+
+	/**
+	 * Supports the extended command line argument syntax: project.gpr:/path/to/domainfile
+	 * 
+	 * @param projectPath The FS path to the .gpr file (could be {@code null})
+	 * @param domainFilePath The project path to the {@link DomainFile} (could be {@code null})
+	 */
+	private record LaunchArguments(String projectPath, String domainFilePath) {
+		static LaunchArguments empty() {
+			return new LaunchArguments(null, null);
+		}
+	}
+
+	@Override
+	public void launch(GhidraApplicationLayout layout, String[] args) {
+
+		Runnable mainTask = () -> {
+
+			GhidraApplicationConfiguration configuration = new GhidraApplicationConfiguration();
+			Application.initializeApplication(layout, configuration);
+
+			log = LogManager.getLogger(GhidraRun.class);
+			log.info("User " + SystemUtilities.getUserName() + " started Ghidra.");
+			log.info("User settings directory: " + Application.getUserSettingsDirectory());
+			log.info("User temp directory: " + Application.getUserTempDirectory());
+			log.info("User cache directory: " + Application.getUserCacheDirectory());
+
+			writeLastRun();
+
+			initializeTooltips();
+
+			updateSplashScreenStatusMessage("Populating Ghidra help...");
+			GhidraHelpService.install();
+
+			ExtensionUtils.initializeExtensions();
+
+			updateSplashScreenStatusMessage("Checking for previous project...");
+			SystemUtilities.runSwingLater(() -> {
+				LaunchArguments launchArgs = processArguments(args);
+				openProject(launchArgs);
+
+				log.info("Ghidra startup complete (" + GhidraLauncher.getMillisecondsFromLaunch() +
+					" ms)");
+
+				checkForMissingNativeComponents();
+			});
+		};
+
+		// Start main thread in GhidraThreadGroup
+		Thread mainThread = new Thread(new GhidraThreadGroup(), mainTask, "Ghidra");
+		mainThread.start();
+	}
+
+	private void writeLastRun() {
+		// Write the Ghidra installation location to the "lastrun" file
+		File settingsDir = Application.getUserSettingsDirectory();
+		ResourceFile rootDir = Application.getApplicationRootDirectory();
+		if (settingsDir != null && rootDir != null) {
+			File lastRunFile = new File(settingsDir.getParentFile(), "lastrun");
+			try {
+				Files.writeString(lastRunFile.toPath(),
+					rootDir.getParentFile().getCanonicalPath() + "\n");
+			}
+			catch (IOException e) {
+				log.error("Failed to write 'lastrun' file", e);
+			}
+		}
+	}
+
+	private LaunchArguments processArguments(String[] args) {
+		//TODO remove this special handling when possible
+		if (args.length == 1 && (args[0].startsWith("-D") || args[0].indexOf(" -D") >= 0)) {
+			args = args[0].split(" ");
+		}
+		String projectArg = null;
+		for (String arg : args) {
+			if (arg.startsWith("-D")) {
+				String[] split = arg.substring(2).split("=");
+				if (split.length == 2) {
+					System.setProperty(split[0], split[1]);
+				}
+			}
+			else {
+				projectArg = arg;
+			}
+		}
+
+		if (projectArg == null) {
+			return LaunchArguments.empty();
+		}
+
+		return parseProjectArgument(projectArg);
+	}
+
+	private LaunchArguments parseProjectArgument(String projectArg) {
+		// Trim any whitespace/newlines from the argument
+		projectArg = projectArg.trim();
+
+		String projectPath = projectArg;
+		String binaryPath = null;
+
+		// Look for the .gpr extension followed by a colon to separate project from binary path
+		String projectExt = ProjectLocator.getProjectExtension();
+		int extIndex = projectArg.indexOf(projectExt + ":");
+		if (extIndex >= 0) {
+			int colonIndex = extIndex + projectExt.length();
+			projectPath = projectArg.substring(0, colonIndex).trim();
+			binaryPath = projectArg.substring(colonIndex + 1).trim(); // skip the ':'
+		}
+
+		return new LaunchArguments(projectPath, binaryPath);
+	}
+
+	private void updateSplashScreenStatusMessage(final String message) {
+		SystemUtilities.runSwingNow(() -> SplashScreen.updateSplashScreenStatus(message));
+	}
+
+	private void initializeTooltips() {
+		int currentDelay = ToolTipManager.sharedInstance().getDismissDelay();
+		ToolTipManager.sharedInstance().setDismissDelay(currentDelay * 2);
+	}
+
+	/**
+	 * Open the specified project or the last active project if launchArgs has no project.
+	 * If a binary path is specified, opens it in the default tool. 
+	 * Makes the project window visible.
+	 *
+	 * @param launchArgs parsed command line arguments
+	 */
+	private void openProject(LaunchArguments launchArgs) {
+
+		updateSplashScreenStatusMessage("Creating project manager...");
+		ProjectManager pm = new GhidraProjectManager();
+		updateSplashScreenStatusMessage("Creating front end tool...");
+
+		// Show this warning before creating the tool.   If we create the tool first, then we may
+		// see odd dialog behavior caused tool plugins creating dialogs during initialization.
+		if (Application.isTestBuild()) {
+			Msg.showWarn(GhidraRun.class, null, "Unsupported Ghidra Distribution",
+				"WARNING! Please be aware that this is an unsupported and uncertified\n" +
+					"build of Ghidra!  This software may be unstable and data created\n" +
+					"may be incompatible with future releases.");
+		}
+
+		FrontEndTool tool = new FrontEndTool(pm);
+
+		boolean reopen = true;
+		ProjectLocator projectLocator = null;
+		if (launchArgs.projectPath() != null) {
+			File projectFile = new File(launchArgs.projectPath());
+			String name = projectFile.getName();
+			if (!name.endsWith(ProjectLocator.getProjectExtension())) {
+				Msg.showInfo(GhidraRun.class, null, "Invalid Project",
+					"The specified file is not a project file: " + launchArgs.projectPath());
+			}
+			else {
+				projectLocator = new ProjectLocator(projectFile.getParent(), name);
+				reopen = false;
+			}
+		}
+
+		if (projectLocator == null && tool.shouldRestorePreviousProject()) {
+			updateSplashScreenStatusMessage("Checking for last opened project...");
+			projectLocator = pm.getLastOpenedProject();
+		}
+
+		tool.setVisible(true);
+
+		if (projectLocator != null) {
+			openProject(tool, projectLocator, reopen, launchArgs.domainFilePath());
+		}
+	}
+
+	private void openProject(FrontEndTool tool, ProjectLocator projectLocator, boolean reopen,
+			String domainFilePath) {
+		SplashScreen.updateSplashScreenStatus(
+			(reopen ? "Reopening" : "Opening") + " project: " + projectLocator.getName());
+
+		Runnable r = () -> doOpenProject(tool, projectLocator, reopen, domainFilePath);
+		TaskLauncher.launchModal("Opening Project", () -> Swing.runNow(r));
+	}
+
+	private void doOpenProject(FrontEndTool tool, ProjectLocator projectLocator, boolean reopen,
+			String domainFilePath) {
+		try {
+			ProjectManager pm = tool.getProjectManager();
+			Project activeProject = pm.openProject(projectLocator, true, false);
+
+			tool.setActiveProject(activeProject);
+
+			RepositoryAdapter repository = activeProject.getRepository();
+			if (repository != null && !repository.isConnected()) {
+				Msg.showInfo(GhidraRun.class, null, "Working Off-Line ",
+					"Even though you are not connected to the Ghidra Server,\n" +
+						"you can still work off-line on checked out files or private files.\n" +
+						"You can also try reconnecting to the server by selecting the connect\n" +
+						"button on the Ghidra Project Window.\n \n" +
+						"See the Ghidra Help topic 'Project Repository' for troubleshooting\n" +
+						"a failed connection.");
+			}
+
+			if (domainFilePath != null && !domainFilePath.isEmpty()) {
+				openDomainFileInTool(activeProject, domainFilePath);
+			}
+
+		}
+		catch (Throwable t) {
+			if (t instanceof UsrException) {
+				if (t instanceof LockException) {
+					Msg.showInfo(GhidraRun.class, null, "Project is Locked", t.getMessage());
+				}
+				else {
+					Msg.showInfo(GhidraRun.class, null, "Project Open Failed",
+						"Failed to " + (reopen ? "reopen last" : "open") + " project: " +
+							projectLocator.toString() + "\n\n" + t.getClass().getSimpleName() +
+							": " + t.getMessage());
+				}
+			}
+			else {
+				Msg.showError(GhidraRun.class, null, "Project Open Failed",
+					"Failed to " + (reopen ? "reopen last" : "open") + " project: " +
+						projectLocator.toString() + "\n\n" + t.getClass().getSimpleName() + ": " +
+						t.getMessage(),
+					t);
+
+			}
+			tool.setActiveProject(null);
+		}
+	}
+
+	private void openDomainFileInTool(Project project, String domainFilePath) {
+		// Ensure path starts with /
+		if (!domainFilePath.startsWith("/")) {
+			domainFilePath = "/" + domainFilePath;
+		}
+
+		ProjectData projectData = project.getProjectData();
+		DomainFile domainFile = projectData.getFile(domainFilePath);
+
+		if (domainFile == null) {
+			Msg.showError(GhidraRun.class, null, "File Not Found",
+				"Could not find file in project: " + domainFilePath);
+			return;
+		}
+
+		log.info("Opening file from command line: " + domainFilePath);
+
+		ToolServices toolServices = project.getToolServices();
+		PluginTool tool = toolServices.launchDefaultTool(List.of(domainFile));
+
+		if (tool == null) {
+			Msg.showError(GhidraRun.class, null, "Tool Launch Failed",
+				"Failed to launch tool for: " + domainFile.getName());
+		}
+	}
+
+	private void checkForMissingNativeComponents() {
+		boolean isWin = Platform.CURRENT_PLATFORM.getOperatingSystem() == OperatingSystem.WINDOWS;
+
+		try {
+			Application.getOSFile("Decompiler", isWin ? "decompile.exe" : "decompile");
+		}
+		catch (OSFileNotFoundException e) {
+			//@formatter:off
+			String msg =
+				"It appears that native components have not been built for this Ghidra installation.\n" +
+					"See the \"Building Native Components\" section of the Getting Started guide for build instructions.";
+			//@formatter:on
+			Msg.showWarn(GhidraRun.class, null, "Missing Native Components", msg);
+		}
+	}
+
+	private class GhidraProjectManager extends DefaultProjectManager {
+		// this exists just to allow access to the constructor
+	}
+}

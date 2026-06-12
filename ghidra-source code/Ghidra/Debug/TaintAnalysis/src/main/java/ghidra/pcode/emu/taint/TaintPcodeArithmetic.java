@@ -1,0 +1,246 @@
+/* ###
+ * IP: GHIDRA
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package ghidra.pcode.emu.taint;
+
+import java.util.Objects;
+
+import ghidra.pcode.exec.ConcretionError;
+import ghidra.pcode.exec.PcodeArithmetic;
+import ghidra.program.model.address.AddressSpace;
+import ghidra.program.model.lang.Endian;
+import ghidra.program.model.lang.Language;
+import ghidra.program.model.pcode.PcodeOp;
+import ghidra.taint.model.TaintSet;
+import ghidra.taint.model.TaintVec;
+import ghidra.taint.model.TaintVec.ShiftMode;
+
+/**
+ * The p-code arithmetic on the taint domain
+ * 
+ * <p>
+ * The p-code arithmetic serves as the bridge between p-code and the domain of analysis.
+ * Technically, the state itself also contributes minimally to that bridge.
+ */
+public enum TaintPcodeArithmetic implements PcodeArithmetic<TaintVec> {
+	/** The instance for big-endian languages */
+	BIG_ENDIAN(Endian.BIG),
+	/** The instance for little-endian languages */
+	LITTLE_ENDIAN(Endian.LITTLE);
+
+	/**
+	 * Get the taint arithmetic for the given endianness
+	 * 
+	 * <p>
+	 * This method is provided since clients of this class may expect it, as they would for any
+	 * realization of {@link PcodeArithmetic}.
+	 * 
+	 * @param bigEndian true for big endian, false for little
+	 * @return the arithmetic
+	 */
+	public static TaintPcodeArithmetic forEndian(boolean bigEndian) {
+		return bigEndian ? BIG_ENDIAN : LITTLE_ENDIAN;
+	}
+
+	/**
+	 * Get the taint arithmetic for the given langauge
+	 * 
+	 * <p>
+	 * This method is provided since clients of this class may expect it, as they would for any
+	 * realization of {@link PcodeArithmetic}.
+	 * 
+	 * @param language the langauge
+	 * @return the arithmetic
+	 */
+	public static TaintPcodeArithmetic forLanguage(Language language) {
+		return forEndian(language.isBigEndian());
+	}
+
+	private final Endian endian;
+
+	private TaintPcodeArithmetic(Endian endian) {
+		this.endian = endian;
+	}
+
+	@Override
+	public Class<TaintVec> getDomain() {
+		return TaintVec.class;
+	}
+
+	@Override
+	public Endian getEndian() {
+		return endian;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * 
+	 * <p>
+	 * We can't just naively return {@code in1}, because each unary op may mix the bytes of the
+	 * operand a little differently. For {@link PcodeOp#COPY}, we can, since no mixing happens at
+	 * all. This is also the case of both {@code NEGATE} operations ("negate" is a bit of a
+	 * misnomer, as they merely inverts the bits.) For {@link PcodeOp#INT_ZEXT}, we append empties
+	 * to the correct end of the vector. Similarly, we replicate the most-significant element and
+	 * append for {@link PcodeOp#INT_SEXT}. For {@link PcodeOp#INT_2COMP} (which negates an integer
+	 * in 2's complement), we have to consider that the "add one" step may cause a cascade of
+	 * carries. All others, we assume every byte could be tainted by any other byte in the vector,
+	 * so we union and broadcast.
+	 */
+	@Override
+	public TaintVec unaryOp(PcodeOp op, TaintVec in1) {
+		return PcodeArithmetic.super.unaryOp(op, in1).withOp(op);
+	}
+
+	@Override
+	public TaintVec unaryOp(int opcode, int sizeout, int sizein1, TaintVec in1) {
+		return switch (opcode) {
+			case PcodeOp.COPY, PcodeOp.BOOL_NEGATE, PcodeOp.INT_NEGATE -> in1;
+			case PcodeOp.INT_ZEXT -> in1.extended(sizeout, endian.isBigEndian(), false);
+			case PcodeOp.INT_SEXT -> in1.extended(sizeout, endian.isBigEndian(), true);
+			case PcodeOp.INT_2COMP -> in1.copy().setCascade(endian.isBigEndian());
+			default -> TaintVec.copies(in1.union(), sizeout);
+		};
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * 
+	 * <p>
+	 * We override the form taking the full p-code op, so that we can treat certain idioms. Notably,
+	 * on x86, {@code XOR RAX,RAX} is a common optimization of {@code MOV RAX,0}, since it takes
+	 * fewer bytes to encode. Thus, we must examine the input variables, not their values, to detect
+	 * this. Note that, while less common, {@code SUB RAX,RAX} would accomplish the same.
+	 * Additionally, in p-code {@link PcodeOp#INT_XOR} is identical to {@link PcodeOp#BOOL_XOR}.
+	 * When we detect these idioms, we want to clear any taints, since the value output is constant.
+	 * This is achieved intuitively, by deferring to {@link #fromConst(long, int)}, passing in 0 and
+	 * the output size.
+	 */
+	@Override
+	public TaintVec binaryOp(PcodeOp op, TaintVec in1, TaintVec in2) {
+		return PcodeArithmetic.super.binaryOp(op, in1, in2).withOp(op);
+	}
+
+	@Override
+	public TaintVec binaryOp(int opcode, int sizeout, int sizein1, TaintVec in1,
+			int sizein2, TaintVec in2) {
+		// TODO: Detect immediate operands and be more precise
+		switch (opcode) {
+			case PcodeOp.INT_XOR, PcodeOp.INT_SUB, PcodeOp.BOOL_XOR -> {
+				if (Objects.equals(in1, in2)) {
+					return fromConst(0, sizeout);  // NB: withOp unneeded, as this essentially removes taint
+				}
+			}
+		}
+		return switch (opcode) {
+			case PcodeOp.BOOL_AND, PcodeOp.BOOL_OR, PcodeOp.BOOL_XOR, PcodeOp.INT_AND, //
+					PcodeOp.INT_OR, PcodeOp.INT_XOR -> {
+				yield in1.zipUnion(in2);
+			}
+			case PcodeOp.INT_ADD, PcodeOp.INT_SUB -> {
+				TaintVec temp = in1.zipUnion(in2);
+				yield temp.setCascade(endian.isBigEndian());
+			}
+			case PcodeOp.INT_SLESS, PcodeOp.INT_SLESSEQUAL, //
+					PcodeOp.INT_LESS, PcodeOp.INT_LESSEQUAL, //
+					PcodeOp.INT_EQUAL, PcodeOp.INT_NOTEQUAL, //
+					PcodeOp.FLOAT_LESS, PcodeOp.FLOAT_LESSEQUAL, //
+					PcodeOp.FLOAT_EQUAL, PcodeOp.FLOAT_NOTEQUAL -> {
+				TaintSet temp = in1.union().union(in2.union());
+				yield TaintVec.copies(temp, sizeout);
+			}
+			case PcodeOp.PIECE -> {
+				TaintVec temp = in1.extended(sizeout, endian.isBigEndian(), false);
+				temp.setShifted(endian.isBigEndian() ? -sizein2 : sizein2, ShiftMode.UNBOUNDED);
+				yield temp.set(endian.isBigEndian() ? sizeout - sizein2 : 0, in2);
+			}
+			default -> {
+				TaintSet u = in1.union().union(in2.union());
+				yield TaintVec.copies(u, sizeout);
+			}
+		};
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * 
+	 * <p>
+	 * Here we handle indirect taint for indirect writes
+	 */
+	@Override
+	public TaintVec modBeforeStore(PcodeOp op, AddressSpace space, TaintVec inOffset,
+			TaintVec inValue) {
+		return inValue.tagIndirectWrite(inOffset).withOp(op);
+	}
+
+	@Override
+	public TaintVec modBeforeStore(int sizeinOffset, AddressSpace space, TaintVec inOffset,
+			int sizeinValue, TaintVec inValue) {
+		throw new RuntimeException("Not supported");
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * 
+	 * <p>
+	 * Here we handle indirect taint for indirect reads
+	 */
+	@Override
+	public TaintVec modAfterLoad(PcodeOp op, AddressSpace space, TaintVec inOffset,
+			TaintVec inValue) {
+		return inValue.tagIndirectRead(inOffset).withOp(op);
+	}
+
+	@Override
+	public TaintVec modAfterLoad(int sizeinOffset, AddressSpace space, TaintVec inOffset,
+			int sizeinValue, TaintVec inValue) {
+		throw new RuntimeException("Not supported");
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * 
+	 * <p>
+	 * Constant values have no taint, so we just return a vector of empty taint sets
+	 */
+	@Override
+	public TaintVec fromConst(byte[] value) {
+		return TaintVec.empties(value.length);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * 
+	 * <p>
+	 * Taint vectors have no values. We're expect the taint arithmetic to be used as an auxiliary to
+	 * concrete bytes, so the paired arithmetic should always defer to its concrete element. Thus,
+	 * an {@link AssertionError} might also be fitting here, but we'll stick to convention, since
+	 * technically a user script could attempt to concretize taint.
+	 */
+	@Override
+	public byte[] toConcrete(TaintVec value, Purpose purpose) {
+		throw new ConcretionError("Cannot make taint concrete", purpose);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * 
+	 * <p>
+	 * Taint vectors do have length, so return it here.
+	 */
+	@Override
+	public long sizeOf(TaintVec value) {
+		return value.length;
+	}
+}

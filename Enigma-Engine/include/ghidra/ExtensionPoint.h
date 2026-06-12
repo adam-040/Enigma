@@ -1,0 +1,22 @@
+/* ###
+ * IP: GHIDRA (translated to C++ for Enigma Engine)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ */
+/// \file ExtensionPoint.h
+/// \brief Marker interface for Ghidra extension points
+/// Translated from: ghidra.util.classfinder.ExtensionPoint
+#pragma once
+
+namespace ghidra {
+
+class ExtensionPoint {
+public:
+    virtual ~ExtensionPoint() = default;
+};
+
+} // namespace ghidra

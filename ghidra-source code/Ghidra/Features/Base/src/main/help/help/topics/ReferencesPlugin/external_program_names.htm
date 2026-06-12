@@ -1,0 +1,244 @@
+<!DOCTYPE doctype PUBLIC "-//W3C//DTD HTML 4.0 Frameset//EN">
+
+<HTML>
+  <HEAD>
+    <META name="generator" content=
+    "HTML Tidy for Java (vers. 2009-12-01), see jtidy.sourceforge.net">
+
+    <TITLE>External Program Names</TITLE>
+    <META http-equiv="Content-Type" content="text/html; charset=windows-1252">
+    <LINK rel="stylesheet" type="text/css" href="help/shared/DefaultStyle.css">
+    <META name="generator" content="Microsoft FrontPage 4.0">
+  </HEAD>
+
+  <BODY lang="EN-US">
+    <H1><A name="View_External_Program_Names"></A>External Program Names</H1>
+
+    <P>An external location identifies an external function or data dependency
+	associated with a named Library (i.e., External Program).  One or more external references may refer to
+	a single external location.  Thunk functions within a Program may also refer to an external 
+	location if it corresponds to a function.  Each Library defined within Ghidra can optionally
+	be associated with another Program file within the Ghidra project. </P>
+	
+	<P>There is a reserved
+	Library named <B>&lt;EXTERNAL&gt;</B> which is a holding area for external locations whose
+	associated Library is unknown (commonly used by ELF Imports).  
+	The <B>External Symbol Resolver</B> analyzer can be used to search 
+	for these external locations among the ordered list of Libraries which have a Program file association.  
+	The ordered Library	sequence dictates the order that this analyzer searches through them.</P>
+	
+	<P>To navigate on an external reference/location, or resolve external locations, the
+    external Library name must be associated with an existing Program file in the same project.
+    <A name="Resolve"></A>If a Library's Program association has been specified, then any related 
+    external reference is said to have been <B><I>resolved</I></B>. </P>
+	
+	<P>The <I>External Programs</I> view manages the associations
+    between external Library names and Program files as well as the ordered Library sequence.
+	Use the <I>External Programs</I> view to add/delete external Library names, 
+	set/clear Program associations and adjust search order using up/down placement actions.  
+	Other than the up/down ordering functionality, the 
+	<A href="../SymbolTreePlugin/SymbolTree.htm#Externals">Symbol Tree</A> Imports node provides
+	similar actions plus the ability to navigate.</P>
+	
+	<P><I><IMG src="help/shared/note.png" border="0"> The term "External Program" within Ghidra
+	is used interchangeably with the term "Library" and represents a dependency.  Each defined 
+	Library has a corresponding Library Symbol within a program's symbol table and may have related 
+    external locations.</P>
+
+    <H2><A name="ExternalNamesDialog"></A>External Programs View</H2>
+
+    <P style="text-align: center;"><IMG alt="" src="images/External_names_dialog.png"><BR>
+    </P>
+
+    <BLOCKQUOTE>
+      <P>The <I>External Programs</I> view consists of a main scrollable list of external Library
+      names and their associated Ghidra program files.</P>
+
+      <BLOCKQUOTE>
+        <H3>Name Column</H3>
+
+        <BLOCKQUOTE>
+          <P>The name of the external Library. Many external function and/or data locations will
+          correspond to the same external Library within a Ghidra program which are considered to
+          be Imports.</P>  
+          
+          <P>The name used within the current program to identify the Library may be
+          changed.  To do this, double-click on the Name to enter edit mode. After you change
+          the name, press &lt;Enter&gt; to commit the change.</P>
+        </BLOCKQUOTE>
+
+        <H3>Ghidra Program Column<BR>
+        </H3>
+
+        <BLOCKQUOTE>
+          <P>The Ghidra program file associated with the external Library name. This field is blank if
+          the external Library has not been resolved. Ghidra will not be able to "follow" an external
+          location reference into a Library, or search for external symbols within a Library,
+		  if a Library does not have a Ghidra program file association.</P>
+		  
+		  <P>See <A href="#ChooseExternalProgram">Set External Path Association</A> for changing the 
+		  path shown.</P>
+        </BLOCKQUOTE>
+
+        <H3><A name="Add_External_Program_Name"></A>Add Button</H3>
+
+        <BLOCKQUOTE>
+          <P>The <B>Add</B> <IMG alt="" src="images/Plus.png"> button will bring up a text dialog
+          for entering a new external program name.<BR>
+          </P>
+        </BLOCKQUOTE>
+		
+		<H3><A name="Delete_External_Program_Name"></A>Delete External Name Button</H3>
+
+        <BLOCKQUOTE>
+          <P>The <SPAN style="font-weight: bold;">Delete</SPAN> <IMG alt="" src=
+          "images/edit-delete.png"> button deletes the selected external Library names from the
+          program.&nbsp; If a selected external Library name has associated external locations, it can
+          not be deleted. The <SPAN style="font-weight: bold;">Delete</SPAN> button is enabled
+          whenever one or more rows are selected.</P>
+        </BLOCKQUOTE>
+
+		<H3><A name="Move_Library_Up"></A>Move Library Up Button</H3>
+
+        <BLOCKQUOTE>
+          <P>The <SPAN style="font-weight: bold;">Up</SPAN> <IMG alt="" src=
+          "images/up.png"> button will shift a selected external Library up 
+		  within the list of Libraries thus increasing its priority when used to 
+		  search for external symbols. The <SPAN style="font-weight: bold;">Up</SPAN> 
+		  button is enabled whenever one external program name is selected and can be moved
+		  up within the Library list.</P>
+          <P>
+        </BLOCKQUOTE>
+		
+		<H3><A name="Move_Library_Down"></A>Move Library Down Button</H3>
+
+        <BLOCKQUOTE>
+          <P>The <SPAN style="font-weight: bold;">Down</SPAN> <IMG alt="" src=
+          "images/down.png"> button will shift a selected external Library down 
+		  within the list of Libraries thus reducing its priority when used to 
+		  search for external symbols. The <SPAN style="font-weight: bold;">Down</SPAN> 
+		  button is enabled whenever one external program name is selected and can be moved
+		  down within the Library list.</P>
+          <P>
+        </BLOCKQUOTE>
+		
+        <H3><A name="ChooseExternalProgram"></A><A name="Set_External_Name_Association"></A>Set
+        External Path Association Button</H3>
+
+        <BLOCKQUOTE>
+          <P>The <SPAN style="font-weight: bold;">Set</SPAN> <IMG alt="" src=
+          "images/editbytes.gif"> button brings up a <I>Ghidra program chooser</I> dialog. Choose a
+          Ghidra program file to associate it with the selected external Library name. This button
+          is only enabled when a single external program name is selected.</P>
+        </BLOCKQUOTE>
+      </BLOCKQUOTE>
+    </BLOCKQUOTE>
+
+    <CENTER>
+      <IMG src="images/Choose_external_prog.png" border="0">
+    </CENTER>
+
+    <BLOCKQUOTE>
+      <BLOCKQUOTE>
+        <H3><A name="Clear_External_Name_Association"></A>Clear External Path Association
+        Button</H3>
+
+        <BLOCKQUOTE>
+          <P>The <SPAN style="font-weight: bold;">Clear <IMG alt="" src=
+          "Icons.CLEAR_ICON">&nbsp;</SPAN> button clears the associated program path for all the
+          selected rows.<BR>
+          </P>
+        </BLOCKQUOTE>
+      </BLOCKQUOTE>
+    </BLOCKQUOTE>
+
+    <H2>Working with External Program Names</H2>
+
+    <BLOCKQUOTE>
+      <H3>Adding a New External Program Name</H3>
+
+      <OL>
+        <LI>Select <B>Window<IMG src="help/shared/arrow.gif" border="0"> External Programs</B>
+        from the main Code Browser menu.</LI>
+
+        <LI>Press the <B>Add</B> <IMG alt="" src="images/Plus.png"> button.</LI>
+
+        <LI>Enter the new external program name into the pop-up dialog.</LI>
+
+         <P><I><IMG src="help/shared/note.png" border="0">Any new External Program added
+		 will be placed at the bottom of the list.  If relying on external symbol resolution
+		 analysis and the library search order is important, the new entry may be moved up
+		 in the list using the Up button. 
+		 </I></P>
+
+      </OL>
+
+      <H3>Resolving an External Name to an existing Ghidra program<BR>
+      </H3>
+
+      <OL>
+        <LI>Select <SPAN style="font-weight: bold;">Window</SPAN><B><IMG src=
+        "help/shared/arrow.gif" border="0"> External Programs</B> from the main Code Browser
+        menu.</LI>
+
+        <LI>Click on the external program name that is be associated with a Ghidra program
+        file.</LI>
+
+        <LI>Press the <B>Edit</B> <IMG alt="" src="images/editbytes.gif"> button.</LI>
+
+        <LI>Use the <I><A href="#ChooseExternalProgram">Ghidra Program Chooser</A></I> dialog to
+        select the Ghidra file to associate to the selected program name.</LI>
+
+        <LI>The Code Browser updates to indicate that the external reference has been resolved.
+        (Unresolved references are shown in red.)</LI>
+      </OL>
+
+      <H3>Clearing a Resolved External Program Name</H3>
+
+      <OL>
+        <LI>Select <SPAN style="font-weight: bold;">Window</SPAN><B><IMG src=
+        "help/shared/arrow.gif" border="0"> External Programs</B> from the main Code Browser
+        menu.</LI>
+
+        <LI>Click on the external program name that has an association to be cleared.</LI>
+
+        <LI>Press the <B>Clear</B> <IMG alt="" src="Icons.CLEAR_ICON"> button</LI>
+      </OL>
+
+      <H3>Removing an External Program Name</H3>
+
+      <OL>
+        <LI>Select <SPAN style="font-weight: bold;">Window</SPAN><B><IMG src=
+        "help/shared/arrow.gif" border="0"> External Programs</B> from the main Code Browser
+        menu.</LI>
+
+        <LI>Click on the external program name to be removed.<BR>
+        </LI>
+
+        <LI>
+          Press the <SPAN style="font-weight: bold;">Delete&nbsp;<IMG alt="" src=
+          "images/edit-delete.png">&nbsp;</SPAN> button. 
+
+          <UL>
+            <LI>If external references still exist, a dialog is displayed indicating that the
+            external program name cannot be deleted.&nbsp; All external references to that <SPAN
+            style="font-style: italic;">external program name</SPAN> must be deleted before it can
+            be deleted.<BR>
+            </LI>
+          </UL>
+        </LI>
+      </OL>
+    </BLOCKQUOTE>
+
+    <P class="providedbyplugin">Provided by: <I>References</I> Plugin</P>
+
+    <P class="relatedtopic">Related Topics:</P>
+
+    <UL>
+      <LI><A href="References_from.htm#extRefs">Set External Reference</A></LI>
+
+      <LI><A href="help/topics/SymbolTreePlugin/SymbolTree.htm#Externals">External Symbols</A></LI>
+    </UL><BR>
+     <BR>
+  </BODY>
+</HTML>

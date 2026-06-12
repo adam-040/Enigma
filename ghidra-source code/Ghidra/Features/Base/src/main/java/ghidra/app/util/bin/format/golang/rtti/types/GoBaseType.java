@@ -1,0 +1,137 @@
+/* ###
+ * IP: GHIDRA
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package ghidra.app.util.bin.format.golang.rtti.types;
+
+import java.io.IOException;
+import java.util.Set;
+
+import ghidra.app.util.bin.format.golang.rtti.GoName;
+import ghidra.app.util.bin.format.golang.rtti.GoRttiMapper;
+import ghidra.app.util.bin.format.golang.structmapping.*;
+
+/**
+ * Represents the fundamental Go rtti type information.
+ * <p>
+ * The in-memory instance will typically be part of a specialized type structure, depending
+ * on the 'kind' of this type.
+ * <p>
+ * Additionally, there can be an {@link GoUncommonType} structure immediately after this type, if
+ * the uncommon bit is set in tflag.
+ * <pre>
+ * struct specialized_type { basetype_struct; (various_fields)* } struct uncommon; 
+ * </pre>
+ */
+@StructureMapping(structureName = {"runtime._type", "internal/abi.Type"})
+public class GoBaseType implements StructureVerifier {
+
+	@ContextField
+	private StructureContext<GoBaseType> context;
+
+	@ContextField
+	private GoRttiMapper programContext;
+
+	@FieldMapping(fieldName = {"size", "Size_"}, signedness = Signedness.Unsigned)
+	private long size;
+
+	@FieldMapping(fieldName = {"ptrdata", "PtrBytes"})
+	private long ptrdata;
+
+	@FieldMapping
+	@EOLComment("flags")
+	private int tflag;
+
+	@FieldMapping(fieldName = {"kind", "Kind_"})
+	@EOLComment
+	private int kind;
+
+	@FieldMapping
+	@MarkupReference("getGoName")
+	private long str; // an offset relative to containing moduledata's type base addr
+
+	@FieldMapping
+	@MarkupReference
+	private long ptrToThis;	// an offset relative to containing moduledata's type base addr
+
+	/**
+	 * {@return the size of the type being defined by this structure}
+	 */
+	public long getSize() {
+		return size;
+	}
+
+	/**
+	 * {@return the {@link GoKind} enum assigned to this type definition}
+	 */
+	public GoKind getKind() {
+		return GoKind.parseByte(kind);
+	}
+
+	/**
+	 * {@return the {@link GoTypeFlag}s assigned to this type definition}
+	 */
+	public Set<GoTypeFlag> getFlags() {
+		return GoTypeFlag.parseFlags(tflag, programContext.getGoVer());
+	}
+
+	/**
+	 * {@return the raw flag value}
+	 */
+	public int getTflag() {
+		return tflag;
+	}
+
+	/**
+	 * {@return true if this type definition's flags indicate there is a following GoUncommon
+	 * structure}
+	 */
+	public boolean hasUncommonType() {
+		return GoTypeFlag.Uncommon.isSet(tflag, programContext.getGoVer());
+	}
+
+	/**
+	 * {@return name of this type, as a {@link GoName}}
+	 * @throws IOException if error reading data
+	 */
+	@Markup
+	public GoName getGoName() throws IOException {
+		return programContext.resolveNameOff(context.getStructureStart(), str);
+	}
+
+	/**
+	 * {@return the name of this type}
+	 */
+	public String getName() {
+		String s = programContext.getSafeName(this::getGoName, this, "").getName();
+		return GoTypeFlag.ExtraStar.isSet(tflag, programContext.getGoVer()) && s.startsWith("*")
+				? s.substring(1)
+				: s;
+	}
+
+	/**
+	 * {@return reference to the {@link GoType} that represents a pointer to this type}
+	 * @throws IOException if error reading
+	 */
+	@Markup
+	public GoType getPtrToThis() throws IOException {
+		return programContext.getGoTypes().resolveTypeOff(context.getStructureStart(), ptrToThis);
+	}
+
+	@Override
+	public boolean isValid() {
+		return 0 <= ptrdata && ptrdata <= size && getKind() != GoKind.invalid &&
+			GoTypeFlag.isValid(tflag, programContext.getGoVer());
+	}
+}

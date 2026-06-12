@@ -1,0 +1,669 @@
+/* ###
+ * IP: GHIDRA
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package ghidra.util.database.spatial;
+
+import java.io.IOException;
+import java.util.*;
+
+import ghidra.util.database.DBCachedObjectStoreFactory;
+import ghidra.util.database.spatial.DBTreeNodeRecord.NodeType;
+import ghidra.util.exception.VersionException;
+
+/**
+ * An R*-Tree implementation of {@link AbstractConstraintsTree}
+ * 
+ * <p>
+ * The implementation follows
+ * <a href="http://dbs.mathematik.uni-marburg.de/publications/myPapers/1990/BKSS90.pdf">The R*-tree:
+ * An Efficient and Robust Access Method for Points and Rectangles</a>. Comments in code referring
+ * to "the paper", specific sections, or steps of algorithms, are referring specifically to that
+ * paper.
+ * 
+ * @param <DS> The shape of each data entry
+ * @param <DR> The record type for each data entry
+ * @param <NS> The shape of each node
+ * @param <NR> The record type for each node
+ * @param <T> The type of value stored in a data entry
+ * @param <Q> The type of supported queries
+ */
+public abstract class AbstractRStarConstraintsTree<
+	DS extends BoundedShape<NS>,
+	DR extends DBTreeDataRecord<DS, NS, T>,
+	NS extends BoundingShape<NS>,
+	NR extends DBTreeNodeRecord<NS>,
+	T,
+	Q extends Query<DS, NS>>
+		extends AbstractConstraintsTree<DS, DR, NS, NR, T, Q> {
+
+	protected static final int MAX_LEVELS = 64; // Outlandish! But BitSet uses at least one word
+
+	protected static final double FILL_RATE = 0.4; // Taken from paper
+	// NOTE: Deleting a node may cause it to have fewer than MIN_CHILDREN. I do not intend to
+	// redistribute those.
+
+	protected static final double REINSERT_RATE = 0.3; // Taken from paper
+
+	protected static final int CHEAT_OVERLAP_COUNT = 32; // Taken from paper
+
+	protected class LeastAreaEnlargementThenLeastArea
+			implements Comparable<LeastAreaEnlargementThenLeastArea> {
+		private final NR node;
+		private final double areaEnlargement;
+		private final double area;
+
+		public LeastAreaEnlargementThenLeastArea(NR node, NS bounds) {
+			this.node = node;
+			this.area = node.getShape().getArea();
+			this.areaEnlargement = node.getShape().computeAreaUnionBounds(bounds) - area;
+		}
+
+		@Override
+		public String toString() {
+			return String.format("<least-enlargement: %s, node=%s>", areaEnlargement, node);
+		}
+
+		@Override
+		public int compareTo(LeastAreaEnlargementThenLeastArea that) {
+			int result;
+			result = Double.compare(this.areaEnlargement, that.areaEnlargement);
+			if (result != 0) {
+				return result;
+			}
+			result = Double.compare(this.area, that.area);
+			if (result != 0) {
+				return result;
+			}
+			return 0;
+		}
+	}
+
+	protected class LeastOverlap implements Comparable<LeastOverlap> {
+		private final NR node;
+		private final double areaEnlargement;
+		private final double overlapEnlargement;
+
+		public LeastOverlap(NR node, NS bounds, List<NR> all, double areaEnlargement) {
+			this.node = node;
+			this.areaEnlargement = areaEnlargement;
+
+			double overlap = computeOverlap(node.getShape(), all, node);
+			overlapEnlargement =
+				computeOverlap(node.getShape().unionBounds(bounds), all, node) - overlap;
+		}
+
+		@Override
+		public int compareTo(AbstractRStarConstraintsTree<DS, DR, NS, NR, T, Q>.LeastOverlap o) {
+			int result;
+			result = Double.compare(this.overlapEnlargement, o.overlapEnlargement);
+			if (result != 0) {
+				return result;
+			}
+			result = Double.compare(this.areaEnlargement, o.areaEnlargement);
+			if (result != 0) {
+				return result;
+			}
+			return 0;
+		}
+	}
+
+	protected class LeastDistanceFromCenterToPoint
+			implements Comparable<LeastDistanceFromCenterToPoint> {
+		private final DBTreeRecord<?, ? extends NS> record;
+		private final double distance;
+
+		public LeastDistanceFromCenterToPoint(DBTreeRecord<?, ? extends NS> record,
+				NS parentBounds) {
+			this.record = record;
+			this.distance = parentBounds.computeCentroidDistance(record.getBounds());
+		}
+
+		@Override
+		public String toString() {
+			return String.format("<least-distance: %s,record=%s>", distance, record);
+		}
+
+		@Override
+		public int compareTo(LeastDistanceFromCenterToPoint that) {
+			return Double.compare(this.distance, that.distance);
+		}
+	}
+
+	protected final int maxChildren;
+	protected final int minChildren;
+	protected final int reinsertCount;
+
+	public AbstractRStarConstraintsTree(DBCachedObjectStoreFactory storeFactory, String tableName,
+			Class<DR> dataType, Class<NR> nodeType, boolean upgradable, int maxChildren)
+			throws VersionException, IOException {
+		super(storeFactory, tableName, dataType, nodeType, upgradable);
+
+		this.maxChildren = maxChildren;
+		minChildren = (int) (FILL_RATE * maxChildren);
+		reinsertCount = (int) ((maxChildren + 1) * REINSERT_RATE);
+	}
+
+	protected abstract List<Comparator<NS>> getSplitAxes();
+
+	/**
+	 * The ChooseSubtree algorithm as defined in Section 4.1 of the paper.
+	 * 
+	 * @param dstLevelFromTop the level of the node to choose
+	 * @param bounds the bounds of the object being inserted
+	 * @return the leaf node into which the object should be inserted
+	 */
+	protected NR doChooseSubtree(int dstLevelFromTop, NS bounds) {
+		// CS1
+		NR node = root;
+
+		// CS2
+		/**
+		 * The paper recommends we only apply the nearly-minimal overlap reduction on the leaf
+		 * parent. I think this is just for cost savings. I get better search performance when I
+		 * apply it to all levels. Insertion is a little slower, though. We can explore reverting
+		 * this, if other tweaks work.
+		 */
+		for (int i = 0; i < dstLevelFromTop; i++) {
+			assert !node.getType().isLeaf();
+			node = findChildByNearlyMinimumOverlapCost(node, bounds);
+			// CS3 (by virtue of setting node, and the while loop
+		}
+		return node;
+	}
+
+	/**
+	 * For ChooseSubTree, the part which chooses a leaf node using the minimum area enlargement
+	 * cost.
+	 * 
+	 * @param n
+	 * @param bounds
+	 * @return
+	 */
+	protected NR findChildByMinimumEnlargementCost(NR n, NS bounds) {
+		LeastAreaEnlargementThenLeastArea least = null;
+		for (NR child : getNodeChildrenOf(n)) {
+			LeastAreaEnlargementThenLeastArea candidate =
+				new LeastAreaEnlargementThenLeastArea(child, bounds);
+			if (least == null || candidate.compareTo(least) < 0) {
+				least = candidate;
+			}
+		}
+		return least.node;
+	}
+
+	/**
+	 * For ChooseSubtree, the part which chooses a leaf node using the <em>nearly</em> minimum
+	 * overlap enlargement cost as defined in Section 4.1 of the paper, at the bottom of page 325.
+	 * 
+	 * <p>
+	 * Ties are resolved using the minimum area enlargement cost.
+	 * 
+	 * @param n the node whose children are leaf nodes
+	 * @param bounds the bounds of the object being inserted
+	 * @return the leaf node into which the object should be inserted
+	 */
+	protected NR findChildByNearlyMinimumOverlapCost(NR n, NS bounds) {
+		PriorityQueue<LeastAreaEnlargementThenLeastArea> sorted =
+			new PriorityQueue<>(n.getChildCount());
+		List<NR> children = new ArrayList<>(getNodeChildrenOf(n));
+		for (NR child : children) {
+			sorted.offer(new LeastAreaEnlargementThenLeastArea(child, bounds));
+		}
+
+		LeastOverlap least = null;
+		for (int i = 0; i < CHEAT_OVERLAP_COUNT; i++) {
+			LeastAreaEnlargementThenLeastArea measure = sorted.poll();
+			if (measure == null) {
+				break;
+			}
+			LeastOverlap candidate =
+				new LeastOverlap(measure.node, bounds, children, measure.areaEnlargement);
+			if (least == null || candidate.compareTo(least) < 0) {
+				least = candidate;
+			}
+		}
+		return least.node;
+	}
+
+	/**
+	 * Computes the overlap of a bounding shape (with respect to its siblings)
+	 * 
+	 * <p>
+	 * This measure is defined in Section 4.1 of the paper.
+	 * 
+	 * @param n the shape to measure
+	 * @param all the sibling nodes (may contain {@code n}, which is ignored)
+	 * @param ignore the node whose shape is being considered
+	 * @return the overlap measure
+	 */
+	protected double computeOverlap(NS n, Iterable<NR> all, NR ignore) {
+		double sum = 0;
+		for (NR r : all) {
+			if (r == ignore) {
+				ignore = null;
+				continue;
+			}
+			sum += n.computeAreaIntersection(r.getShape());
+		}
+		assert ignore == null;
+		return sum;
+	}
+
+	/**
+	 * The Split algorithm as defined in Section 4.2 of the paper.
+	 * 
+	 * @param n the node to split
+	 * @return the new node (containing the second group)
+	 */
+	protected NR doSplit(NR n) {
+		List<DBTreeRecord<?, ? extends NS>> children = new ArrayList<>(getChildrenOf(n));
+		assert children.size() == maxChildren + 1;
+
+		// S1
+		Comparator<NS> axis = doChooseSplitAxis(children);
+
+		// S2
+		int index = doChooseSplitIndex(children, axis);
+
+		// S3
+		// NOTE: Children are already sorted on the chosen axis
+		List<DBTreeRecord<?, ? extends NS>> firstGroup = children.subList(0, index);
+		List<DBTreeRecord<?, ? extends NS>> secondGroup = children.subList(index, children.size());
+
+		// Keep the first group under the same node, but re-compute its bounds
+		// Move the second group to a new node
+		NR n1 = n;
+		NR n2 = nodeStore.create();
+		// NOTE: Careful here not to remove anything from node 0's entry
+		n2.setParentKey(n.getParentKey());
+		doAddToCachedChildren(n.getParentKey(), n2, cachedNodeChildren);
+		n2.setType(n.getType());
+
+		// Update existing node's metadata
+		n1.setShape(unionStream(firstGroup.stream().map(DBTreeRecord::getBounds)));
+		n1.setChildCount(index);
+		n1.setDataCount(firstGroup.stream().mapToInt(DBTreeRecord::getDataCount).sum());
+
+		// Set new node's metadata
+		n2.setShape(unionStream(secondGroup.stream().map(DBTreeRecord::getBounds)));
+		n2.setChildCount(maxChildren + 1 - index);
+		n2.setDataCount(secondGroup.stream().mapToInt(DBTreeRecord::getDataCount).sum());
+
+		// Move split-off children to new node
+		if (n2.getType() == NodeType.LEAF) {
+			for (DBTreeRecord<?, ?> move : secondGroup) {
+				@SuppressWarnings("unchecked")
+				DR dMove = (DR) move;
+				doSetParentKey(dMove, n2.getKey(), cachedDataChildren);
+			}
+		}
+		else {
+			for (DBTreeRecord<?, ?> move : secondGroup) {
+				@SuppressWarnings("unchecked")
+				NR nMove = (NR) move;
+				doSetParentKey(nMove, n2.getKey(), cachedNodeChildren);
+			}
+		}
+		return n2;
+	}
+
+	protected Comparator<NS> doChooseSplitAxis(List<DBTreeRecord<?, ? extends NS>> children) {
+		Comparator<NS> bestAxis = null;
+		double bestMarginValue = Double.MAX_VALUE;
+		// CSA1
+		for (Comparator<NS> axis : getSplitAxes()) {
+			children.sort(Comparator.comparing(DBTreeRecord::getBounds, axis));
+
+			/**
+			 * Distributions as described in Section 4.2.
+			 * 
+			 * In the paper, S is defined as "the sum of all margin-values of the different
+			 * distributions." While the margin-value is defined as a sum. So just sum it all. No
+			 * need to collect the groups, or even pair their values.
+			 */
+
+			// Compute each area, incrementally, and sum them.
+			// ************X (M = 12)
+			// mmm-------mmm (m = 3)
+			// 8 distributions : 12 - 2*3 + 2
+			NS boundsFirstKChildren =
+				unionStream(children.subList(0, minChildren).stream().map(DBTreeRecord::getBounds));
+			NS boundsLastKChildren =
+				unionStream(children.subList(maxChildren + 1 - minChildren, maxChildren + 1)
+						.stream()
+						.map(DBTreeRecord::getBounds));
+			int maxK = maxChildren + 1 - minChildren * 2;
+
+			double marginValue = 0;
+			marginValue += boundsFirstKChildren.getMargin();
+			marginValue += boundsLastKChildren.getMargin();
+			for (int k = 0; k <= maxK; k++) { // NOTE: Our k is 0-up. Paper defines using 1-up.
+				NS forFirst = children.get(minChildren + k).getBounds();
+				NS forSecond = children.get(maxChildren - minChildren - k).getBounds();
+
+				boundsFirstKChildren = boundsFirstKChildren.unionBounds(forFirst);
+				boundsLastKChildren = boundsLastKChildren.unionBounds(forSecond);
+
+				marginValue += boundsFirstKChildren.getMargin();
+				marginValue += boundsLastKChildren.getMargin();
+			}
+
+			// CSA2
+			if (bestAxis == null || marginValue < bestMarginValue) {
+				bestAxis = axis;
+				bestMarginValue = marginValue;
+			}
+		}
+		assert bestAxis != null;
+		return bestAxis;
+	}
+
+	record IndexScore(int index, double overlap, double areaSum, double areaDiff)
+			implements Comparable<IndexScore> {
+		static final Comparator<IndexScore> COMPARATOR = Comparator
+				.comparing(IndexScore::overlap)
+				.thenComparing(IndexScore::areaSum)
+				.thenComparing(IndexScore::areaDiff);
+
+		@Override
+		public int compareTo(IndexScore o) {
+			return COMPARATOR.compare(this, o);
+		}
+	}
+
+	protected int doChooseSplitIndex(List<DBTreeRecord<?, ? extends NS>> children,
+			Comparator<NS> axis) {
+		children.sort(Comparator.comparing(DBTreeRecord::getBounds, axis));
+
+		// Distributions as described in Section 4.2
+		// Precompute the bounding boxes of each pair, incrementally.
+		// ************X (M = 12)
+		// mmm-------mmm (m = 3)
+		// 8 distributions : 12 - 2*3 + 2
+
+		List<DBTreeRecord<?, ? extends NS>> reversed = children.reversed();
+		NS boundsFirstKChildren =
+			unionStream(children.subList(0, minChildren).stream().map(DBTreeRecord::getBounds));
+		NS boundsLastKChildren =
+			unionStream(reversed.subList(0, minChildren).stream().map(DBTreeRecord::getBounds));
+		int maxK = maxChildren + 1 - minChildren * 2;
+
+		Deque<NS> boundsFirsts = new ArrayDeque<>();
+		Deque<NS> boundsSeconds = new ArrayDeque<>();
+		boundsFirsts.addLast(boundsFirstKChildren);
+		boundsSeconds.addFirst(boundsLastKChildren);
+		for (int k = 1; k <= maxK; k++) { // i=0 case already done
+			NS forFirst = children.get(minChildren - 1 + k).getBounds();
+			NS forSecond = reversed.get(minChildren - 1 + k).getBounds();
+
+			boundsFirstKChildren = boundsFirstKChildren.unionBounds(forFirst);
+			boundsLastKChildren = boundsLastKChildren.unionBounds(forSecond);
+
+			boundsFirsts.addLast(boundsFirstKChildren);
+			boundsSeconds.addFirst(boundsLastKChildren);
+		}
+
+		// CSI1
+		IndexScore best = null;
+		for (int k = 0; k <= maxK; k++) {
+			NS boundsFirstGroup = boundsFirsts.removeFirst();
+			NS boundsSecondGroup = boundsSeconds.removeFirst();
+			double areaFirst = boundsFirstGroup.getArea();
+			double areaSecond = boundsSecondGroup.getArea();
+			IndexScore candidate = new IndexScore(k,
+				boundsFirstGroup.computeAreaIntersection(boundsSecondGroup),
+				areaFirst + areaSecond,
+				Math.abs(areaFirst - areaSecond));
+
+			if (best == null || candidate.compareTo(best) < 0) {
+				best = candidate;
+			}
+		}
+		return best.index + minChildren;
+	}
+
+	protected static class ReInsertInfo {
+		long reinsertedLevelsFromBottom = 0; // MAX_LEVELS = 64
+
+		public boolean checkAndSet(int levelFromBottom) {
+			long dstLevelMask = 1L << levelFromBottom;
+			if ((reinsertedLevelsFromBottom & dstLevelMask) != 0) {
+				return true;
+			}
+			reinsertedLevelsFromBottom |= dstLevelMask;
+			return false;
+		}
+	}
+
+	protected static class LevelInfo {
+		final int dstLevelFromBottom;
+		final ReInsertInfo reInsertInfo;
+
+		/**
+		 * Create level information
+		 * 
+		 * @param dstLevelFromBottom the parent level of the destination, counting from the bottom.
+		 *            NOTE: The leaf elements are at level 0.
+		 */
+		public LevelInfo(int dstLevelFromBottom) {
+			assert dstLevelFromBottom >= 0;
+			this.dstLevelFromBottom = dstLevelFromBottom;
+			this.reInsertInfo = new ReInsertInfo();
+		}
+
+		LevelInfo(int dstLevelFromBottom, ReInsertInfo reInsertInfo) {
+			this.dstLevelFromBottom = dstLevelFromBottom;
+			this.reInsertInfo = reInsertInfo;
+		}
+
+		boolean makesSense(DBTreeRecord<?, ?> entry) {
+			if (dstLevelFromBottom == 0) {
+				// If the parent is level 0, i.e., a leaf, then we are a data record
+				return entry instanceof DBTreeDataRecord;
+			}
+			if (!(entry instanceof DBTreeNodeRecord node)) {
+				return false;
+			}
+			if (dstLevelFromBottom == 1) {
+				return node.getType() == NodeType.LEAF;
+			}
+			if (dstLevelFromBottom == 2) {
+				return node.getType() == NodeType.LEAF_PARENT;
+			}
+			return node.getType() == NodeType.DIRECTORY;
+		}
+
+		public int getDstLevelFromTop(int leafLevel) {
+			return leafLevel - dstLevelFromBottom;
+		}
+
+		public boolean checkAndSetReinserted() {
+			return reInsertInfo.checkAndSet(dstLevelFromBottom);
+		}
+
+		public LevelInfo setLevelTowardTop1() {
+			return new LevelInfo(dstLevelFromBottom + 1, reInsertInfo);
+		}
+	}
+
+	@Override
+	protected DR doInsertData(DS shape, T value) {
+		// ID1
+		DR entry = dataStore.create();
+		entry.setParentKey(-1); // TODO: Probably unnecessary, except error recovery?
+		entry.setShape(shape);
+		entry.setRecordValue(value);
+		doInsert(entry, new LevelInfo(0));
+		return entry;
+	}
+
+	/**
+	 * Insert an entry (data or node) into the tree at the given level
+	 * 
+	 * @param entry the entry to insert
+	 */
+	protected void doInsert(DBTreeRecord<?, ? extends NS> entry, LevelInfo levelInfo) {
+		assert levelInfo.makesSense(entry);
+
+		// I1
+		NR node = doChooseSubtree(levelInfo.getDstLevelFromTop(leafLevel), entry.getBounds());
+
+		// I2
+		if (node.getType() == NodeType.LEAF) {
+			@SuppressWarnings("unchecked")
+			DR d = (DR) entry;
+			doSetParentKey(d, node.getKey(), cachedDataChildren);
+		}
+		else {
+			@SuppressWarnings("unchecked")
+			NR n = (NR) entry;
+			doSetParentKey(n, node.getKey(), cachedNodeChildren);
+		}
+		for (NR parent = node; parent != null; parent = getParentOf(parent)) {
+			int newDataCount = parent.getDataCount() + entry.getDataCount();
+			parent.setDataCount(newDataCount);
+		}
+		int newChildCount = node.getChildCount() + 1;
+		node.setChildCount(newChildCount);
+
+		// I4 - I'm having integrity issues unless this comes before overflow treatments
+		if (newChildCount == 1) {
+			assert node == root;
+			node.setShape(entry.getBounds());
+		}
+		else {
+			for (NR parent = node; parent != null; parent = getParentOf(parent)) {
+				parent.setShape(parent.getShape().unionBounds(entry.getBounds()));
+			}
+		}
+
+		// I3
+		NR split = null;
+		if (newChildCount > maxChildren) {
+			split = doOverflowTreatment(node, levelInfo);
+		}
+		// NOTE: Depth should never increase more than once per insert
+		for (NR propa = node, parent = getParentOf(propa); split != null; //
+				propa = parent, //
+				parent = getParentOf(propa), //
+				split = doOverflowTreatment(propa, levelInfo = levelInfo.setLevelTowardTop1())) {
+			if (parent == null) {
+				assert propa == root;
+				assert levelInfo.dstLevelFromBottom == leafLevel;
+				root = reRoot(propa, split);
+				return;
+			}
+			newChildCount = parent.getChildCount() + 1;
+			parent.setChildCount(newChildCount);
+			if (newChildCount <= maxChildren) {
+				break;
+			}
+		}
+	}
+
+	/**
+	 * Create a new node with the two given nodes.
+	 * <p>
+	 * One of the nodes, probably n1 must be the root node. The other must be the node which
+	 * resulted from splitting the root node.
+	 * 
+	 * @param n1 the current root node
+	 * @param n2 the node resulting from splitting the current root node
+	 * @return the parent node, which must become the new root node
+	 */
+	protected NR reRoot(NR n1, NR n2) {
+		NR newRoot = nodeStore.create();
+		newRoot.setParentKey(-1);
+		long newRootKey = newRoot.getKey();
+		cachedNodeChildren.put(newRootKey, new ArrayList<>(maxChildren));
+		newRoot.setShape(n1.getShape().unionBounds(n2.getShape()));
+		newRoot.setType(n1.getType().getParentType());
+		newRoot.setChildCount(2);
+		newRoot.setDataCount(n1.getDataCount() + n2.getDataCount());
+		doSetParentKey(n1, newRootKey, cachedNodeChildren);
+		doSetParentKey(n2, newRootKey, cachedNodeChildren);
+		leafLevel++;
+		return newRoot;
+	}
+
+	protected NR doOverflowTreatment(NR n, LevelInfo levelInfo) {
+		// OT1
+		if (n != root && !levelInfo.checkAndSetReinserted()) {
+			doReInsert(n, levelInfo);
+			return null;
+		}
+		return doSplit(n);
+	}
+
+	protected void doReInsert(NR n, LevelInfo levelInfo) {
+		// RI1, RI2
+		// Create a "max heap"
+		PriorityQueue<LeastDistanceFromCenterToPoint> farthest = new PriorityQueue<>();
+		Iterator<? extends DBTreeRecord<?, ? extends NS>> it = getChildrenOf(n).iterator();
+		for (int i = 0; i < reinsertCount; i++) {
+			assert it.hasNext();
+			DBTreeRecord<?, ? extends NS> next = it.next();
+			farthest.add(new LeastDistanceFromCenterToPoint(next, n.getShape()));
+		}
+		/**
+		 * Now that the heap is sized "reinsertCount", after each new entry, I can remove the
+		 * nearest, knowing it can't possibly be selected for reinsertion. In the meantime, since I
+		 * know each removed entry will remain in its parent, I can compute the new bounds of the
+		 * parent.
+		 */
+		NS boundsNearest = null;
+		int dataCountNearest = 0;
+		while (it.hasNext()) {
+			DBTreeRecord<?, ? extends NS> next = it.next();
+			farthest.add(new LeastDistanceFromCenterToPoint(next, n.getShape()));
+			LeastDistanceFromCenterToPoint near = farthest.poll();
+			boundsNearest = boundsNearest == null ? near.record.getBounds()
+					: boundsNearest.unionBounds(near.record.getBounds());
+			dataCountNearest += near.record.getDataCount();
+		}
+		assert farthest.size() == reinsertCount;
+
+		// RI3
+		// NOTE: entries are removed as part of Insert step (by virtue of updated parent)
+		n.setChildCount(maxChildren + 1 - reinsertCount);
+		n.setShape(boundsNearest);
+		int dataCountReduction = n.getDataCount() - dataCountNearest;
+		n.setDataCount(dataCountNearest);
+		NR p = getParentOf(n);
+		while (p != null) {
+			int newDataCount = p.getDataCount() - dataCountReduction;
+			p.setDataCount(newDataCount);
+
+			// I can't think of a better way to re-compute the bounds in the path
+			p.setShape(unionStream(getChildrenOf(p).stream().map(DBTreeRecord::getBounds)));
+			p = getParentOf(p);
+		}
+
+		// RI4 (close reinsert)
+		// NOTE: I know all children will be processed before we could possibly cause a split of n
+		while (!farthest.isEmpty()) {
+			LeastDistanceFromCenterToPoint far = farthest.poll();
+			doInsert(far.record, levelInfo);
+		}
+	}
+
+	@Override
+	protected void checkNodeIntegrity(NR n) {
+		super.checkNodeIntegrity(n);
+		if (n.getChildCount() > maxChildren) {
+			throw new AssertionError("Node exceeds the maximum children");
+		}
+	}
+}

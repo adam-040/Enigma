@@ -1,0 +1,137 @@
+#include <ghidra/SymbolUtilities.h>
+#include <ghidra/Address.h>
+#include <ghidra/InvalidInputException.h>
+#include <sstream>
+#include <cctype>
+
+namespace ghidra {
+
+int SymbolUtilities::getOrdinalValue(const std::string& symbolName) {
+    if (!symbolName.empty() && symbolName.find(ORDINAL_PREFIX) == 0) {
+        std::string ordinalStr = symbolName.substr(std::string(ORDINAL_PREFIX).length());
+        try {
+            return std::stoi(ordinalStr);
+        } catch (...) {
+        }
+    }
+    return -1;
+}
+
+bool SymbolUtilities::containsInvalidChars(const std::string& str) {
+    for (char c : str) {
+        if (isInvalidChar(c)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool SymbolUtilities::isInvalidChar(char c) {
+    if (static_cast<unsigned char>(c) < ' ') {
+        return true;
+    }
+    for (const char* p = INVALIDCHARS; *p != '\0'; ++p) {
+        if (c == *p) {
+            return true;
+        }
+    }
+    return false;
+}
+
+std::string SymbolUtilities::replaceInvalidChars(const std::string& str, bool replaceWithUnderscore) {
+    std::string result;
+    result.reserve(str.size());
+    for (char c : str) {
+        if (isInvalidChar(c)) {
+            if (replaceWithUnderscore) {
+                result += '_';
+            }
+        } else {
+            result += c;
+        }
+    }
+    return result;
+}
+
+std::string SymbolUtilities::getDefaultFunctionName(const Address& addr) {
+    return std::string(DEFAULT_FUNCTION_PREFIX) + getAddressString(addr);
+}
+
+std::string SymbolUtilities::getAddressString(const Address& addr) {
+    std::string s = addr.toString();
+    for (auto& c : s) {
+        if (c == ':') {
+            c = '_';
+        }
+    }
+    return s;
+}
+
+std::string SymbolUtilities::getDefaultExternalFunctionName(const Address& addr) {
+    return std::string(DEFAULT_EXTERNAL_ENTRY_PREFIX) +
+           DEFAULT_FUNCTION_PREFIX +
+           getAddressString(addr);
+}
+
+std::string SymbolUtilities::getDynamicOffcutName(const Address& addr) {
+    return std::string(DEFAULT_INTERNAL_REF_PREFIX) + getAddressString(addr);
+}
+
+std::string SymbolUtilities::getDynamicName(int referenceLevel, const Address& addr) {
+    if (referenceLevel >= 0 && static_cast<size_t>(referenceLevel) < sizeof(DYNAMIC_PREFIX_ARRAY) / sizeof(DYNAMIC_PREFIX_ARRAY[0])) {
+        return std::string(DYNAMIC_PREFIX_ARRAY[referenceLevel]) + getAddressString(addr);
+    }
+    return getAddressString(addr);
+}
+
+std::string SymbolUtilities::getDiffString(int64_t diff) {
+    if (diff < 10) {
+        return std::to_string(diff);
+    }
+    std::stringstream ss;
+    ss << "0x" << std::hex << diff;
+    return ss.str();
+}
+
+bool SymbolUtilities::startsWithDefaultDynamicPrefix(const std::string& name) {
+    for (const char* prefix : DYNAMIC_PREFIX_ARRAY) {
+        if (name.find(prefix) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+std::string SymbolUtilities::getDefaultParamName(int ordinal) {
+    return "param" + std::to_string(ordinal + 1);
+}
+
+bool SymbolUtilities::isDefaultParameterName(const std::string& name) {
+    if (name.find("param") != 0) {
+        return false;
+    }
+    std::string numStr = name.substr(5);
+    if (numStr.empty()) {
+        return false;
+    }
+    for (char c : numStr) {
+        if (!std::isdigit(static_cast<unsigned char>(c))) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void SymbolUtilities::validateName(const std::string& name) {
+    if (name.empty()) {
+        throw InvalidInputException("Symbol name can't be empty string");
+    }
+    if (name.length() > static_cast<size_t>(MAX_SYMBOL_NAME_LENGTH)) {
+        throw InvalidInputException("Symbol name exceeds maximum length");
+    }
+    if (containsInvalidChars(name)) {
+        throw InvalidInputException("Symbol name contains invalid characters: " + name);
+    }
+}
+
+} // namespace ghidra

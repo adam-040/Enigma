@@ -1,0 +1,540 @@
+<!DOCTYPE doctype PUBLIC "-//W3C//DTD HTML 4.0 Frameset//EN">
+
+<HTML>
+  <HEAD>
+    <META name="generator" content=
+    "HTML Tidy for Java (vers. 2009-12-01), see jtidy.sourceforge.net">
+
+    <TITLE>Tool Options Dialog</TITLE>
+    <META http-equiv="content-type" content="text/html; charset=windows-1252">
+    <LINK rel="stylesheet" type="text/css" href="help/shared/DefaultStyle.css">
+  </HEAD>
+
+  <BODY>
+    <H1>Tool Options Dialog</H1>
+
+    <P>Each tool has an <I>Options</I> dialog that shows options in a tree format. When you click
+    on the node, the associated options appear in a panel to the right of the tree. At a minimum,
+    the tree has a node for key bindings and tool options . Select the node to show the
+    corresponding options that you can change. Plugins may provide their own options, in which case
+    new nodes in the tree or new options for the tool may show up. Options provide a flexible way
+    for changing plugin behavior or functionality.<BR>
+    </P>
+
+    <BLOCKQUOTE>
+      <BLOCKQUOTE>
+        <P><IMG alt="" src="help/shared/note.png"> The Tool Options dialog has a filter text field
+        that can be used to quickly find options relating to a keyword. Any options names or
+        descriptions that contain the keyword text will be displayed.<BR>
+        </P>
+      </BLOCKQUOTE>
+    </BLOCKQUOTE>
+
+    <P>To display the <I>Options</I> dialog, select <B>Edit<IMG alt="" border="0" src=
+    "help/shared/arrow.gif">Tool Options</B> from the tool menu.</P>
+
+    <H2><B>Restoring Default Settings</B></H2>
+
+    <BLOCKQUOTE>
+      <P>You can restore any currently selected options panel to its default settings by pressing
+      the <I><B>Restore Defaults</B></I> button at the bottom of the options panel. Use caution
+      when executing this action, as it cannot be undone.</P><BR>
+
+            <CENTER>
+        <IMG alt="" border="0" src="images/RestoreDefaults.png"> 
+      </CENTER><BR>
+    </BLOCKQUOTE><BR>
+     <BR>
+     
+
+    <H2><A name="KeyBindings_Option"></A><B>Key Bindings</B></H2>
+
+    <BLOCKQUOTE>
+      <P>You can create a new key binding (<I>accelerator key</I>) for an action or modify the
+      default key binding. The key binding that you add can be used to execute the action using the
+      keyboard. Below we describe the <B>Key Bindings</B> options editor.</P>
+
+      <BLOCKQUOTE>
+        <P><IMG alt="" border="0" src="help/shared/tip.png">Not all key bindings are changeable via
+        the tool options. For example, the following keys cannot be changed:</P>
+
+        <UL>
+          <LI>System Action Keybindings - System action default key bindings can be changed, with   
+          added restrictions: 1) The binding for a System action cannot be used by any other action, 
+          2) A key stroke bound to a System action cannot be used by another action until that 
+          key stroke is cleared from the System action.   The UI will show a message when these 
+          restrictions are triggered.
+          </LI>
+          <LI>Menu Navigation Actions: <TT><B>1-9, Page Up/Down, End, Home</B></TT> (these key
+          bindings are usable with a menu or popup menu open and are otherwise available for
+          assignment to key bindings).</LI>
+        </UL><BR>
+        <BR>
+      </BLOCKQUOTE>
+
+      <BLOCKQUOTE>
+        <P><IMG alt="" border="0" src="help/shared/tip.png"> You can also change key bindings from
+        within Ghidra by pressing <B>F4</B> while the mouse is over any toolbar icon or menu item.
+        Click <A href="#KeyBindingPopup">here</A> for more info.</P>
+      </BLOCKQUOTE>
+
+      <P>The <B>Key Bindings</B> option editor has a table with the following sortable columns:
+      <I>Action Name</I>, <I>Key Binding</I>, and <I>Plugin Name</I>. To change a value in the
+      table, select the row and then edit the text field below the table.</P>
+
+      <UL>
+        <LI>The text field below the table captures keystroke combinations entered.</LI>
+
+        <LI>If an action has a description to explain what it does, it will be displayed below the
+        text field.</LI>
+      </UL>
+
+      <P>The display below shows the key bindings panel for the <I>Project Window</I>. Using the
+      Key Bindings Options panel works the same as for a regular Ghidra Tool.</P>
+    </BLOCKQUOTE>
+
+      <CENTER>
+        <IMG alt="" border="0" src="images/KeyBindings.png">
+      </CENTER><BR>
+    <BLOCKQUOTE>
+      <H3>Change a Key Binding</H3>
+
+      <BLOCKQUOTE>
+        <P>To change the Key Binding,</P>
+
+        <OL>
+          <LI>Select <FONT size="4"><B>Edit</B></FONT><IMG alt="" border="0" src=
+          "help/shared/arrow.gif"> <FONT size="4"><B>Tool Options</B></FONT> from the main
+          menu.</LI>
+
+          <LI>Select the <I>Key Bindings</I> node in the options tree.</LI>
+
+          <LI>Select an action name to either set a key binding or change the existing key
+          binding.</LI>
+
+          <LI>
+            Click in the text field and type the key or keystroke combination (e.g., Ctrl x). 
+
+            <UL>
+              <LI>When a key is mapped to multiple actions, the action name is listed below the
+              text field.</LI>
+            </UL>
+          </LI>
+
+          <LI>Click on the <B><FONT size="4">OK</FONT></B> or <FONT size="4"><B>Apply</B></FONT>
+          button.</LI>
+        </OL>
+      </BLOCKQUOTE>
+
+	  <BLOCKQUOTE>
+	      <P><IMG alt="" border="0" src="help/shared/note.yellow.png"> When a key is mapped to multiple
+	      actions, and more than one of these actions is valid in the current context (i.e., the action
+	      is enabled), then a dialog is displayed for you to choose what action you want to
+	      perform.</P>
+	
+	      <P>To avoid the extra step of choosing the action from the dialog, do not map the same key to
+	      actions that are applicable in the same context.</P>
+	  </BLOCKQUOTE>
+	  
+	    <BLOCKQUOTE>
+	        <P><IMG alt="" border="0" src="help/shared/note.yellow.png">Unregistered action key 
+				bindings will be displayed in a lighter color in the table.   These values can still
+				be changed.</P>
+	
+	        <P>Unregistered actions may appear if plugins have been removed.  They may also appear
+			   for dialogs or components that have not yet been created in the system.  Because 
+			   some actions are registred on-demand, not all actions in the system will appear in
+			   this table.  Once an action UI has been shown in a given tool session, then its 
+			   actions appear in this table for the remainder of the tool session.
+			</P>
+	    </BLOCKQUOTE>
+
+      <H3>Remove a Key Binding</H3>
+
+      <BLOCKQUOTE>
+        <P>To remove a Key Binding,</P>
+
+        <OL>
+          <LI>Select <FONT size="4"><B>Edit</B></FONT><IMG alt="" border="0" src=
+          "help/shared/arrow.gif"> <FONT size="4"><B>Tool Options</B></FONT> from the main
+          menu.</LI>
+
+          <LI>Select the <I>Key Bindings</I> node in the options tree.</LI>
+
+          <LI>Select an action name for the key binding that you want to remove.</LI>
+
+          <LI>Click in the text field for the key binding.</LI>
+
+          <LI>Press the <IMG SRC="Icons.DELETE_ICON"> button to clear it.</LI>
+
+          <LI>Click on the <B><FONT size="4">OK</FONT></B> or <FONT size="4"><B>Apply</B></FONT>
+          button.</LI>
+        </OL>
+      </BLOCKQUOTE>
+      
+      
+      <!-- Import/Export Key Bindings -->
+      <A name="Import"></A> 
+
+      <H3>Import Key Bindings</H3>
+
+      <BLOCKQUOTE>
+        <P>To import a Key Binding,</P>
+
+        <OL>
+          <LI>Select <FONT size="4"><B>Edit</B></FONT><IMG alt="" border="0" src=
+          "help/shared/arrow.gif"> <FONT size="4"><B>Tool Options</B></FONT> from the main
+          menu.</LI>
+
+          <LI>Select the <I>Key Bindings</I> node in the options tree.</LI>
+
+          <LI>Press the <B>Import...</B> button.</LI>
+
+          <LI>On the warning dialog, press the <B>Yes</B> button to import key bindings or the
+          <B>No</B> button to cancel the process.</LI>
+
+          <LI>On the file chooser dialog, choose a previously exported file from which to import
+          key bindings.</LI>
+
+          <LI>Press <B>OK</B> to import the key bindings.</LI>
+        </OL>
+
+        <P><IMG alt="" border="0" src="help/shared/warning.png"> Importing key bindings will
+        override your current key bindings settings. It is suggested that you <A href=
+        "#Export">export your key bindings</A> before you import so that you may revert to your
+        previous settings if necessary.</P>
+
+        <P><IMG alt="" border="0" src="help/shared/note.png"> After importing you must save your
+        tool (<B><FONT size="4">File</FONT></B> <IMG alt="" border="0" src="help/shared/arrow.gif">
+        <FONT size="4"><B>Save Tool</B></FONT>) if you want you changes to persist between tool
+        invocations.</P>
+      </BLOCKQUOTE>
+
+      <H3><A name="KeyBindingPopup">Key Binding Short-Cut</A></H3>
+
+      <BLOCKQUOTE>
+        <P>A key binding can be applied to any menu item or toolbar icon. For example:</P>
+
+        <BLOCKQUOTE>
+          <P style="margin-top: 0pt; margin-bottom: 0pt;"><FONT size="4"><B>File</B></FONT> <IMG
+          alt="" border="0" src="help/shared/arrow.gif"> <FONT size="4"><B>Close</B></FONT></P>
+
+          <P style="margin-top: 0pt; margin-bottom: 0pt;"><FONT size="4"><B>Data</B></FONT> <IMG
+          alt="" border="0" src="help/shared/arrow.gif"> <FONT size="4"><B>Cycle</B></FONT> <IMG
+          alt="" border="0" src="help/shared/arrow.gif"> <B><FONT size="4">Cycle: Float,
+          Double</FONT></B></P>
+        </BLOCKQUOTE>
+
+        <P><FONT size="4">Apply key bindings to menu items or icons that are frequently accessed.
+        To do this:</FONT></P>
+
+        <OL>
+          <LI><FONT size="4">Display a menu item.</FONT></LI>
+
+          <LI><FONT size="4">Place the cursor on the menu item or let the mouse hover over an icon
+          on the toolbar.</FONT></LI>
+        </OL>
+
+        <P><IMG alt="" border="0" src="help/shared/note.png"> This menu item or icon will be
+        associated with the Key Binding. When the Key Binding key is used, this menu item or action
+        associated with the icon will be applied.</P>
+
+        <OL>
+          <LI value="3"><FONT size="4">Press the &lt;F4&gt; key to display</FONT> <B>Set Key
+          Binding</B> dialog:</LI>
+        </OL>
+
+        <P align="center"><IMG alt="" border="0" src="images/SetKeyBindings.png"></P>
+
+        <OL start="4">
+          <LI>Enter a key combination in the <B>Set Key Binding</B> dialog, The panel below the
+          text field that accepts the key input shows the other actions that are mapped to the key.
+          These are potential collisions if these actions are enabled at the same time. Press
+          <B>OK</B> to change the key binding.</LI>
+
+          <LI>The key combination that is entered in this dialog will be the key binding for the
+          menu item.</LI>
+        </OL>
+      </BLOCKQUOTE>
+
+      <H3><A name="Export"></A>Export Key Bindings</H3>
+
+      <BLOCKQUOTE>
+        <P>To export a Key Binding,</P>
+
+        <OL>
+          <LI>Select <FONT size="4"><B>Edit</B></FONT><IMG alt="" border="0" src=
+          "help/shared/arrow.gif"> <FONT size="4"><B>Tool Options</B></FONT> from the menu
+          bar.</LI>
+
+          <LI>Select the <I>Key Bindings</I> node in the options tree.</LI>
+
+          <LI>Press the <B>Export...</B> button.</LI>
+
+          <LI>If you have made changes, then you will be prompted to apply those changes before
+          continuing.</LI>
+
+          <LI>On the file chooser dialog, choose a file to which to export key bindings.</LI>
+
+          <LI>Press <B>OK</B> to export the key bindings.</LI>
+        </OL>
+      </BLOCKQUOTE>
+    </BLOCKQUOTE>
+
+    <H2><A name="OptionsForTool"></A><B>Tool</B></H2>
+
+    <BLOCKQUOTE>
+      <P><I>Tool</I> is a default node in the options tree that shows up in each tool's options
+      window. The <I>Tool</I> panel defines the options for the Tool. The table below lists the
+      basic options. Plugins may add their own options to the <I>Tool</I> options. If a tool does
+      not have a plugin that uses an option, the option will not show up on the <I>Tool</I> panel.
+      For example, the Ghidra Project Window does not have plugins that use the Max Go to Entries
+      or Subroutine Model, so these options will not appear on the <I>Tool</I> panel. If an option
+      has a description, it will show up in the description panel below the tree when you pass the
+      mouse pointer over the component in the options panel.</P>
+
+      <DIV align="center">
+        <CENTER>
+          <TABLE border="1" width="80%">
+            <TBODY>
+              <TR>
+                <TH align="left"><B>Option</B></TH>
+
+                <TH align="left"><B>Description</B></TH>
+              </TR>
+              <TR valign="middle">
+                <TD valign="top" width="200" align="left">Copy Strings Without Quotes</TD>
+
+                <TD valign="top" align="left">If selected, copying strings to the clipboard from
+                the listing, decompiler, or bytes viewer will remove outer quotes.</TD>
+              </TR>
+              <TR valign="middle">
+                <TD valign="top" width="200" align="left">Docking Windows On Top</TD>
+
+                <TD valign="top" align="left">Selected means to show each undocked window on top of
+                its parent tool window; the undocked window will not get "lost" behind its parent
+                window. Unselected means that the undocked window may go behind other windows once
+                it loses focus. Use the Windows menu to make the undocked window visible.</TD>
+              </TR>
+
+              <TR valign="middle">
+                <TD valign="top" width="200" align="left">Goto Dialog Memory</TD>
+
+                <TD valign="top" align="left">Selected means that the last goto query will
+                remain in the dialog the next time the dialog is invoked.</TD>
+              </TR>
+
+              <TR valign="middle">
+                <TD valign="top" width="200" align="left">Max Goto Entries</TD>
+
+                <TD valign="top" align="left">Number of past entries to keep in the <A href=
+                "help/topics/Navigation/Navigation.htm#Go_To_Address_Label">Go to Address or
+                Label</A> dialog</TD>
+              </TR>
+
+              <TR valign="middle">
+                <TD valign="top" width="200" align="left">Max Navigation History Size</TD>
+
+                <TD valign="top" align="left">Max number of items to retain in the navigation
+                history.</A> dialog</TD>
+              </TR>
+
+              <TR valign="middle">
+                <TD valign="top" width="200" align="left">Show Program Tabs Always</TD>
+
+                <TD valign="top" align="left">If selected, a program tab will be displayed even
+                there is only one program open.</TD>
+              </TR>
+              <TR valign="middle">
+                <TD valign="top" width="200" align="left">Subroutine Model</TD>
+
+                <TD valign="top" align="left">
+                  Sets the default subroutine model. This setting is mainly used when creating
+                  call graphs. See <A href=
+                  "help/topics/BlockModel/Block_Model.htm#BlockModelDefinition">Block Models</A>
+                  for a description of the valid Models.</P>
+                </TD>
+              </TR>
+
+              <TR valign="middle">
+                <TD valign="top" width="200" align="left">Use C-like Numeric Formatting for
+                Addresses</TD>
+
+                <TD valign="top" align="left">
+                  Selected means to attempt to interpret the value entered in the <A href=
+                  "help/topics/Navigation/Navigation.htm#Go_To_Address_Label">Go To dialog</A> as a
+                  number as follows: 
+
+                  <UL>
+                    <LI>interpret the value as a hex number if it starts with "0x"</LI>
+
+                    <LI>interpret the value as an octal number if it starts with "0"</LI>
+
+                    <LI>interpret the value as a binary number if it ends with a "b"</LI>
+                  </UL>
+                </TD>
+              </TR>
+            </TBODY>
+          </TABLE>
+        </CENTER>
+      </DIV>
+    </BLOCKQUOTE>
+
+    <BLOCKQUOTE>
+      <P>To change Tool Options,</P>
+
+      <OL>
+        <LI>From the tool, select <B>Edit</B><IMG alt="" border="0" src="help/shared/arrow.gif">
+        <B>Tool Options</B></LI>
+
+        <LI>Select the <I>Tool</I> node in the options tree.</LI>
+
+        <LI>Change the value for the option.</LI>
+
+        <LI>Click on the <FONT size="4"><B>OK</B></FONT> or <FONT size="4"><B>Apply</B>
+        button<B>.</B></FONT></LI>
+      </OL>
+    </BLOCKQUOTE>
+
+    <H3><A name="Front_End_Tool_Options"></A><B>Tool</B></H3>
+
+    <BLOCKQUOTE>
+      <P>Some <B>Tool</B> options can only be set from the <A href=
+      "help/topics/FrontEndPlugin/Ghidra_Front_end.htm">Front End</A>. Some of those are described
+      below.</P>
+      <BR>
+       
+
+      <DIV align="center">
+        <CENTER>
+          <TABLE border="1" width="80%">
+            <TBODY>
+              <TR>
+                <TH valign="top" align="left"><B>Option</B></TH>
+				
+                <TH valign="top" align="left"><B>Description</B></TH>
+              </TR>
+              <TR>
+                <TD valign="top" width="200" align="left">Allow Blinking Cursors</TD>
+
+                <TD valign="top" align="left">This controls whether text components and other
+                components that have a text cursor will blink when they have focus.</TD>
+              </TR>
+              <TR>
+                <TD valign="top" width="200" align="left">Automatically Save Tools</TD>
+
+                <TD valign="top" align="left">This controls whether Ghidra will save tool state
+                when the tool is closed.</TD>
+              </TR>
+
+               <TR>
+                <TD valign="top" width="200" align="left">Default Tool Launch Mode</TD>
+
+                <TD valign="top" align="left">This controls if a new or already running tool should
+                be used during default launch. Tool "reuse" mode will open selected file within a
+                suitable running tool if one can be identified, otherwise a new tool will be
+                launched.</TD>
+              </TR>
+                            
+            <TR valign="middle">
+                <TD valign="top" width="200" align="left">Docking Windows On Top</TD>
+
+                <TD valign="top" align="left">Selected means to show each undocked window on top of
+                its parent tool window; the undocked window will not get "lost" behind its parent
+                window. Unselected means that the undocked window may go behind other windows once
+                it loses focus. Use the Windows menu to make the undocked window visible.</TD>
+              </TR>
+
+              <TR>
+                <TD valign="top" width="200" align="left">Restore Previous Project</TD>
+
+                <TD valign="top" align="left">This controls whether or not Ghidra automatically
+                opens the previously loaded project on startup.</TD>
+              </TR>
+
+             <TR>
+                <TD valign="top" width="200" align="left">Show Tooltips</TD>
+			
+                <TD valign="top" align="left">This controls whether or not Ghidra will show
+                tooltips.</TD>
+              </TR>
+             <TR>
+                <TD valign="top" width="200" align="left">Use DataBuffer Output Compression</TD>
+			
+                <TD valign="top" align="left">This controls whether or not Ghidra will compress
+                data being sent to the server.</TD>
+              </TR>
+             <TR>
+                <TD valign="top" width="200" align="left">Use Notification Animation</TD>
+			
+                <TD valign="top" align="left">This controls whether or not Ghidra will use
+                automations to provide visual feedback that something is happening, such as
+                launching a tool.</TD>
+              </TR>
+			  
+			  <TR>
+			    <TD valign="top" width="200" align="left">Use Combined Alt Keys</TD>
+
+			    <TD valign="top" align="left">When selected, any keybding created that uses the Alt
+					key will work using the left and right Alt keys.  When unselected, key bindings
+					using the Alt key will only work with the left Alt on some systems, such as on
+					Windows.</TD>
+			  </TR>
+              
+            </TBODY>
+          </TABLE>
+        </CENTER>
+      </DIV>
+    </BLOCKQUOTE>
+
+    <H3><A name="Program_Caching"></A><B>Program Caching</B></H3>
+
+    <BLOCKQUOTE>
+      <P>Some features of Ghidra require opening programs briefly. Often the same set of programs
+      may need to be opened repeatedly. Ghidra provides a caching service to make these uses more
+      efficient. The following two options are available:</P>
+      <BR>
+
+      <DIV align="center">
+        <CENTER>
+          <TABLE border="1" width="80%">
+            <TBODY>
+              <TR>
+                <TH valign="top" align="left"><B>Option</B></TH>
+
+                <TH valign="top" align="left"><B>Description</B></TH>
+              </TR>
+
+              <TR>
+                <TD valign="top" width="200" align="left">Program Cache Size</TD>
+
+                <TD valign="top" align="left"><A name="Program_Cache_Size"></A>This options
+                specifies the maximum number of programs to keep open in the cache.</TD>
+              </TR>
+
+              <TR>
+                <TD valign="top" width="200" align="left">Program Cache Duration</TD>
+
+                <TD valign="top" align="left"><A name="Program_Cache_Duration">This option
+                specifies how long (in minutes) to keep an otherwise unused cached program open. If
+                the program is in use by some feature, it won't be closed when the time
+                expires, and it will stay in the cache for the full cache time.</A></TD>
+              </TR>
+            </TBODY>
+          </TABLE>
+        </CENTER>
+      </DIV>
+    </BLOCKQUOTE>
+
+    <P class="relatedtopic">Related Topics:<A name="RelatedTopics"></A></P>
+    <BR>
+     
+
+    <UL>
+      <LI><A href="help/topics/Navigation/Navigation.htm#Go_To_Address_Label">Go to Address or
+      Label</A></LI>
+
+      <LI><A href="help/topics/BlockModel/Block_Model.htm">Subroutine Model</A></LI>
+    </UL>
+  </BODY>
+</HTML>

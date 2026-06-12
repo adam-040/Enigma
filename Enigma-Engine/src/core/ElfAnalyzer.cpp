@@ -1,0 +1,257 @@
+﻿#include <ghidra/ElfAnalyzer.h>
+#include <ghidra/Program.h>
+#include <ghidra/Memory.h>
+#include <ghidra/Address.h>
+#include <ghidra/AddressFactory.h>
+#include <ghidra/AddressSpace.h>
+#include <ghidra/TaskMonitor.h>
+#include <ghidra/MessageLog.h>
+#include <ghidra/Listing.h>
+#include <ghidra/Data.h>
+#include <ghidra/DataTypeManager.h>
+#include <ghidra/StructureDataType.h>
+#include <ghidra/ByteDataType.h>
+#include <ghidra/WordDataType.h>
+#include <ghidra/DWordDataType.h>
+#include <ghidra/QWordDataType.h>
+#include <ghidra/ArrayDataType.h>
+#include <ghidra/SymbolTable.h>
+#include <ghidra/SourceType.h>
+#include <memory>
+#include <string>
+#include <vector>
+
+namespace ghidra {
+
+ElfAnalyzer::ElfAnalyzer()
+    : AbstractBinaryFormatAnalyzer("ELF", "ELF") {
+}
+
+bool ElfAnalyzer::canAnalyze(Program* program) const {
+    if (!program) return false;
+    return program->getExecutableFormat() == "ELF";
+}
+
+static uint16_t readU16(const uint8_t* buf, bool be) {
+    return be
+        ? (static_cast<uint16_t>(buf[0]) << 8) | buf[1]
+        : (static_cast<uint16_t>(buf[1]) << 8) | buf[0];
+}
+
+static uint32_t readU32(const uint8_t* buf, bool be) {
+    return be
+        ? (static_cast<uint32_t>(buf[0]) << 24) | (static_cast<uint32_t>(buf[1]) << 16) |
+          (static_cast<uint32_t>(buf[2]) << 8) | buf[3]
+        : (static_cast<uint32_t>(buf[3]) << 24) | (static_cast<uint32_t>(buf[2]) << 16) |
+          (static_cast<uint32_t>(buf[1]) << 8) | buf[0];
+}
+
+static uint64_t readU64(const uint8_t* buf, bool be) {
+    if (be) {
+        return (static_cast<uint64_t>(buf[0]) << 56) |
+               (static_cast<uint64_t>(buf[1]) << 48) |
+               (static_cast<uint64_t>(buf[2]) << 40) |
+               (static_cast<uint64_t>(buf[3]) << 32) |
+               (static_cast<uint64_t>(buf[4]) << 24) |
+               (static_cast<uint64_t>(buf[5]) << 16) |
+               (static_cast<uint64_t>(buf[6]) << 8) | buf[7];
+    }
+    return (static_cast<uint64_t>(buf[7]) << 56) |
+           (static_cast<uint64_t>(buf[6]) << 48) |
+           (static_cast<uint64_t>(buf[5]) << 40) |
+           (static_cast<uint64_t>(buf[4]) << 32) |
+           (static_cast<uint64_t>(buf[3]) << 24) |
+           (static_cast<uint64_t>(buf[2]) << 16) |
+           (static_cast<uint64_t>(buf[1]) << 8) | buf[0];
+}
+
+bool ElfAnalyzer::added(Program* program, const AddressSetView& set, TaskMonitor* monitor, MessageLog& log) {
+    if (!program) return false;
+    if (monitor) monitor->setMessage("Analyzing ELF header...");
+
+    Memory* memory = program->getMemory();
+    if (!memory) return false;
+
+    auto space = const_cast<AddressSpace*>(program->getAddressFactory()->getDefaultAddressSpace());
+    Address addr(space, 0);
+
+    uint8_t ident[16] = {0};
+    if (memory->getBytes(addr, ident, 16) != 16) return false;
+    if (ident[0] != 0x7F || ident[1] != 'E' || ident[2] != 'L' || ident[3] != 'F') return false;
+
+    bool is64Bit = (ident[4] == 2);
+    bool bigEndian = (ident[5] == 2);
+
+    DataTypeManager* dtm = program->getDataTypeManager();
+    Listing* listing = program->getListing();
+    SymbolTable* symTable = program->getSymbolTable();
+    if (!dtm || !listing || !symTable) return false;
+
+    StructureDataType* elfHeader = new StructureDataType("ELF_Header", 0, dtm);
+    elfHeader->add(new ArrayDataType(&ByteDataType::dataType(), 16, 1, dtm), 16, "e_ident", "");
+    elfHeader->add(&WordDataType::dataType(), 2, "e_type", "");
+    elfHeader->add(&WordDataType::dataType(), 2, "e_machine", "");
+    elfHeader->add(&DWordDataType::dataType(), 4, "e_version", "");
+    if (is64Bit) {
+        elfHeader->add(&QWordDataType::dataType(), 8, "e_entry", "");
+        elfHeader->add(&QWordDataType::dataType(), 8, "e_phoff", "");
+        elfHeader->add(&QWordDataType::dataType(), 8, "e_shoff", "");
+    } else {
+        elfHeader->add(&DWordDataType::dataType(), 4, "e_entry", "");
+        elfHeader->add(&DWordDataType::dataType(), 4, "e_phoff", "");
+        elfHeader->add(&DWordDataType::dataType(), 4, "e_shoff", "");
+    }
+    elfHeader->add(&DWordDataType::dataType(), 4, "e_flags", "");
+    elfHeader->add(&WordDataType::dataType(), 2, "e_ehsize", "");
+    elfHeader->add(&WordDataType::dataType(), 2, "e_phentsize", "");
+    elfHeader->add(&WordDataType::dataType(), 2, "e_phnum", "");
+    elfHeader->add(&WordDataType::dataType(), 2, "e_shentsize", "");
+    elfHeader->add(&WordDataType::dataType(), 2, "e_shnum", "");
+    elfHeader->add(&WordDataType::dataType(), 2, "e_shstrndx", "");
+
+    DataType* resolvedHeader = dtm->resolve(elfHeader, nullptr);
+    if (!resolvedHeader) return false;
+
+    Data* headerData = listing->createData(addr, resolvedHeader);
+    if (headerData) headerData->setComment("ELF Header");
+    symTable->createLabel(addr, "ELF_HEADER", SourceType::ANALYSIS);
+
+    int phoffOff = is64Bit ? 0x20 : 0x1C;
+    int shoffOff = is64Bit ? 0x28 : 0x20;
+    int phnumOff = is64Bit ? 0x38 : 0x2C;
+    int shnumOff = is64Bit ? 0x3C : 0x30;
+    int shstrOff = is64Bit ? 0x3E : 0x32;
+    int phentOff = is64Bit ? 0x36 : 0x2A;
+    int shentOff = is64Bit ? 0x3A : 0x2E;
+
+    uint8_t buf8[8] = {0};
+
+    auto readField = [&](int off, int sz) -> uint64_t {
+        if (memory->getBytes(addr.add(off), buf8, sz) != sz) return 0;
+        return (sz == 8) ? readU64(buf8, bigEndian) : readU32(buf8, bigEndian);
+    };
+
+    auto read16 = [&](int off) -> uint16_t {
+        if (memory->getBytes(addr.add(off), buf8, 2) != 2) return 0;
+        return readU16(buf8, bigEndian);
+    };
+
+    uint64_t e_phoff = readField(phoffOff, is64Bit ? 8 : 4);
+    uint64_t e_shoff = readField(shoffOff, is64Bit ? 8 : 4);
+    uint16_t e_phnum = read16(phnumOff);
+    uint16_t e_shnum = read16(shnumOff);
+    uint16_t e_shstrndx = read16(shstrOff);
+    uint16_t e_phentsize = read16(phentOff);
+    uint16_t e_shentsize = read16(shentOff);
+
+    if (e_phentsize == 0) e_phentsize = is64Bit ? 56 : 32;
+    if (e_shentsize == 0) e_shentsize = is64Bit ? 64 : 40;
+
+    if (e_phnum > 0 && e_phnum < 100 && e_phoff > 0) {
+        StructureDataType* phdrType = new StructureDataType(
+            is64Bit ? "ElfProgramHeader64" : "ElfProgramHeader32", 0, dtm);
+        if (is64Bit) {
+            phdrType->add(&DWordDataType::dataType(), 4, "p_type", "");
+            phdrType->add(&DWordDataType::dataType(), 4, "p_flags", "");
+            phdrType->add(&QWordDataType::dataType(), 8, "p_offset", "");
+            phdrType->add(&QWordDataType::dataType(), 8, "p_vaddr", "");
+            phdrType->add(&QWordDataType::dataType(), 8, "p_paddr", "");
+            phdrType->add(&QWordDataType::dataType(), 8, "p_filesz", "");
+            phdrType->add(&QWordDataType::dataType(), 8, "p_memsz", "");
+            phdrType->add(&QWordDataType::dataType(), 8, "p_align", "");
+        } else {
+            phdrType->add(&DWordDataType::dataType(), 4, "p_type", "");
+            phdrType->add(&DWordDataType::dataType(), 4, "p_offset", "");
+            phdrType->add(&DWordDataType::dataType(), 4, "p_vaddr", "");
+            phdrType->add(&DWordDataType::dataType(), 4, "p_paddr", "");
+            phdrType->add(&DWordDataType::dataType(), 4, "p_filesz", "");
+            phdrType->add(&DWordDataType::dataType(), 4, "p_memsz", "");
+            phdrType->add(&DWordDataType::dataType(), 4, "p_flags", "");
+            phdrType->add(&DWordDataType::dataType(), 4, "p_align", "");
+        }
+        DataType* resolvedPhdr = dtm->resolve(phdrType, nullptr);
+        if (resolvedPhdr) {
+            for (uint16_t i = 0; i < e_phnum; i++) {
+                uint64_t phOff = e_phoff + i * e_phentsize;
+                Address phAddr(space, phOff);
+                Data* phData = listing->createData(phAddr, resolvedPhdr);
+                if (phData) phData->setComment("Program Header #" + std::to_string(i));
+                symTable->createLabel(phAddr, "phdr_" + std::to_string(i), SourceType::ANALYSIS);
+            }
+        }
+    }
+
+    if (e_shnum > 0 && e_shnum < 1000 && e_shoff > 0) {
+        std::vector<std::string> sectionNames(e_shnum);
+        if (e_shstrndx > 0 && e_shstrndx < e_shnum) {
+            uint64_t strtabOff = e_shoff + e_shstrndx * e_shentsize;
+            int shOffOff = is64Bit ? 0x18 : 0x10;
+            int shSizeOff = is64Bit ? 0x20 : 0x14;
+            // Read sh_offset from string table section header
+            uint64_t strOff = readField(static_cast<int>(strtabOff + shOffOff), is64Bit ? 8 : 4);
+            uint64_t strSize = readField(static_cast<int>(strtabOff + shSizeOff), is64Bit ? 8 : 4);
+            if (strSize > 0 && strSize < 0x100000) {
+                std::vector<uint8_t> strData(static_cast<size_t>(strSize));
+                Address strAddr(space, strOff);
+                if (memory->getBytes(strAddr, strData.data(), static_cast<int>(strSize)) == static_cast<int>(strSize)) {
+                    for (uint16_t i = 0; i < e_shnum; i++) {
+                        uint64_t shNameOff = e_shoff + i * e_shentsize;
+                        uint32_t nameIdx = 0;
+                        if (memory->getBytes(Address(space, shNameOff), buf8, 4) == 4) {
+                            nameIdx = readU32(buf8, bigEndian);
+                        }
+                        if (nameIdx < strSize) {
+                            const char* s = reinterpret_cast<const char*>(strData.data() + nameIdx);
+                            size_t len = 0;
+                            while (s[len] && nameIdx + len < strSize) len++;
+                            if (len > 0) sectionNames[i] = std::string(s, len);
+                        }
+                    }
+                }
+            }
+        }
+
+        StructureDataType* shdrType = new StructureDataType(
+            is64Bit ? "ElfSectionHeader64" : "ElfSectionHeader32", 0, dtm);
+        shdrType->add(&DWordDataType::dataType(), 4, "sh_name", "");
+        shdrType->add(&DWordDataType::dataType(), 4, "sh_type", "");
+        if (is64Bit) {
+            shdrType->add(&QWordDataType::dataType(), 8, "sh_flags", "");
+            shdrType->add(&QWordDataType::dataType(), 8, "sh_addr", "");
+            shdrType->add(&QWordDataType::dataType(), 8, "sh_offset", "");
+            shdrType->add(&QWordDataType::dataType(), 8, "sh_size", "");
+            shdrType->add(&DWordDataType::dataType(), 4, "sh_link", "");
+            shdrType->add(&DWordDataType::dataType(), 4, "sh_info", "");
+            shdrType->add(&QWordDataType::dataType(), 8, "sh_addralign", "");
+            shdrType->add(&QWordDataType::dataType(), 8, "sh_entsize", "");
+        } else {
+            shdrType->add(&DWordDataType::dataType(), 4, "sh_flags", "");
+            shdrType->add(&DWordDataType::dataType(), 4, "sh_addr", "");
+            shdrType->add(&DWordDataType::dataType(), 4, "sh_offset", "");
+            shdrType->add(&DWordDataType::dataType(), 4, "sh_size", "");
+            shdrType->add(&DWordDataType::dataType(), 4, "sh_link", "");
+            shdrType->add(&DWordDataType::dataType(), 4, "sh_info", "");
+            shdrType->add(&DWordDataType::dataType(), 4, "sh_addralign", "");
+            shdrType->add(&DWordDataType::dataType(), 4, "sh_entsize", "");
+        }
+        DataType* resolvedShdr = dtm->resolve(shdrType, nullptr);
+        if (resolvedShdr) {
+            for (uint16_t i = 0; i < e_shnum; i++) {
+                uint64_t shOff = e_shoff + i * e_shentsize;
+                Address shAddr(space, shOff);
+                Data* shData = listing->createData(shAddr, resolvedShdr);
+                std::string comment = "Section Header #" + std::to_string(i);
+                if (!sectionNames[i].empty()) comment += " (" + sectionNames[i] + ")";
+                if (shData) shData->setComment(comment);
+                symTable->createLabel(shAddr, "shdr_" + std::to_string(i), SourceType::ANALYSIS);
+                if (!sectionNames[i].empty())
+                    symTable->createLabel(shAddr, sectionNames[i], SourceType::ANALYSIS);
+            }
+        }
+    }
+
+    if (monitor) monitor->setMessage("ELF analysis complete.");
+    return true;
+}
+
+} // namespace ghidra

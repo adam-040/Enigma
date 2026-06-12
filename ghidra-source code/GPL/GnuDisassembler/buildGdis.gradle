@@ -1,0 +1,161 @@
+/* ###
+ * IP: Public Domain
+ */
+
+defaultTasks 'assemble'
+
+ext.supportedPlatforms = ['mac_x86_64', 'mac_arm_64', 'linux_x86_64', 'linux_arm_64']
+
+ext.binutilsResource = new File("${binutilsLocation}/${binutils}.tar.bz2")
+
+def binutilsUnpackDir = file("${project.buildDir}/${binutils}/")
+
+/******************************************************************************************
+ *
+ * For each supported platform build the following tasks:
+ *        buildBinutils_<platform>			builds binutils for the platform
+ *
+ ******************************************************************************************/
+ 
+model {
+	components {
+		
+		gdis(NativeExecutableSpec) {
+				
+			// NOTE: Windows build requires Mingw and is very very slow and touchy
+			supportedPlatforms.each { targetPlatform it}
+			
+			sources {
+				c {
+					source {
+						srcDir "src/gdis/c"
+						include "disasm_1.c"
+					}
+				}
+			}
+			binaries {
+				all { 
+					def binutilsArtifactsDir = file("build/binutils/${targetPlatform.name}")
+					if ((toolChain in Gcc) || (toolChain in Clang)) {
+						cCompiler.args "-I${binutilsArtifactsDir}/include", "-I${binutilsArtifactsDir}/bfd",  "-I${binutilsArtifactsDir}/libsframe", "-std=gnu17"
+						linker.args "-L${binutilsArtifactsDir}/lib", "-lopcodes", "-lbfd", "-lsframe", "-liberty", "-lz", "-ldl"
+					}
+				}
+			}
+		} 
+	} 	
+	
+	tasks.compileGdisMac_x86_64ExecutableGdisC {
+		dependsOn 'copyBinutilsArtifcats_mac_x86_64'
+	}
+	tasks.compileGdisLinux_x86_64ExecutableGdisC {
+		dependsOn 'copyBinutilsArtifcats_linux_x86_64'
+	}
+	tasks.compileGdisMac_arm_64ExecutableGdisC {
+		dependsOn 'copyBinutilsArtifcats_mac_arm_64'
+	}
+	tasks.compileGdisLinux_arm_64ExecutableGdisC {
+		dependsOn 'copyBinutilsArtifcats_linux_arm_64'
+	}
+	
+}
+
+// change gdis linker output directory to build/os/<platform>
+gradle.taskGraph.whenReady {
+	def p = this.project
+	p.tasks.withType(LinkExecutable).each { t ->
+		File f = t.linkedFile.getAsFile().get()
+		String filename = f.getName()
+		NativePlatform platform = t.targetPlatform.get()
+		String osName = platform.getName()
+		t.linkedFile = p.file("build/os/${osName}/$filename")
+	}
+} 
+
+/*******************************************************************************************
+ * Task to unpack the standard binutils zip file
+ *******************************************************************************************/
+task binutilsUnpack {
+	description = "Unpack binutils (for building gdis)"
+	group = "Native Build Dependencies"
+	outputs.file { binutilsUnpackDir }
+	onlyIf { !binutilsUnpackDir.exists() }
+	
+	doFirst {
+		if (!binutilsResource.exists()) {
+			throw new GradleException("${binutilsResource.getCanonicalPath()} not found")
+		}
+	}
+	
+	doLast {
+		copy {
+			from tarTree(resources.bzip2("${binutilsResource}"))
+			into file("build")
+		}
+	}
+} 
+
+supportedPlatforms.each { platform ->
+
+	def buildName = "buildBinutils_${platform}"
+	def postBuildName = "copyBinutilsArtifcats_${platform}"
+		
+	def configDir = file("build/config/${platform}")
+	def artifactsDir = file("build/binutils/${platform}")
+		
+	task(buildName) {
+		description ="Configure and make binutils for $platform (for building gdis)"
+		group = "Native Prebuild Dependencies"
+		
+		onlyIf { !configDir.exists() }
+		
+		dependsOn binutilsUnpack
+		
+		inputs.dir binutilsUnpackDir
+		outputs.dir configDir
+		
+	 	doLast {
+
+			File binutilsDir = binutilsUnpackDir
+			delete configDir
+			
+			println "Configuring binutils - config directory: $configDir"
+			println "${binutilsDir}/configure --prefix=\"${configDir}\" --enable-targets=all --with-zlib=no --disable-nls --disable-werror"
+			configDir.mkdirs();
+			providers.exec {
+				workingDir configDir
+				commandLine "${binutilsDir}/configure", "--prefix=${configDir}", "--enable-targets=all", "--with-zlib=no", "--disable-nls",  "--disable-werror"
+			}.result.get()
+			
+			println "Building binutils - config directory: $configDir"
+			providers.exec {
+				commandLine "make", "-C", "${configDir}", "all"
+			}.result.get()
+		}	
+	}
+	
+	task(postBuildName, type: Copy) {
+		description = "Copy binutil artifcacts for $platform (for building gdis)"
+		group = "Native Prebuild Dependencies"
+		
+		dependsOn buildName
+		
+		destinationDir = artifactsDir
+		
+		into("/include") {
+			from("${binutilsUnpackDir}/include")
+			include "**/*.h"
+		}
+		into("/bfd") {
+			from "${configDir}/bfd"
+			include "**/*.h"
+		}
+		into("/lib") {
+			from "${configDir}/bfd/.libs/libbfd.a"
+			from "${configDir}/libiberty/libiberty.a"
+			from "${configDir}/opcodes/libopcodes.a"
+			from "${configDir}/libsframe/.libs/libsframe.a"
+		}
+	}
+
+}

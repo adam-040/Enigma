@@ -1,0 +1,153 @@
+/* ###
+ * IP: GHIDRA
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package ghidradev.ghidraprojectcreator.launchers;
+
+import java.io.File;
+import java.io.IOException;
+import java.text.ParseException;
+
+import javax.naming.OperationNotSupportedException;
+
+import org.eclipse.core.resources.IFolder;
+import org.eclipse.core.resources.ResourcesPlugin;
+import org.eclipse.core.runtime.*;
+import org.eclipse.debug.core.*;
+import org.eclipse.debug.ui.IDebugUIConstants;
+import org.eclipse.jdt.core.IJavaProject;
+import org.eclipse.jdt.launching.IJavaLaunchConfigurationConstants;
+import org.eclipse.jdt.launching.JavaLaunchDelegate;
+import org.eclipse.swt.widgets.Display;
+import org.eclipse.ui.IPerspectiveDescriptor;
+import org.eclipse.ui.PlatformUI;
+
+import ghidra.launch.AppConfig;
+import ghidradev.EclipseMessageUtils;
+import ghidradev.ghidraprojectcreator.utils.*;
+
+/**
+ * The Ghidra Launch delegate handles the final launch of Ghidra.
+ * We can do any extra custom launch behavior here.
+ */
+public class GhidraLaunchDelegate extends JavaLaunchDelegate {
+
+	@Override
+	public void launch(ILaunchConfiguration configuration, String mode, ILaunch launch,
+			IProgressMonitor monitor) throws CoreException {
+
+		boolean isHeadless =
+			configuration.getType().getIdentifier().equals(GhidraLaunchUtils.HEADLESS_LAUNCH);
+		ILaunchConfigurationWorkingCopy wc = configuration.getWorkingCopy();
+		
+		// Get the launch properties associated with the version of Ghidra that is trying to launch
+		String projectName =
+			wc.getAttribute(IJavaLaunchConfigurationConstants.ATTR_PROJECT_NAME, "");
+		IJavaProject javaProject = GhidraProjectUtils.getGhidraProject(projectName);
+		if (javaProject == null) {
+			EclipseMessageUtils.showErrorDialog("Failed to launch project \"" + projectName +
+				"\".\nDoes not appear to be a Ghidra project.");
+			return;
+		}
+		IFolder ghidraFolder =
+			javaProject.getProject().getFolder(GhidraProjectUtils.GHIDRA_FOLDER_NAME);
+		AppConfig appConfig;
+		String ghidraInstallPath = ghidraFolder.getLocation().toOSString();
+		try {
+			appConfig = new AppConfig(new File(ghidraInstallPath));
+		}
+		catch (ParseException | IOException e) {
+			EclipseMessageUtils.showErrorDialog(
+				"Failed to launch project \"" + projectName + "\".\n" + e.getMessage());
+			return;
+		}
+
+		// Make sure there isn't a build/ directory present...it messes up the classpath.
+		// The build directory could exist if the user built an extension from the command line
+		// rather than from the Eclipse wizard
+		if (javaProject.getProject().getFolder("build").exists()) {
+			EclipseMessageUtils.showErrorDialog("Failed to launch project \"" + projectName +
+				"\".\nDelete top-level 'build' directory and try again.");
+			return;
+		}
+
+		// Set program arguments
+		String customProgramArgs =
+			configuration.getAttribute(GhidraLaunchUtils.ATTR_PROGAM_ARGUMENTS, "").trim();
+		String programArgs =
+			isHeadless ? "ghidra.app.util.headless.AnalyzeHeadless" : "ghidra.GhidraRun";
+		programArgs += " " + customProgramArgs;
+		wc.setAttribute(IJavaLaunchConfigurationConstants.ATTR_PROGRAM_ARGUMENTS, programArgs);
+		if (isHeadless && customProgramArgs.isEmpty()) {
+			GhidraLaunchUtils.notifyAboutHeadlessWithNoArgs(configuration);
+		}
+
+		// Set VM arguments
+		String vmArgs = appConfig.getLaunchProperties().getVmArgs();
+		vmArgs += " " + configuration.getAttribute(GhidraLaunchUtils.ATTR_VM_ARGUMENTS, "").trim();
+		vmArgs += " -Dghidra.external.modules=\"%s%s%s\"".formatted(
+			javaProject.getProject().getLocation(), File.pathSeparator,
+			GhidraProjectUtils.getProjectDependencyDirs(javaProject));
+		File pyDevSrcDir = PyDevUtils.getPyDevSrcDir();
+		if (pyDevSrcDir != null) {
+			vmArgs += " " + "-Declipse.pysrc.dir=\"" + pyDevSrcDir + "\"";
+		}
+		
+		//---------Legacy properties--------------
+		vmArgs += " " + "-Declipse.install.dir=\"" +
+			Platform.getInstallLocation().getURL().getFile() + "\"";
+		vmArgs += " " + "-Declipse.workspace.dir=\"" +
+			ResourcesPlugin.getWorkspace().getRoot().getLocation() + "\"";
+		vmArgs += " " + "-Declipse.project.dir=\"" + javaProject.getProject().getLocation() + "\"";
+		vmArgs += " " + "-Declipse.project.dependencies=\"" +
+			GhidraProjectUtils.getProjectDependencyDirs(javaProject) + "\"";
+		//----------------------------------------
+		
+		wc.setAttribute(IJavaLaunchConfigurationConstants.ATTR_VM_ARGUMENTS, vmArgs);
+
+		// Handle special debug mode tasks
+		if (mode.equals("debug")) {
+			handleDebugMode();
+		}
+
+		super.launch(wc.doSave(), mode, launch, monitor);
+	}
+
+	/**
+	 * Handles extra things that should happen when we are launching in debug mode.
+	 */
+	private static void handleDebugMode() {
+		Display.getDefault().asyncExec(() -> {
+
+			// Switch to debug perspective
+			if (PlatformUI.getWorkbench() != null) {
+				IPerspectiveDescriptor descriptor =
+					PlatformUI.getWorkbench().getPerspectiveRegistry().findPerspectiveWithId(
+						IDebugUIConstants.ID_DEBUG_PERSPECTIVE);
+				EclipseMessageUtils.getWorkbenchPage().setPerspective(descriptor);
+			}
+
+			// Start PyDev debugger
+			if (PyDevUtils.isSupportedJythonPyDevInstalled()) {
+				try {
+					PyDevUtils.startPyDevRemoteDebugger();
+				}
+				catch (OperationNotSupportedException e) {
+					EclipseMessageUtils.error(
+						"Failed to start the PyDev remote debugger.  PyDev version is not supported.");
+				}
+			}
+		});
+	}
+}

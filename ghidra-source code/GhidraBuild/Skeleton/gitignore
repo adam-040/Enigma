@@ -1,0 +1,11 @@
+.project
+.pyproject
+.pydevproject
+.classpath
+.settings/
+.gradle/
+bin/
+build/
+dist/
+*.swp
+.antProperties.xml

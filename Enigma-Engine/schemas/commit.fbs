@@ -1,0 +1,19 @@
+// Schema for CommitMetadata
+
+namespace fbschema;
+
+table CommitMetadata {
+    schema_version: int = 1;
+    commit_id: string;
+    parent_commit_id: string;
+    snapshot_sha256: string;
+    binary_sha256: string;
+    snapshot_size: ulong;
+    timestamp: ulong;
+    message: string;
+    branch_name: string;
+    author: string;
+    change_count: int;
+}
+
+root_type CommitMetadata;

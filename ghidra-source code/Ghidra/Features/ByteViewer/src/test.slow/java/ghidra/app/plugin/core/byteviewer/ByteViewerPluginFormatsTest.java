@@ -1,0 +1,876 @@
+/* ###
+ * IP: GHIDRA
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package ghidra.app.plugin.core.byteviewer;
+
+import static org.junit.Assert.*;
+
+import java.awt.Color;
+import java.awt.event.KeyEvent;
+import java.math.BigInteger;
+import java.util.Date;
+import java.util.List;
+
+import javax.swing.JScrollBar;
+
+import org.junit.Test;
+
+import docking.DefaultActionContext;
+import docking.action.ToggleDockingAction;
+import docking.widgets.fieldpanel.support.FieldLocation;
+import docking.widgets.indexedscrollpane.IndexedScrollPane;
+import ghidra.app.plugin.core.codebrowser.CodeBrowserPlugin;
+import ghidra.app.plugin.core.format.*;
+import ghidra.app.plugin.core.navigation.NavigationHistoryPlugin;
+import ghidra.app.plugin.core.navigation.NextPrevAddressPlugin;
+import ghidra.app.services.GoToService;
+import ghidra.app.services.ProgramManager;
+import ghidra.framework.plugintool.Plugin;
+import ghidra.program.database.ProgramBuilder;
+import ghidra.program.database.ProgramDB;
+import ghidra.program.model.address.*;
+import ghidra.program.model.data.ByteDataType;
+import ghidra.program.model.data.StructureDataType;
+import ghidra.program.model.listing.Program;
+import ghidra.program.model.mem.MemoryAccessException;
+import ghidra.program.util.ProgramLocation;
+
+/**
+ * Test for byte viewer formats. 
+ */
+public class ByteViewerPluginFormatsTest extends AbstractByteViewerPluginTest {
+
+
+	@Override
+	protected List<Class<? extends Plugin>> getDefaultPlugins() {
+		return List.of(NavigationHistoryPlugin.class, NextPrevAddressPlugin.class,
+			CodeBrowserPlugin.class);
+	}
+
+	@Override
+	protected Program buildProgram() throws Exception {
+		ProgramBuilder builder = new ProgramBuilder("notepad", ProgramBuilder._TOY);
+		builder.createMemory("test2", "0x1001000", 0x2000);
+		Program p = builder.getProgram();
+		p.clearUndo();
+		return p;
+	}
+
+	private ProgramDB create16bitProgram() throws Exception {
+		ProgramBuilder builder = new ProgramBuilder("16bit", ProgramBuilder._8051);
+		builder.createMemory("test2", "0x1000", 0x1000);
+		builder.setBytes("0x1100", "ff 20 10 50 30 00");
+		return builder.getProgram();
+	}
+
+
+	@Test
+	public void testInsertionFieldHex() throws Exception {
+		env.showTool();
+		String insertionStr = findLabelStr(panel, "Insertion");
+
+		// move the cursor to the right; the insertion field should not update
+		runSwing(() -> {
+			FieldLocation loc = getFieldLocation(addr(0x01001000));
+			ByteViewerComponent c = panel.getCurrentComponent();
+			c.setCursorPosition(loc.getIndex(), loc.getFieldNum(), 0, 0);
+			c.cursorRight();
+		});
+		assertEquals(insertionStr, findLabelStr(panel, "Insertion"));
+
+		// move the cursor to the right; the insertion field should update by one
+		runSwing(() -> {
+			ByteViewerComponent c = panel.getCurrentComponent();
+			c.cursorRight();
+		});
+
+//		SwingUpdateManager updateManager = (SwingUpdateManager) 
+//			TestUtils.getInstanceField("updateManager", provider);
+//		waitForSwingUpdateManager( updateManager );
+		waitForSwing();
+		assertEquals(addr(0x01001001).toString(), findLabelStr(panel, "Insertion"));
+
+		// move the cursor to the left; the insertion field should have 
+		//   been decremented by one
+		runSwing(() -> {
+			ByteViewerComponent c = panel.getCurrentComponent();
+			c.cursorLeft();
+		});
+		assertEquals(addr(0x01001000).toString(), findLabelStr(panel, "Insertion"));
+
+		// move the cursor to the left; the insertion field should not change
+		runSwing(() -> {
+			ByteViewerComponent c = panel.getCurrentComponent();
+			c.cursorLeft();
+		});
+		assertEquals(insertionStr, findLabelStr(panel, "Insertion"));
+	}
+
+	@Test
+	public void testInsertionFieldOctal() throws Exception {
+		env.showTool();
+		addViews();
+		ByteViewerComponent c = findComponent(panel, "Octal");
+		panel.setCurrentView(c);
+
+		String insertionStr = findLabelStr(panel, "Insertion");
+
+		// move the cursor to the right two times; the insertion field should not update
+		runSwing(() -> {
+			FieldLocation loc = getFieldLocation(addr(0x01001000));
+			ByteViewerComponent currentComponent = panel.getCurrentComponent();
+			currentComponent.setCursorPosition(loc.getIndex(), loc.getFieldNum(), 0, 0);
+			currentComponent.cursorRight();
+			currentComponent.cursorRight();
+		});
+		assertEquals(insertionStr, findLabelStr(panel, "Insertion"));
+
+		// move the cursor to the right; the insertion field should update by one
+		runSwing(() -> {
+			ByteViewerComponent currentComponent = panel.getCurrentComponent();
+			currentComponent.cursorRight();
+		});
+		assertEquals(addr(0x01001001).toString(), findLabelStr(panel, "Insertion"));
+
+		// move the cursor to the left; the insertion field should have 
+		//   been decremented by one
+		runSwing(() -> {
+			ByteViewerComponent currentComponent = panel.getCurrentComponent();
+			currentComponent.cursorLeft();
+		});
+		assertEquals(addr(0x01001000).toString(), findLabelStr(panel, "Insertion"));
+
+		// move the cursor to the left two times; the insertion field should not change
+		runSwing(() -> {
+			ByteViewerComponent currentComponent = panel.getCurrentComponent();
+			currentComponent.cursorLeft();
+			currentComponent.cursorLeft();
+		});
+		assertEquals(insertionStr, findLabelStr(panel, "Insertion"));
+	}
+
+	@Test
+	public void testInsertionFieldAscii() throws Exception {
+		env.showTool();
+		addViews();
+		ByteViewerComponent c = findComponent(panel, "Chars");
+		panel.setCurrentView(c);
+
+		String insertionStr = findLabelStr(panel, "Insertion");
+
+		// move the cursor to the right; the insertion field should update by one
+		runSwing(() -> {
+			FieldLocation loc = getFieldLocation(addr(0x01001000));
+			ByteViewerComponent currentComponent = panel.getCurrentComponent();
+			currentComponent.setCursorPosition(loc.getIndex(), loc.getFieldNum(), 0, 0);
+			currentComponent.cursorRight();
+		});
+		assertEquals(addr(0x01001001).toString(), findLabelStr(panel, "Insertion"));
+
+		// move the cursor to the right; the insertion field should update by one
+		runSwing(() -> {
+			ByteViewerComponent currentComponent = panel.getCurrentComponent();
+			currentComponent.cursorRight();
+		});
+		assertEquals(addr(0x01001002).toString(), findLabelStr(panel, "Insertion"));
+
+		// move the cursor to the left; the insertion field should have 
+		//   been decremented by one
+		runSwing(() -> {
+			ByteViewerComponent currentComponent = panel.getCurrentComponent();
+			currentComponent.cursorLeft();
+		});
+		assertEquals(addr(0x01001001).toString(), findLabelStr(panel, "Insertion"));
+
+		// move the cursor to the left; the insertion field should update
+		runSwing(() -> {
+			ByteViewerComponent currentComponent = panel.getCurrentComponent();
+			currentComponent.cursorLeft();
+		});
+		assertEquals(insertionStr, findLabelStr(panel, "Insertion"));
+	}
+
+	@Test
+	public void testHexShortView() throws Exception {
+
+		env.showTool();
+		addViews();
+
+		final ByteViewerComponent c = findComponent(panel, "Hex Short");
+		panel.setCurrentView(c);
+		assertEquals(8, c.getNumberOfFields());
+		assertEquals(2, c.getDataModel().getUnitByteSize());
+
+		final FieldLocation loc = getFieldLocation(addr(0x01001000));
+		runSwing(() -> {
+			ByteViewerComponent currentComponent = panel.getCurrentComponent();
+			currentComponent.setCursorPosition(loc.getIndex(), loc.getFieldNum(), 0, 0);
+		});
+		// verify that the 2 bytes are represented as an 4 digit hex number
+		assertEquals(4, c.getCurrentField().getNumCols(loc.getRow()));
+	}
+
+	@Test
+	public void testOtherEditsHexShort() throws Exception {
+		// verify that the 4 byte string is rendered in red when a byte
+		// is changed from another view, e.g. Ascii or Hex
+		env.showTool();
+		addViews();
+
+		final ByteViewerComponent c = findComponent(panel, "Chars");
+		panel.setCurrentView(c);
+
+		ToggleDockingAction action = provider.getEditModeAction();
+		final FieldLocation loc = getFieldLocation(addr(0x01001000));
+		runSwing(() -> {
+			ByteViewerComponent currentComponent = panel.getCurrentComponent();
+			currentComponent.setCursorPosition(loc.getIndex(), loc.getFieldNum(), 0, 0);
+			action.setSelected(true);
+			action.actionPerformed(new DefaultActionContext());
+			KeyEvent ev =
+				new KeyEvent(currentComponent, 0, new Date().getTime(), 0, KeyEvent.VK_1, '1');
+			currentComponent.keyPressed(ev, loc.getIndex(), loc.getFieldNum(), loc.getRow(),
+				loc.getCol(), currentComponent.getCurrentField());
+		});
+		program.flushEvents();
+
+		final ByteViewerComponent hexComp = findComponent(panel, "Hex Short");
+
+		runSwing(() -> {
+			ProgramByteBlockSet blockset =
+				(ProgramByteBlockSet) plugin.getProvider().getByteBlockSet();
+			ByteBlockInfo bbInfo = blockset.getByteBlockInfo(addr(0x01001000));
+			FieldLocation l = hexComp.getFieldLocation(bbInfo.getBlock(), bbInfo.getOffset());
+			hexComp.setCursorPosition(l.getIndex(), l.getFieldNum(), 0, 0);
+		});
+
+		assertEquals(ByteViewerComponentProvider.EDITED_TEXT_COLOR,
+			((ByteField) hexComp.getCurrentField()).getForeground());
+	}
+
+	@Test
+	public void testHexIntegerView() throws Exception {
+
+		env.showTool();
+		addViews();
+
+		final ByteViewerComponent c = findComponent(panel, "Hex Integer");
+		panel.setCurrentView(c);
+		assertEquals(4, c.getNumberOfFields());
+		assertEquals(4, c.getDataModel().getUnitByteSize());
+
+		final FieldLocation loc = getFieldLocation(addr(0x01001000));
+		runSwing(() -> {
+			ByteViewerComponent currentComponent = panel.getCurrentComponent();
+			currentComponent.setCursorPosition(loc.getIndex(), loc.getFieldNum(), 0, 0);
+		});
+		// verify that the 4 bytes are represented as an 8 digit hex number
+		assertEquals(8, c.getCurrentField().getNumCols(loc.getRow()));
+	}
+
+	@Test
+	public void testOtherEditsHexInteger() throws Exception {
+		// verify that the 4 byte string is rendered in red when a byte
+		// is changed from another view, e.g. Ascii or Hex
+		env.showTool();
+		addViews();
+
+		final ByteViewerComponent c = findComponent(panel, "Chars");
+		panel.setCurrentView(c);
+
+		ToggleDockingAction action = provider.getEditModeAction();
+		final FieldLocation loc = getFieldLocation(addr(0x01001000));
+		runSwing(() -> {
+			ByteViewerComponent currentComponent = panel.getCurrentComponent();
+			currentComponent.setCursorPosition(loc.getIndex(), loc.getFieldNum(), 0, 0);
+			action.setSelected(true);
+			action.actionPerformed(new DefaultActionContext());
+			KeyEvent ev =
+				new KeyEvent(currentComponent, 0, new Date().getTime(), 0, KeyEvent.VK_1, '1');
+			currentComponent.keyPressed(ev, loc.getIndex(), loc.getFieldNum(), loc.getRow(),
+				loc.getCol(), currentComponent.getCurrentField());
+		});
+		program.flushEvents();
+
+		final ByteViewerComponent hexComp = findComponent(panel, "Hex Integer");
+
+		runSwing(() -> {
+			ProgramByteBlockSet blockset =
+				(ProgramByteBlockSet) plugin.getProvider().getByteBlockSet();
+			ByteBlockInfo bbInfo = blockset.getByteBlockInfo(addr(0x01001000));
+			FieldLocation l = hexComp.getFieldLocation(bbInfo.getBlock(), bbInfo.getOffset());
+			hexComp.setCursorPosition(l.getIndex(), l.getFieldNum(), 0, 0);
+		});
+
+		assertEquals(ByteViewerComponentProvider.EDITED_TEXT_COLOR,
+			((ByteField) hexComp.getCurrentField()).getForeground());
+	}
+
+	@Test
+	public void testHexLongView() throws Exception {
+
+		env.showTool();
+		addViews();
+
+		final ByteViewerComponent c = findComponent(panel, "Hex Long");
+		panel.setCurrentView(c);
+		assertEquals(2, c.getNumberOfFields());
+		assertEquals(8, c.getDataModel().getUnitByteSize());
+
+		final FieldLocation loc = getFieldLocation(addr(0x01001000));
+		runSwing(() -> {
+			ByteViewerComponent currentComponent = panel.getCurrentComponent();
+			currentComponent.setCursorPosition(loc.getIndex(), loc.getFieldNum(), 0, 0);
+		});
+		// verify that the 8 bytes are represented as an 8 digit hex number
+		assertEquals(16, c.getCurrentField().getNumCols(loc.getRow()));
+	}
+
+	@Test
+	public void testOtherEditsHexLong() throws Exception {
+		// verify that the 4 byte string is rendered in red when a byte
+		// is changed from another view, e.g. Ascii or Hex
+		env.showTool();
+		addViews();
+
+		final ByteViewerComponent c = findComponent(panel, "Chars");
+		panel.setCurrentView(c);
+
+		ToggleDockingAction action = provider.getEditModeAction();
+		final FieldLocation loc = getFieldLocation(addr(0x01001000));
+		runSwing(() -> {
+			ByteViewerComponent currentComponent = panel.getCurrentComponent();
+			currentComponent.setCursorPosition(loc.getIndex(), loc.getFieldNum(), 0, 0);
+			action.setSelected(true);
+			action.actionPerformed(new DefaultActionContext());
+			KeyEvent ev =
+				new KeyEvent(currentComponent, 0, new Date().getTime(), 0, KeyEvent.VK_1, '1');
+			currentComponent.keyPressed(ev, loc.getIndex(), loc.getFieldNum(), loc.getRow(),
+				loc.getCol(), currentComponent.getCurrentField());
+		});
+		program.flushEvents();
+
+		final ByteViewerComponent hexComp = findComponent(panel, "Hex Long");
+
+		runSwing(() -> {
+			ProgramByteBlockSet blockset =
+				(ProgramByteBlockSet) plugin.getProvider().getByteBlockSet();
+			ByteBlockInfo bbInfo = blockset.getByteBlockInfo(addr(0x01001000));
+			FieldLocation l = hexComp.getFieldLocation(bbInfo.getBlock(), bbInfo.getOffset());
+			hexComp.setCursorPosition(l.getIndex(), l.getFieldNum(), 0, 0);
+		});
+
+		assertEquals(ByteViewerComponentProvider.EDITED_TEXT_COLOR,
+			((ByteField) hexComp.getCurrentField()).getForeground());
+	}
+
+	@Test
+	public void testHexLongLongView() throws Exception {
+
+		env.showTool();
+		addViews();
+
+		final ByteViewerComponent c = findComponent(panel, "Hex Long Long");
+		panel.setCurrentView(c);
+		assertEquals(1, c.getNumberOfFields());
+		assertEquals(16, c.getDataModel().getUnitByteSize());
+
+		final FieldLocation loc = getFieldLocation(addr(0x01001000));
+		runSwing(() -> {
+			ByteViewerComponent currentComponent = panel.getCurrentComponent();
+			currentComponent.setCursorPosition(loc.getIndex(), loc.getFieldNum(), 0, 0);
+		});
+		// verify that the 16 bytes are represented as an 32 digit hex number
+		assertEquals(32, c.getCurrentField().getNumCols(loc.getRow()));
+	}
+
+	@Test
+	public void testOtherEditsHexLongLong() throws Exception {
+		// verify that the 4 byte string is rendered in red when a byte
+		// is changed from another view, e.g. Ascii or Hex
+		env.showTool();
+		addViews();
+
+		final ByteViewerComponent c = findComponent(panel, "Chars");
+		panel.setCurrentView(c);
+
+		ToggleDockingAction action = provider.getEditModeAction();
+		final FieldLocation loc = getFieldLocation(addr(0x01001000));
+		runSwing(() -> {
+			ByteViewerComponent currentComponent = panel.getCurrentComponent();
+			currentComponent.setCursorPosition(loc.getIndex(), loc.getFieldNum(), 0, 0);
+			action.setSelected(true);
+			action.actionPerformed(new DefaultActionContext());
+			KeyEvent ev =
+				new KeyEvent(currentComponent, 0, new Date().getTime(), 0, KeyEvent.VK_1, '1');
+			currentComponent.keyPressed(ev, loc.getIndex(), loc.getFieldNum(), loc.getRow(),
+				loc.getCol(), currentComponent.getCurrentField());
+		});
+		program.flushEvents();
+
+		final ByteViewerComponent hexComp = findComponent(panel, "Hex Long Long");
+
+		runSwing(() -> {
+			ProgramByteBlockSet blockset =
+				(ProgramByteBlockSet) plugin.getProvider().getByteBlockSet();
+			ByteBlockInfo bbInfo = blockset.getByteBlockInfo(addr(0x01001000));
+			FieldLocation l = hexComp.getFieldLocation(bbInfo.getBlock(), bbInfo.getOffset());
+			hexComp.setCursorPosition(l.getIndex(), l.getFieldNum(), 0, 0);
+		});
+
+		assertEquals(ByteViewerComponentProvider.EDITED_TEXT_COLOR,
+			((ByteField) hexComp.getCurrentField()).getForeground());
+	}
+
+	@Test
+	public void testIntegerView() throws Exception {
+
+		env.showTool();
+
+		runSwing(() -> {
+			FieldLocation loc = getFieldLocation(addr(0x01001000));
+			ByteViewerComponent c = panel.getCurrentComponent();
+			c.setCursorPosition(loc.getIndex(), loc.getFieldNum(), loc.getRow(), loc.getCol());
+		});
+		ByteViewerOptionsDialog dialog = launchByteViewerOptions();
+		setViewSelected(dialog, "Integer", true);
+		pressButtonByText(dialog.getComponent(), "OK");
+		waitForSwing();
+		final ByteViewerComponent c = findComponent(panel, "Integer");
+		panel.setCurrentView(c);
+
+		runSwing(() -> {
+			IndexedScrollPane sp =
+				(IndexedScrollPane) findContainer(panel, IndexedScrollPane.class);
+			JScrollBar scrollBar = sp.getHorizontalScrollBar();
+			scrollBar.setValue(scrollBar.getMaximum());
+		});
+		waitForSwing();
+
+		assertEquals(4, c.getNumberOfFields());
+		assertEquals(4, c.getDataModel().getUnitByteSize());
+
+		runSwing(() -> {
+
+			ByteViewerComponent currentComponent = panel.getCurrentComponent();
+			ProgramByteBlockSet blockset =
+				(ProgramByteBlockSet) plugin.getProvider().getByteBlockSet();
+			ByteBlockInfo bbInfo = blockset.getByteBlockInfo(addr(0x01001003));
+			currentComponent.setViewerCursorLocation(bbInfo.getBlock(), bbInfo.getOffset(),
+				bbInfo.getColumn());
+		});
+		waitForSwing();
+
+		FieldLocation loc = getFieldLocation(addr(0x01001003));
+		assertEquals(11, c.getCurrentField().getNumCols(loc.getRow()));
+
+		// verify that no edits can be done in Integer format since it
+		// does not support editing
+		Color fg = ((ByteField) c.getCurrentField()).getForeground();
+		if (fg != null) {
+			assertEquals(ByteViewerComponentProvider.CURSOR_COLOR_FOCUSED_NON_EDIT, fg);
+		}
+	}
+
+	@Test
+	public void testOctalView() throws Exception {
+		env.showTool();
+
+		runSwing(() -> {
+			FieldLocation loc = getFieldLocation(addr(0x01001000));
+			ByteViewerComponent c = panel.getCurrentComponent();
+			c.setCursorPosition(loc.getIndex(), loc.getFieldNum(), loc.getRow(), loc.getCol());
+		});
+		ByteViewerOptionsDialog dialog = launchByteViewerOptions();
+		setViewSelected(dialog, "Octal", true);
+		pressButtonByText(dialog.getComponent(), "OK");
+		waitForSwing();
+		final ByteViewerComponent c = findComponent(panel, "Octal");
+		panel.setCurrentView(c);
+
+		runSwing(() -> {
+			IndexedScrollPane sp =
+				(IndexedScrollPane) findContainer(panel, IndexedScrollPane.class);
+			JScrollBar scrollBar = sp.getHorizontalScrollBar();
+			scrollBar.setValue(scrollBar.getMaximum());
+		});
+		waitForSwing();
+
+		assertEquals(16, c.getNumberOfFields());
+		assertEquals(1, c.getDataModel().getUnitByteSize());
+
+		runSwing(() -> {
+
+			ByteViewerComponent currentComponent = panel.getCurrentComponent();
+			ProgramByteBlockSet blockset =
+				(ProgramByteBlockSet) plugin.getProvider().getByteBlockSet();
+			ByteBlockInfo bbInfo = blockset.getByteBlockInfo(addr(0x01001003));
+			currentComponent.setViewerCursorLocation(bbInfo.getBlock(), bbInfo.getOffset(),
+				bbInfo.getColumn());
+		});
+		waitForSwing();
+
+		FieldLocation loc = getFieldLocation(addr(0x01001003));
+		assertEquals(3, c.getCurrentField().getNumCols(loc.getRow()));
+
+		// verify that no edits can be done in Integer format since it
+		// does not support editing
+		Color fg = ((ByteField) c.getCurrentField()).getForeground();
+		if (fg != null) {
+			assertEquals(ByteViewerComponentProvider.CURSOR_COLOR_FOCUSED_NON_EDIT, fg);
+		}
+	}
+
+	@Test
+	public void testOtherEditsInteger() throws Exception {
+		// verify that changed bytes are rendered in red in the Integer view
+		env.showTool();
+		ByteViewerOptionsDialog dialog = launchByteViewerOptions();
+		setViewSelected(dialog, "Chars", true);
+		setViewSelected(dialog, "Octal", true);
+		setViewSelected(dialog, "Hex Integer", true);
+		setViewSelected(dialog, "Integer", true);
+		pressButtonByText(dialog.getComponent(), "OK");
+		waitForSwing();
+
+		final ByteViewerComponent c = findComponent(panel, "Chars");
+		panel.setCurrentView(c);
+
+		ToggleDockingAction action = provider.getEditModeAction();
+		final FieldLocation loc = getFieldLocation(addr(0x01001000));
+		runSwing(() -> {
+			ByteViewerComponent currentComponent = panel.getCurrentComponent();
+			currentComponent.setCursorPosition(loc.getIndex(), loc.getFieldNum(), 0, 0);
+			action.setSelected(true);
+			action.actionPerformed(new DefaultActionContext());
+
+			KeyEvent ev =
+				new KeyEvent(currentComponent, 0, new Date().getTime(), 0, KeyEvent.VK_1, '1');
+			currentComponent.keyPressed(ev, loc.getIndex(), loc.getFieldNum(), loc.getRow(),
+				loc.getCol(), currentComponent.getCurrentField());
+		});
+		program.flushEvents();
+
+		final ByteViewerComponent intComp = findComponent(panel, "Integer");
+
+		runSwing(() -> {
+			ProgramByteBlockSet blockset =
+				(ProgramByteBlockSet) plugin.getProvider().getByteBlockSet();
+			ByteBlockInfo bbInfo = blockset.getByteBlockInfo(addr(0x01001000));
+			FieldLocation l = intComp.getFieldLocation(bbInfo.getBlock(), bbInfo.getOffset());
+			intComp.setCursorPosition(l.getIndex(), l.getFieldNum(), 0, 0);
+		});
+		// color should indicate the edit
+		assertEquals(ByteViewerComponentProvider.EDITED_TEXT_COLOR,
+			((ByteField) intComp.getCurrentField()).getForeground());
+	}
+
+	@Test
+	public void testEditUnsupportedInteger() throws Exception {
+		env.showTool();
+
+		runSwing(() -> {
+			FieldLocation loc = getFieldLocation(addr(0x01001000));
+			ByteViewerComponent c = panel.getCurrentComponent();
+			c.setCursorPosition(loc.getIndex(), loc.getFieldNum(), loc.getRow(), loc.getCol());
+		});
+		ByteViewerOptionsDialog dialog = launchByteViewerOptions();
+		setViewSelected(dialog, "Integer", true);
+		pressButtonByText(dialog.getComponent(), "OK");
+		waitForSwing();
+
+		final ByteViewerComponent c = findComponent(panel, "Integer");
+		panel.setCurrentView(c);
+		int v = program.getMemory().getInt(addr(0x01001000));
+		runSwing(() -> {
+			FieldLocation loc = getFieldLocation(addr(0x01001000));
+			ToggleDockingAction action = provider.getEditModeAction();
+
+			ByteViewerComponent currentComponent = panel.getCurrentComponent();
+			currentComponent.setCursorPosition(loc.getIndex(), loc.getFieldNum(), 0, 0);
+			action.actionPerformed(new DefaultActionContext());
+
+			KeyEvent ev =
+				new KeyEvent(currentComponent, 0, new Date().getTime(), 0, KeyEvent.VK_1, '1');
+			currentComponent.keyPressed(ev, loc.getIndex(), loc.getFieldNum(), loc.getRow(),
+				loc.getCol(), currentComponent.getCurrentField());
+		});
+		program.flushEvents();
+		// verify that no changes were made
+		assertEquals(v, program.getMemory().getInt(addr(0x01001000)));
+	}
+
+	@Test
+	public void testAddressIdentification16Bit() throws Exception {
+		ProgramDB pdb = null;
+		try {
+			final ProgramManager pm = tool.getService(ProgramManager.class);
+			runSwing(() -> pm.closeProgram());
+			waitForSwing();
+			pdb = create16bitProgram();
+			final ProgramDB p = pdb;
+			runSwing(() -> pm.openProgram(p.getDomainFile()));
+			memory = p.getMemory();
+			env.showTool();
+			waitForSwing();
+
+			ByteViewerOptionsDialog dialog = launchByteViewerOptions();
+			setViewSelected(dialog, "Address", true);
+			pressButtonByText(dialog.getComponent(), "OK");
+			waitForSwing();
+			ByteViewerComponent c = findComponent(panel, "Address");
+			panel.setCurrentView(c);
+
+			// Address view should show "1" in a circle for all bytes that are
+			// the
+			// start of an address
+			AddressIterator iter = memory.getAddresses(true);
+			while (iter.hasNext()) {
+				Address addr = iter.next();
+				FieldLocation loc = getFieldLocation(addr);
+				ByteField field = c.getField(loc.getIndex(), loc.getFieldNum());
+				Address a = getTestAddress(addr);
+				if (a != null && memory.contains(a)) {
+					assertEquals(AddressFormatModel.GOOD_ADDRESS, field.getText());
+				}
+				else {
+					// Address view should show a '.' for all bytes whose formed address
+					// does not fall within the range of memory for the program
+					assertEquals(AddressFormatModel.BAD_ADDRESS, field.getText());
+				}
+			}
+		}
+		finally {
+			if (pdb != null) {
+				env.getGhidraProject().close(pdb);
+			}
+		}
+	}
+
+	@Test
+	public void testAddressIdentification32Bit() throws Exception {
+
+		env.showTool();
+
+		ByteViewerOptionsDialog dialog = launchByteViewerOptions();
+		setViewSelected(dialog, "Address", true);
+		pressButtonByText(dialog.getComponent(), "OK");
+		waitForSwing();
+		ByteViewerComponent c = findComponent(panel, "Address");
+		panel.setCurrentView(c);
+
+		// Address view should show "1" in a circle for all bytes that are the
+		// start of an address and not part of an instruction
+		AddressIterator iter = memory.getAddresses(true);
+		while (iter.hasNext()) {
+			Address addr = iter.next();
+			FieldLocation loc = getFieldLocation(addr);
+			ByteField field = c.getField(loc.getIndex(), loc.getFieldNum());
+			Address a = getTestAddress(addr);
+			if (a != null && memory.contains(a)) {
+				assertEquals(AddressFormatModel.GOOD_ADDRESS, field.getText());
+			}
+			else {
+				// Address view should show a '.' for all bytes whose formed address
+				// does not fall within the range of memory for the program
+				assertEquals(AddressFormatModel.BAD_ADDRESS, field.getText());
+			}
+		}
+	}
+
+	@Test
+	public void testDisassembledRecognition() throws Exception {
+		// verify that the undefined bytes are marked with a box 
+		// ("\u2700" unicode for dingbat char);
+		// defined data and instructions are marked with '.'
+		env.showTool();
+
+		ByteViewerOptionsDialog dialog = launchByteViewerOptions();
+		setViewSelected(dialog, "Disassembled", true);
+		pressButtonByText(dialog.getComponent(), "OK");
+		waitForSwing();
+
+		ByteViewerComponent c = findComponent(panel, "Disassembled");
+		panel.setCurrentView(c);
+
+		AddressIterator iter = memory.getAddresses(true);
+		int ditCount = 0;
+		int blockCount = 0;
+		// just test 20 of each case
+		while (iter.hasNext() && ditCount < 20 && blockCount < 20) {
+			Address addr = iter.next();
+			FieldLocation loc = getFieldLocation(addr);
+			ByteField field = c.getField(loc.getIndex(), loc.getFieldNum());
+
+			if ((listing.getInstructionContaining(addr) != null) ||
+				(listing.getDefinedDataContaining(addr) != null)) {
+				assertEquals(".", field.getText());
+				ditCount++;
+			}
+			else {
+				assertEquals(DisassembledFormatModel.BLOCK, field.getText());
+				blockCount++;
+			}
+		}
+
+	}
+
+	@Test
+	public void testDisassembledRecognition2() throws Exception {
+		// verify that when data is created, the dingbat char changes to '.'
+
+		env.showTool();
+
+		ByteViewerOptionsDialog dialog = launchByteViewerOptions();
+		setViewSelected(dialog, "Disassembled", true);
+		pressButtonByText(dialog.getComponent(), "OK");
+		waitForSwing();
+
+		ByteViewerComponent c = findComponent(panel, "Disassembled");
+		panel.setCurrentView(c);
+
+		GoToService goToService = tool.getService(GoToService.class);
+		goToService.goTo(new ProgramLocation(program, addr(01001530)));
+
+		waitForSwing();
+
+		int transactionID = program.startTransaction("test");
+		Address addr = addr(0x01001530);
+		for (int i = 0; i < 5; i++) {
+			listing.createData(addr, new ByteDataType(), 1);
+			addr = addr.add(1);
+		}
+		program.endTransaction(transactionID, true);
+
+		program.flushEvents();
+		waitForSwing();
+
+		addr = addr(0x01001530);
+		for (int i = 0; i < 5; i++) {
+			FieldLocation loc = getFieldLocation(addr);
+			ByteField field = c.getField(loc.getIndex(), loc.getFieldNum());
+			assertEquals(".", field.getText());
+			addr = addr.add(1);
+		}
+	}
+
+	@Test
+	public void testDisassembledRecognition3() throws Exception {
+		// verify that when data is created, the dingbat char changes to '.'
+
+		env.showTool();
+
+		ByteViewerOptionsDialog dialog = launchByteViewerOptions();
+		setViewSelected(dialog, "Disassembled", true);
+		pressButtonByText(dialog.getComponent(), "OK");
+		waitForSwing();
+
+		ByteViewerComponent c = findComponent(panel, "Disassembled");
+		panel.setCurrentView(c);
+
+		GoToService goToService = tool.getService(GoToService.class);
+		goToService.goTo(new ProgramLocation(program, addr(01001530)));
+
+		waitForSwing();
+
+		int transactionID = program.startTransaction("test");
+		Address addr = addr(0x01001530);
+		StructureDataType dt = new StructureDataType("test", 0);
+		for (int i = 0; i < 7; i++) {
+			dt.add(new ByteDataType());
+		}
+		listing.createData(addr, dt, dt.getLength());
+		program.endTransaction(transactionID, true);
+
+		program.flushEvents();
+		waitForSwing();
+
+		addr = addr(0x01001530);
+		for (int i = 0; i < dt.getLength(); i++) {
+			FieldLocation loc = getFieldLocation(addr);
+			ByteField field = c.getField(loc.getIndex(), loc.getFieldNum());
+			assertEquals(".", field.getText());
+			addr = addr.add(1);
+		}
+	}
+
+	@Test
+	public void testCloseProgram() throws Exception {
+		env.showTool();
+
+		ByteViewerOptionsDialog dialog = launchByteViewerOptions();
+		setViewSelected(dialog, "Address", true);
+		setViewSelected(dialog, "Disassembled", true);
+		pressButtonByText(dialog.getComponent(), "OK");
+		waitForSwing();
+		ByteViewerComponent c = findComponent(panel, "Address");
+		panel.setCurrentView(c);
+
+		final ProgramManager pm = tool.getService(ProgramManager.class);
+		runSwing(() -> pm.closeProgram());
+
+		waitForSwing();
+		assertNull(panel.getCursorLocation());
+		assertNull(c.getCurrentField());
+		assertNull(c.getField(BigInteger.ZERO, 0));
+
+		c = findComponent(panel, "Disassembled");
+		panel.setCurrentView(c);
+		assertNull(panel.getCursorLocation());
+		assertNull(c.getCurrentField());
+		assertNull(c.getField(BigInteger.ZERO, 0));
+
+	}
+
+	private Address getTestAddress(Address a) {
+
+		int size = a.getAddressSpace().getSize();
+		int nbytes = size / 8;
+		try {
+			long value = 0;
+			switch (nbytes) {
+				case 8:
+					value = memory.getLong(a);
+					break;
+				case 4:
+					value = memory.getInt(a);
+					break;
+				case 2:
+					value = memory.getShort(a);
+					break;
+				case 1:
+					value = memory.getByte(a);
+					break;
+				default:
+					return null;
+			}
+			return a.getNewAddress(value);
+		}
+		catch (MemoryAccessException ex) {
+			// Do nothing... Tried to form an address that was not readable or writable
+		}
+		catch (AddressOutOfBoundsException e) {
+			// ignore??
+		}
+		catch (IllegalArgumentException e) {
+			// ignore??
+		}
+		return null;
+	}
+
+	private void addViews() throws Exception {
+		loadViews("Chars", "Octal", "Hex Short", "Hex Integer", "Hex Long", "Hex Long Long");
+	}
+}

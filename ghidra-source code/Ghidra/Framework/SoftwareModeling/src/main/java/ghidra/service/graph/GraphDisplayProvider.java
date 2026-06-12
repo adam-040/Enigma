@@ -1,0 +1,113 @@
+/* ###
+ * IP: GHIDRA
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package ghidra.service.graph;
+
+import java.util.List;
+
+import ghidra.framework.options.Options;
+import ghidra.framework.plugintool.PluginTool;
+import ghidra.util.HelpLocation;
+import ghidra.util.classfinder.ExtensionPoint;
+import ghidra.util.exception.GraphException;
+import ghidra.util.task.TaskMonitor;
+
+/**
+ * Basic interface for objects that can display or otherwise consume a generic graph
+ */
+public interface GraphDisplayProvider extends ExtensionPoint {
+
+	/**
+	 * The name of this provider (for displaying as menu option when graphing)
+	 * @return the name of this provider.
+	 */
+	public String getName();
+
+	/**
+	 * Returns a GraphDisplay that can be used to "display" a graph
+	 * 
+	 * @param reuseGraph if true, this provider will attempt to re-use an existing GraphDisplay.
+	 * Note: this form will always clear the graph. If the intention is to append to the graph,
+	 * use the {@link #getGraphDisplay(boolean, boolean, TaskMonitor)} method instead.
+	 * so that it can be appended to. Otherwise, any reused graph display will be have its 
+	 * existing graph cleared.
+	 * 
+	 * @param monitor the {@link TaskMonitor} that can be used to monitor and cancel the operation
+	 * @return an object that can be used to display or otherwise consume (e.g., export) the graph
+	 * @throws GraphException thrown if there is a problem creating a GraphDisplay
+	 */
+	public default GraphDisplay getGraphDisplay(boolean reuseGraph, TaskMonitor monitor)
+			throws GraphException {
+		return getGraphDisplay(reuseGraph, false, monitor);
+	}
+
+	/**
+	 * Returns a GraphDisplay that can be used to "display" a graph
+	 * 
+	 * @param reuseGraph if true, this provider will attempt to re-use an existing GraphDisplay
+	 * @param append if true and there is a graph display to reuse, don't clear the existing graph
+	 * so that it can be appended to. Otherwise, any reused graph display will be have its 
+	 * existing graph cleared.
+	 * 
+	 * @param monitor the {@link TaskMonitor} that can be used to monitor and cancel the operation
+	 * @return an object that can be used to display or otherwise consume (e.g., export) the graph
+	 * @throws GraphException thrown if there is a problem creating a GraphDisplay
+	 */
+	public GraphDisplay getGraphDisplay(boolean reuseGraph, boolean append, TaskMonitor monitor)
+			throws GraphException;
+
+	/**
+	 * Returns the active graph display or null if there is no active graph display.  If only one
+	 * graph is displayed, then that graph will be returned.  If multiple graphs are being
+	 * displayed, then the most recently shown graph will be displayed, regardless of whether that
+	 * is the active graph in terms of user interaction.
+	 * 
+	 * @return the active graph display or null if there is no active graph display.
+	 */
+	public GraphDisplay getActiveGraphDisplay();
+
+	/**
+	 * Returns all known graph displays.  Typically they will be ordered by use, most recently
+	 * first.
+	 * @return the displays
+	 */
+	public List<GraphDisplay> getAllGraphDisplays();
+
+	/**
+	 * Provides an opportunity for this provider to register and read tool options
+	 * 
+	 * @param tool the tool hosting this display
+	 * @param options the tool options for graphing
+	 */
+	public void initialize(PluginTool tool, Options options);
+
+	/**
+	 * Called if the graph options change
+	 * 
+	 * @param options the current tool options
+	 */
+	public void optionsChanged(Options options);
+
+	/**
+	 * Disposes this GraphDisplayProvider
+	 */
+	public void dispose();
+
+	/**
+	 * Gets the help location for this GraphDisplayProvider
+	 * @return help location for this GraphDisplayProvider
+	 */
+	public HelpLocation getHelpLocation();
+}

@@ -1,0 +1,56 @@
+// Schema for ChangeSet — compacted diff stored in commits
+
+namespace fbschema;
+
+enum ChangeType : ubyte {
+    RENAME_FUNCTION = 0,
+    CHANGE_TYPE = 1,
+    ADD_COMMENT = 2,
+    DELETE_COMMENT = 3,
+    MODIFY_COMMENT = 4,
+    CREATE_STRUCTURE = 5,
+    MODIFY_STRUCTURE = 6,
+    CREATE_ENUM = 7,
+    RENAME_FIELD = 8,
+    ADD_SYMBOL = 9,
+    REMOVE_SYMBOL = 10,
+    RENAME_SYMBOL = 11,
+    ADD_REFERENCE = 12,
+    REMOVE_REFERENCE = 13,
+    CREATE_FUNCTION = 14,
+    DELETE_FUNCTION = 15,
+    MODIFY_BOOKMARK = 16,
+    SET_PLATE_COMMENT = 17,
+    SET_EOL_COMMENT = 18,
+    CREATE_DATA_TYPE = 19,
+    DELETE_DATA_TYPE = 20,
+    CREATE_NAMESPACE = 21,
+    DELETE_NAMESPACE = 22,
+    SET_FUNCTION_SIGNATURE = 23,
+    SET_CALLING_CONVENTION = 24,
+    SET_RETURN_TYPE = 25,
+    SET_STACK_FRAME = 26,
+    ADD_BOOKMARK = 27,
+    DELETE_BOOKMARK = 28,
+    ADD_PARAMETER = 29,
+    REMOVE_PARAMETER = 30,
+    SET_NO_RETURN = 31,
+    UNDEFINED = 255
+}
+
+table Change {
+    change_type: ChangeType;
+    address: ulong;
+    name: string;
+    old_value: string;
+    new_value: string;
+}
+
+table ChangeSet {
+    schema_version: int = 1;
+    parent_commit_id: string;
+    commit_id: string;
+    changes: [Change];
+}
+
+root_type ChangeSet;

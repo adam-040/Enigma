@@ -1,0 +1,661 @@
+/* ###
+ * IP: GHIDRA
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package ghidra.framework.main;
+
+import java.awt.BorderLayout;
+import java.awt.FlowLayout;
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.swing.*;
+import javax.swing.border.BevelBorder;
+
+import docking.DialogComponentProvider;
+import docking.widgets.OptionDialog;
+import docking.widgets.button.GButton;
+import docking.widgets.label.GDLabel;
+import docking.widgets.label.GLabel;
+import docking.widgets.textfield.ElidingFilePathTextField;
+import docking.wizard.WizardDialog;
+import ghidra.app.util.GenericHelpTopics;
+import ghidra.framework.client.*;
+import ghidra.framework.data.ConvertFileSystem;
+import ghidra.framework.data.TransientDataManager;
+import ghidra.framework.main.wizard.project.ProjectChooseRepositoryWizardModel;
+import ghidra.framework.model.*;
+import ghidra.framework.plugintool.PluginTool;
+import ghidra.framework.plugintool.PluginToolAccessUtils;
+import ghidra.framework.remote.User;
+import ghidra.framework.store.local.*;
+import ghidra.util.*;
+import ghidra.util.exception.CancelledException;
+import ghidra.util.layout.PairLayout;
+import ghidra.util.layout.VerticalLayout;
+import ghidra.util.task.*;
+import help.Help;
+import help.HelpService;
+
+/**
+ * Dialog to show project information. Allows the user to convert a local project to a shared project,
+ * OR to specify a different server or port, or repository for a shared project.
+ *
+ */
+public class ProjectInfoDialog extends DialogComponentProvider {
+
+	public final static String CHANGE = "Change Shared Project Info...";
+	final static String CONVERT = "Convert to Shared...";
+
+	private FrontEndPlugin plugin;
+	private Project project;
+	private RepositoryAdapter repository;
+	private JButton connectionButton;
+	private JLabel userAccessLabel;
+	private JButton changeConvertButton;
+	private JButton convertStorageButton;
+	private JTextField projectDirField;
+	private JLabel serverLabel;
+	private JLabel portLabel;
+	private JLabel repNameLabel;
+
+	ProjectInfoDialog(FrontEndPlugin plugin) {
+		super("Project Information", false, true, true, false);
+		this.plugin = plugin;
+		project = plugin.getActiveProject();
+		repository = project.getRepository();
+		addWorkPanel(buildMainPanel());
+		addDismissButton();
+		setHelpLocation(new HelpLocation(GenericHelpTopics.FRONT_END,
+			repository != null ? "View_Project_Info" : "Convert_to_Shared"));
+		setFocusComponent(dismissButton);
+		setRememberSize(false);
+	}
+
+	/**
+	 * Called from the project action manager when the connection state changes on the
+	 * repository.
+	 */
+	void updateConnectionStatus() {
+		boolean isConnected = repository.isConnected();
+		connectionButton.setIcon(
+			isConnected ? FrontEndPlugin.CONNECTED_ICON : FrontEndPlugin.DISCONNECTED_ICON);
+
+		connectionButton.setContentAreaFilled(false);
+		connectionButton.setSelected(isConnected);
+		connectionButton
+				.setBorder(isConnected ? BorderFactory.createBevelBorder(BevelBorder.LOWERED)
+						: BorderFactory.createBevelBorder(BevelBorder.RAISED));
+		updateConnectButtonToolTip();
+		if (isConnected) {
+			try {
+				User user = repository.getUser();
+				userAccessLabel.setText(getAccessString(user));
+			}
+			catch (IOException e) {
+				Msg.error(this, "Exception obtaining user", e);
+			}
+		}
+	}
+
+	private JPanel buildMainPanel() {
+
+		JPanel mainPanel = new JPanel(new VerticalLayout(20));
+		mainPanel.setBorder(BorderFactory.createEmptyBorder(10, 5, 10, 5));
+		mainPanel.add(buildInfoPanel());
+		mainPanel.add(buildRepositoryInfoPanel());
+		mainPanel.add(buildButtonPanel());
+		mainPanel.getAccessibleContext().setAccessibleName("Project Info");
+		return mainPanel;
+	}
+
+	private JPanel buildInfoPanel() {
+
+		File dir = project.getProjectLocator().getProjectDir();
+
+		JPanel outerPanel = new JPanel(new BorderLayout());
+		outerPanel.setBorder(BorderFactory.createTitledBorder("Project Location"));
+
+		JPanel infoPanel = new JPanel(new PairLayout(5, 10));
+		infoPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+		JLabel dirLabel = new GLabel("Directory Location:", SwingConstants.RIGHT);
+		dirLabel.setToolTipText("Directory where your project files reside.");
+		dirLabel.getAccessibleContext().setAccessibleName("Directory");
+		infoPanel.add(dirLabel);
+		projectDirField = new ElidingFilePathTextField(dir.getAbsolutePath());
+		projectDirField.setEditable(false);
+		projectDirField.getAccessibleContext().setAccessibleName("Project Directory");
+		infoPanel.add(projectDirField);
+
+		infoPanel.add(new GLabel("Project Storage Type:", SwingConstants.RIGHT));
+		Class<? extends LocalFileSystem> fsClass = project.getProjectData().getLocalStorageClass();
+		String fsClassName = "<UNKNOWN>";
+		if (IndexedV1LocalFileSystem.class.equals(fsClass)) {
+			fsClassName = "Indexed Filesystem (V1)";
+		}
+		else if (IndexedLocalFileSystem.class.equals(fsClass)) {
+			fsClassName = "Indexed Filesystem (V0)";
+		}
+		else if (MangledLocalFileSystem.class.equals(fsClass)) {
+			fsClassName = "Mangled Filesystem";
+		}
+
+		JLabel label = new GLabel(fsClassName);
+		label.setName("Project Storage Type");
+		label.getAccessibleContext().setAccessibleName("Info");
+		infoPanel.add(label);
+		infoPanel.add(new GLabel("Project Name:", SwingConstants.RIGHT));
+		label = new GLabel(project.getName());
+		label.setName("Project Name");
+		infoPanel.add(label);
+		infoPanel.getAccessibleContext().setAccessibleName("Info");
+
+		outerPanel.add(infoPanel);
+		outerPanel.getAccessibleContext().setAccessibleName("Info");
+		return outerPanel;
+	}
+
+	private JPanel buildButtonPanel() {
+		JPanel buttonPanel = new JPanel(new BorderLayout());
+		buttonPanel.getAccessibleContext().setAccessibleName("Buttons");
+		changeConvertButton = new JButton(repository != null ? CHANGE : CONVERT);
+		changeConvertButton.getAccessibleContext().setAccessibleName("Change Convert");
+		changeConvertButton.addActionListener(e -> {
+			if (changeConvertButton.getText().equals(CONVERT)) {
+				convertToShared();
+			}
+			else {
+				updateSharedProjectInfo();
+			}
+		});
+
+		HelpService help = Help.getHelpService();
+		String tag = repository != null ? "Change_Shared_Project_Info" : "Convert_to_Shared";
+		help.registerHelp(changeConvertButton, new HelpLocation(GenericHelpTopics.FRONT_END, tag));
+
+		String toolTipForChange = "Change server information or specify another repository.";
+		String toolTipForConvert = "Convert project to be a shared project.";
+		changeConvertButton
+				.setToolTipText(repository != null ? toolTipForChange : toolTipForConvert);
+
+		Class<? extends LocalFileSystem> fsClass = project.getProjectData().getLocalStorageClass();
+		String convertStorageButtonLabel = null;
+		if (IndexedLocalFileSystem.class.equals(fsClass)) {
+			convertStorageButtonLabel = "Upgrade Project Storage Index...";
+		}
+		else if (MangledLocalFileSystem.class.equals(fsClass)) {
+			convertStorageButtonLabel = "Convert Project Storage to Indexed...";
+		}
+
+		if (convertStorageButtonLabel != null) {
+			convertStorageButton = new JButton(convertStorageButtonLabel);
+			convertStorageButton.addActionListener(e -> convertToIndexedFilesystem());
+			help.registerHelp(changeConvertButton,
+				new HelpLocation(GenericHelpTopics.FRONT_END, "Convert_Project_Storage"));
+			convertStorageButton
+					.setToolTipText("Convert/Upgrade project storage to latest Indexed Filesystem");
+			convertStorageButton.getAccessibleContext().setAccessibleName("Convert Storage");
+		}
+
+		JPanel p = new JPanel(new FlowLayout());
+		p.getAccessibleContext().setAccessibleName("Convert Storage");
+		p.add(changeConvertButton);
+		if (convertStorageButton != null) {
+			p.add(convertStorageButton);
+		}
+		buttonPanel.add(p);
+
+		return buttonPanel;
+	}
+
+	private JPanel buildRepositoryInfoPanel() {
+
+		String serverName = "";
+		ServerInfo info = null;
+		String repositoryName = "";
+		String portNumberStr = "";
+		boolean isConnected = false;
+		if (repository != null) {
+			info = repository.getServerInfo();
+			serverName = info.getServerName();
+			repositoryName = repository.getName();
+			portNumberStr = Integer.toString(info.getPortNumber());
+			isConnected = repository.isConnected();
+		}
+
+		JPanel outerPanel = new JPanel(new BorderLayout());
+		outerPanel.setBorder(BorderFactory.createTitledBorder("Repository Info"));
+
+		JPanel panel = new JPanel(new PairLayout(5, 10));
+		panel.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
+		panel.getAccessibleContext().setAccessibleName("Repository Info");
+
+		JLabel sLabel = new GDLabel("Server Name:", SwingConstants.RIGHT);
+		sLabel.getAccessibleContext().setAccessibleName("Server Name");
+		panel.add(sLabel);
+		serverLabel = new GDLabel(serverName);
+		serverLabel.setName("Server Name");
+		serverLabel.getAccessibleContext().setAccessibleName("Server Name");
+		panel.add(serverLabel);
+
+		JLabel pLabel = new GDLabel("Port Number:", SwingConstants.RIGHT);
+		pLabel.getAccessibleContext().setAccessibleName("Port Number");
+		panel.add(pLabel);
+		portLabel = new GDLabel(portNumberStr);
+		portLabel.setName("Port Number");
+		portLabel.getAccessibleContext().setAccessibleName("Port Number");
+		panel.add(portLabel);
+
+		JLabel repLabel = new GDLabel("Repository Name:", SwingConstants.RIGHT);
+		repLabel.getAccessibleContext().setAccessibleName("Repository Name");
+		panel.add(repLabel);
+		repNameLabel = new GDLabel(repositoryName);
+		repNameLabel.setName("Repository Name");
+		repNameLabel.getAccessibleContext().setAccessibleName("Repository Name");
+		panel.add(repNameLabel);
+
+		JLabel connectLabel = new GDLabel("Connection Status:", SwingConstants.RIGHT);
+		connectLabel.getAccessibleContext().setAccessibleName("Connection Status");
+		panel.add(connectLabel);
+
+		connectionButton = new GButton(
+			isConnected ? FrontEndPlugin.CONNECTED_ICON : FrontEndPlugin.DISCONNECTED_ICON);
+		connectionButton.addActionListener(e -> connect());
+		connectionButton.setName("Connect Button");
+		connectionButton.getAccessibleContext().setAccessibleName("Connect");
+		connectionButton.setContentAreaFilled(false);
+		connectionButton.setSelected(isConnected);
+		connectionButton
+				.setBorder(isConnected ? BorderFactory.createBevelBorder(BevelBorder.LOWERED)
+						: BorderFactory.createBevelBorder(BevelBorder.RAISED));
+		updateConnectButtonToolTip();
+		HelpService help = Help.getHelpService();
+		help.registerHelp(connectionButton,
+			new HelpLocation(GenericHelpTopics.FRONT_END, "ConnectToServer"));
+
+		JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+		buttonPanel.setBorder(BorderFactory.createEmptyBorder());
+		buttonPanel.add(connectionButton);
+		buttonPanel.getAccessibleContext().setAccessibleName("Button");
+		panel.add(buttonPanel);
+
+		JLabel userLabel = new GDLabel("User Access Level:", SwingConstants.RIGHT);
+		userLabel.setToolTipText("Indicates your privileges in the shared repository");
+		userLabel.getAccessibleContext().setAccessibleName("User Access Level");
+		panel.add(userLabel);
+		User user = null;
+		if (isConnected) {
+			try {
+				user = repository.getUser();
+			}
+			catch (IOException e) {
+				Msg.error(this, "Unable to get the current user", e);
+			}
+		}
+		userAccessLabel = new GDLabel(getAccessString(user));
+		userAccessLabel.setName("User Access Level");
+		userAccessLabel.getAccessibleContext().setAccessibleName("User Access Level");
+		panel.add(userLabel);
+		panel.add(userAccessLabel);
+
+		outerPanel.add(panel);
+
+		if (repository == null) {
+			sLabel.setEnabled(false);
+			pLabel.setEnabled(false);
+			repLabel.setEnabled(false);
+			connectLabel.setEnabled(false);
+			connectionButton.setEnabled(false);
+			userLabel.setEnabled(false);
+		}
+		outerPanel.getAccessibleContext().setAccessibleName("Repository Info");
+		return outerPanel;
+	}
+
+	private void updateConnectButtonToolTip() {
+
+		if (repository != null) {
+			ServerInfo info = repository.getServerInfo();
+			String serverName = info.getServerName();
+			String notConnectedToolTip = HTMLUtilities.toHTML(
+				"Disconnected from " + serverName + ".\n" + "Activate this button to connect.");
+			connectionButton.setToolTipText(
+				repository.isConnected() ? "Connected to " + serverName : notConnectedToolTip);
+		}
+	}
+
+	private void connect() {
+		try {
+			repository.connect();
+		}
+		catch (NotConnectedException e) {
+			// message displayed by repository server adapter
+		}
+		catch (IOException e) {
+			ClientUtil.handleException(repository, e, "Repository Connection", rootPanel);
+		}
+	}
+
+	private String getAccessString(User user) {
+		if (user == null) {
+			return "";
+		}
+		if (user.isAdmin()) {
+			return "Administrator";
+		}
+		if (user.isReadOnly()) {
+			return "Read Only";
+		}
+		return "Read/Write";
+	}
+
+	private void updateSharedProjectInfo() {
+		int openCount = getOpenFileCount();
+		if (openCount != 0) {
+			Msg.showInfo(getClass(), getComponent(), "Cannot Change Project Info with Open Files",
+				"Found " + openCount + " open project file(s).\n" +
+					"Before your project info can be updated, you must\n" +
+					"close all open project files and tools.");
+			return;
+		}
+
+		if (!checkToolsClose()) {
+			return;
+		}
+		RepositoryAdapter currentRepository = project.getRepository();
+		ServerInfo serverInfo = currentRepository.getServerInfo();
+		ProjectChooseRepositoryWizardModel model =
+			new ProjectChooseRepositoryWizardModel(plugin.getTool(),
+				"Change Shared Project Information", serverInfo);
+		WizardDialog dialog = new WizardDialog(model);
+		dialog.show(getComponent());
+		RepositoryAdapter rep = model.getRepository();
+
+		if (rep != null) {
+			if (currentRepository.getServerInfo().equals(rep.getServerInfo()) &&
+				currentRepository.getName().equals(rep.getName())) {
+				Msg.showInfo(getClass(), getComponent(), "No Changes Made",
+					"No changes were made to the shared project information.");
+				return;
+			}
+
+			if (OptionDialog.showOptionDialog(getComponent(), "Update Shared Project Info",
+				"Are you sure you want to update your shared project information?", "Update",
+				OptionDialog.QUESTION_MESSAGE) == OptionDialog.OPTION_ONE) {
+
+				UpdateInfoTask task = new UpdateInfoTask(rep);
+				new TaskLauncher(task, getComponent(), 500);
+				// block until task completes
+				if (task.getStatus()) {
+					FileActionManager actionMgr = plugin.getFileActionManager();
+					close();
+					actionMgr.closeProject(false);
+					actionMgr.openProject(project.getProjectLocator());
+					plugin.getProjectActionManager().showProjectInfo();
+				}
+			}
+		}
+
+	}
+
+	private boolean checkToolsClose() {
+		PluginTool[] runningTools = project.getToolManager().getRunningTools();
+		for (PluginTool runningTool : runningTools) {
+			if (!PluginToolAccessUtils.canClose(runningTool)) {
+				return false;
+			}
+			runningTool.close();
+		}
+		return true;
+	}
+
+	private void convertToIndexedFilesystem() {
+		int openCount = getOpenFileCount();
+		if (openCount != 0) {
+			Msg.showInfo(getClass(), getComponent(),
+				"Cannot Convert/Upgrade Project Storage with Open Files",
+				"Found " + openCount + " open project file(s).\n" +
+					"Before your project can be converted, you must close\n" +
+					"all open project files and tools.");
+			return;
+		}
+
+		if (!checkToolsClose()) {
+			return;
+		}
+
+		RepositoryAdapter rep = project.getRepository();
+		if (rep != null) {
+			rep.disconnect();
+		}
+
+		if (OptionDialog.showOptionDialog(getComponent(), "Confirm Convert/Upgrade Project Storage",
+			"Convert/Upgrade Project Storage to latest Indexed Filesystem ?\n \n" +
+				"WARNING!  Once converted a project may no longer be opened by\n" +
+				"any version of Ghidra older than version 6.1.",
+			"Convert", OptionDialog.WARNING_MESSAGE) == OptionDialog.OPTION_ONE) {
+
+			ProjectLocator projectLocator = project.getProjectLocator();
+			FileActionManager actionMgr = plugin.getFileActionManager();
+			actionMgr.closeProject(false);
+
+			// put the conversion in a task
+			ConvertProjectStorageTask task = new ConvertProjectStorageTask(projectLocator);
+			new TaskLauncher(task, getComponent(), 500);
+
+			// block until task completes
+			if (task.getStatus()) {
+				close();
+				actionMgr.openProject(projectLocator);
+				plugin.getProjectActionManager().showProjectInfo();
+			}
+		}
+
+	}
+
+	private void convertToShared() {
+
+		int openCount = getOpenFileCount();
+		if (openCount != 0) {
+			Msg.showInfo(getClass(), getComponent(), "Cannot Convert Project with Open Files",
+				"Found " + openCount + " open project file(s).\n" +
+					"Before your project can be converted, you must close\n" +
+					"all open project files and tools.");
+			return;
+		}
+
+		if (!checkToolsClose()) {
+			return;
+		}
+		ProjectChooseRepositoryWizardModel model =
+			new ProjectChooseRepositoryWizardModel(plugin.getTool(), "Convert Project");
+		WizardDialog dialog = new WizardDialog(model);
+		dialog.show(getComponent());
+
+		RepositoryAdapter rep = model.getRepository();
+		if (rep != null) {
+			StringBuffer confirmMsg = new StringBuffer();
+			confirmMsg.append("All version history on your files will be\n" +
+				"lost after your project is converted and checkouts terminated.\n" +
+				"Do you want to convert your project?\n");
+			confirmMsg.append(" \n");
+			confirmMsg.append("WARNING: Convert CANNOT be undone!");
+
+			if (OptionDialog.showOptionDialog(getComponent(), "Confirm Convert Project",
+				confirmMsg.toString(), "Convert",
+				OptionDialog.WARNING_MESSAGE) == OptionDialog.OPTION_ONE) {
+				// put the conversion in a task
+				ConvertProjectTask task = new ConvertProjectTask(rep);
+				new TaskLauncher(task, getComponent(), 500);
+				// block until task completes
+				ProjectLocator projectLocator = project.getProjectLocator();
+				if (task.getStatus()) {
+					close();
+					FileActionManager actionMgr = plugin.getFileActionManager();
+					actionMgr.closeProject(false);
+					actionMgr.openProject(projectLocator);
+					plugin.getProjectActionManager().showProjectInfo();
+				}
+				else {
+					Msg.trace(this, "Convert project task failed");
+				}
+			}
+		}
+	}
+
+	private int getOpenFileCount() {
+		List<DomainFile> openFiles = new ArrayList<>();
+		project.getProjectData().findOpenFiles(openFiles);
+		TransientDataManager.getTransients(openFiles);
+		return openFiles.size();
+	}
+
+	private class ConvertProjectTask extends Task {
+		private RepositoryAdapter newRepository;
+		private boolean status;
+
+		ConvertProjectTask(RepositoryAdapter repository) {
+			super("Convert Project to Shared", true, false, true);
+			this.newRepository = repository;
+		}
+
+		@Override
+		public void run(TaskMonitor monitor) {
+			try {
+				newRepository.connect();
+				project.getProjectData().convertProjectToShared(newRepository, monitor);
+				status = true;
+			}
+			catch (IOException e) {
+				String msg = e.getMessage();
+				if (msg == null) {
+					msg = e.toString();
+				}
+				Msg.showError(this, getComponent(), "Failed to Convert Project",
+					"Update to shared project info failed:\n" + msg);
+			}
+			catch (CancelledException e) {
+				Msg.info(this, "Update shared project info was canceled.");
+			}
+		}
+
+		boolean getStatus() {
+			return status;
+		}
+	}
+
+	private class ConvertProjectStorageTask extends Task {
+		private ProjectLocator projectLocator;
+		private boolean status;
+
+		ConvertProjectStorageTask(ProjectLocator projectLocator) {
+			super("Convert Project Storage", false, false, true);
+			this.projectLocator = projectLocator;
+		}
+
+		@Override
+		public void run(TaskMonitor monitor) {
+			try {
+				monitor.setMessage("Converting storage...");
+				File projectDir = projectLocator.getProjectDir();
+				ConvertFileSystem.convertProject(projectDir,
+					new ConvertFileSystem.MessageListener() {
+						@Override
+						public void println(String string) {
+							Msg.info(this, string);
+						}
+					});
+				status = true;
+			}
+			catch (ConvertFileSystem.ConvertFileSystemException e) {
+				Msg.showError(this, getComponent(), "Failed to Convert Project Storage",
+					e.getMessage());
+			}
+		}
+
+		boolean getStatus() {
+			return status;
+		}
+	}
+
+	private class UpdateInfoTask extends Task {
+		private RepositoryAdapter newRepository;
+		private boolean status;
+
+		UpdateInfoTask(RepositoryAdapter repository) {
+			super("Update Shared Project Info", true, false, true);
+			this.newRepository = repository;
+		}
+
+		@Override
+		public void run(TaskMonitor monitor) {
+			try {
+				newRepository.connect();
+				boolean force = useForcedCheckoutTransition(monitor);
+				project.getProjectData().updateRepositoryInfo(newRepository, force, monitor);
+				status = true;
+			}
+			catch (IOException e) {
+				String msg = e.getMessage();
+				if (msg == null) {
+					msg = e.toString();
+				}
+				Msg.showError(this, getComponent(), "Failed to Update Shared Project Info",
+					"Conversion to shared project failed:\n" + msg);
+			}
+			catch (CancelledException e) {
+				Msg.info(this, "Convert project was canceled.");
+			}
+		}
+
+		private boolean useForcedCheckoutTransition(TaskMonitor monitor)
+				throws CancelledException, IOException {
+			if (repository == null) {
+				return false;
+			}
+
+			ProjectData projectData = project.getProjectData();
+			List<DomainFile> checkoutFiles = projectData.findCheckedOutFiles(monitor);
+			if (checkoutFiles.isEmpty() ||
+				!projectData.hasInvalidCheckouts(checkoutFiles, newRepository, monitor)) {
+				return false;
+			}
+
+			if (OptionDialog.showOptionDialog(getComponent(), "Terminate Unrecognized Checkouts",
+				"One or more project file checkouts are not recognized by the selected repository.\n" +
+					"These checkouts will be terminated and a local .keep file created." +
+					(repository.isConnected() ? ""
+							: "  Doing this\n" +
+								"will abandon such checkouts on the old repository since you are not connected.") +
+					"\n\n" +
+					"Are you sure you want to continue changing your shared project information?",
+				"Terminate Checkouts and Continue",
+				OptionDialog.QUESTION_MESSAGE) != OptionDialog.OPTION_ONE) {
+
+				throw new CancelledException();
+			}
+
+			// Must force termination if not connected to current repository
+			return !repository.isConnected();
+		}
+
+		boolean getStatus() {
+			return status;
+		}
+	}
+
+}
