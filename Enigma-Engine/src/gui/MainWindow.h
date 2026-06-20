@@ -53,7 +53,6 @@ private slots:
 private:
     void createMenuBar();
     void createDockWidgets();
-    void createCentralArea();
     void createStatusBar();
     void navigateTo(uint64_t addr, const QString& name);
     void populateExplorer();
@@ -77,9 +76,11 @@ private:
     DecompilerView* decompView_;
     HexView* hexView_;
     ConsoleWidget* console_;
-    QTabWidget* centralTabs_;
-    QSplitter* hSplit_;
-    QSplitter* vSplit_;
+    QDockWidget* explorerDock_;
+    QDockWidget* disasmDock_;
+    QDockWidget* decompDock_;
+    QDockWidget* hexDock_;
+    QDockWidget* consoleDock_;
     QLabel* statusFunc_;
     QLabel* statusAddr_;
     QLabel* statusCount_;

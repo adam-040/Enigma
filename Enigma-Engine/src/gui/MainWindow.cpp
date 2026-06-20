@@ -89,50 +89,44 @@ void MainWindow::createMenuBar() {
 }
 
 void MainWindow::createDockWidgets() {
-    auto* explorerDock = new QDockWidget(tr("EXPLORER"), this);
-    explorerDock->setFeatures(QDockWidget::NoDockWidgetFeatures);
+    disasmView_ = new DisassemblyView(this);
+    decompView_ = new DecompilerView(this);
+    hexView_ = new HexView(this);
+    console_ = new ConsoleWidget(this);
     explorer_ = new FunctionExplorer(this);
-    explorerDock->setWidget(explorer_);
-    addDockWidget(Qt::LeftDockWidgetArea, explorerDock);
+
+    auto createDock = [&](const QString& title, QWidget* widget) -> QDockWidget* {
+        auto* dock = new QDockWidget(title, this);
+        dock->setObjectName(title);
+        dock->setWidget(widget);
+        dock->setFeatures(QDockWidget::DockWidgetMovable |
+                          QDockWidget::DockWidgetClosable |
+                          QDockWidget::DockWidgetFloatable);
+        dock->setAllowedAreas(Qt::AllDockWidgetAreas);
+        return dock;
+    };
+
+    explorerDock_ = createDock("EXPLORER", explorer_);
+    disasmDock_   = createDock("DISASSEMBLY", disasmView_);
+    decompDock_   = createDock("DECOMPILER", decompView_);
+    hexDock_      = createDock("HEX", hexView_);
+    consoleDock_  = createDock("CONSOLE", console_);
+
+    addDockWidget(Qt::LeftDockWidgetArea, explorerDock_);
+    addDockWidget(Qt::RightDockWidgetArea, disasmDock_);
+    splitDockWidget(disasmDock_, decompDock_, Qt::Vertical);
+    splitDockWidget(decompDock_, hexDock_, Qt::Vertical);
+    addDockWidget(Qt::BottomDockWidgetArea, consoleDock_);
 
     connect(explorer_, &FunctionExplorer::functionSelected,
             this, &MainWindow::onFunctionSelected);
-}
-
-void MainWindow::createCentralArea() {
-    disasmView_ = new DisassemblyView(this);
-    decompView_ = new DecompilerView(this);
-
-    auto* rightTabs = new QTabWidget(this);
-    rightTabs->addTab(decompView_, tr("DECOMPILED"));
-
-    hexView_ = new HexView(this);
-
-    centralTabs_ = new QTabWidget(this);
-    centralTabs_->addTab(disasmView_, tr("DISASSEMBLY"));
-    centralTabs_->addTab(hexView_, tr("HEX"));
-
-    auto* topSplit = new QSplitter(Qt::Horizontal, this);
-    topSplit->addWidget(centralTabs_);
-    topSplit->addWidget(rightTabs);
-    topSplit->setStretchFactor(0, 2);
-    topSplit->setStretchFactor(1, 1);
-
-    console_ = new ConsoleWidget(this);
-
-    vSplit_ = new QSplitter(Qt::Vertical, this);
-    vSplit_->addWidget(topSplit);
-    vSplit_->addWidget(console_);
-    vSplit_->setStretchFactor(0, 3);
-    vSplit_->setStretchFactor(1, 1);
-
-    setCentralWidget(vSplit_);
-
     connect(disasmView_, &DisassemblyView::addressDoubleClicked,
             this, &MainWindow::onDisasmAddressDoubleClicked);
     connect(decompView_, &DecompilerView::addressDoubleClicked,
             this, &MainWindow::onDecompAddressDoubleClicked);
 }
+
+
 
 void MainWindow::createStatusBar() {
     auto* sb = statusBar();
@@ -820,7 +814,7 @@ void MainWindow::onNavigateBack() {
 
     statusFunc_->setText(name);
     statusAddr_->setText(QString("0x%1").arg(addr, 0, 16));
-    centralTabs_->setCurrentWidget(disasmView_);
+    disasmDock_->raise();
 
     int instrCount = 30;
     if (currentFunction_) {
