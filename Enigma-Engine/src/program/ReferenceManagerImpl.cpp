@@ -46,7 +46,23 @@ void ReferenceManagerImpl::moveAddressRange(const Address& fromAddr, const Addre
     // Stub: address range relocation not yet implemented
 }
 
+bool ReferenceManagerImpl::hasDuplicate(Address fromAddr, Address toAddr, int opIndex) const {
+    auto it = refsFrom_.find(fromAddr.toString());
+    if (it == refsFrom_.end()) return false;
+    for (auto* ref : it->second) {
+        if (ref->getOperandIndex() == opIndex && ref->getToAddress() == toAddr) {
+            return true;
+        }
+    }
+    return false;
+}
+
 Reference* ReferenceManagerImpl::addReference(Reference* reference) {
+    if (hasDuplicate(reference->getFromAddress(), reference->getToAddress(),
+                     reference->getOperandIndex())) {
+        ++duplicateCount_;
+        return nullptr;
+    }
     long id = nextID_++;
     auto memRef = std::make_unique<MemReferenceImpl>(
         reference->getFromAddress(),
@@ -90,6 +106,10 @@ Reference* ReferenceManagerImpl::addRegisterReference(Address fromAddr, int opIn
 Reference* ReferenceManagerImpl::addMemoryReference(Address fromAddr, Address toAddr,
                                                      const RefType* type, SourceType source,
                                                      int opIndex) {
+    if (hasDuplicate(fromAddr, toAddr, opIndex)) {
+        ++duplicateCount_;
+        return nullptr;
+    }
     long id = nextID_++;
     auto ref = std::make_unique<MemReferenceImpl>(fromAddr, toAddr, type, source, opIndex, true, id);
     Reference* raw = ref.get();

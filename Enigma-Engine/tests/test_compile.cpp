@@ -9836,6 +9836,7 @@ int main() {
             std::vector<ghidra::SymbolInfo> getSymbols() const override { return symbols; }
             std::vector<ghidra::ImportInfo> getImports() const override { return imports; }
             std::vector<ghidra::ExportInfo> getExports() const override { return exports; }
+            std::vector<ghidra::DelayLoadInfo> getDelayLoads() const override { return {}; }
             std::vector<ghidra::RelocationInfo> getRelocations() const override { return {}; }
             std::vector<uint8_t> getBytes(uint64_t, size_t) const override { return {}; }
             bool populateProgram(ghidra::ProgramDB*) override { return false; }
@@ -9881,7 +9882,7 @@ int main() {
         // Test 1: AutoAnalysisManager default initialization
         ghidra::AutoAnalysisManager aam(&prog);
         aam.initializeDefaultAnalyzers();
-        TEST("W112.AAM.analyzers.count", aam.getAnalyzers().size() == 133);
+        TEST("W112.AAM.analyzers.count", aam.getAnalyzers().size() == 138);
         {
             auto allAnalyzers = aam.getAnalyzers();
             bool hasFuncDiscover = false, hasImportThunk = false, hasSubRef = false;
@@ -9939,6 +9940,7 @@ int main() {
             std::vector<ghidra::ExportInfo> getExports() const override {
                 return { {"exported_func", 0x1000} };
             }
+            std::vector<ghidra::DelayLoadInfo> getDelayLoads() const override { return {}; }
             std::vector<ghidra::RelocationInfo> getRelocations() const override { return {}; }
             std::vector<uint8_t> getBytes(uint64_t, size_t) const override { return {}; }
             bool populateProgram(ghidra::ProgramDB*) override { return false; }
@@ -9991,14 +9993,14 @@ int main() {
         // Test 1: ScalarOperandAnalyzer creates memory reference for valid address
         {
             ghidra::Address instAddr(&ramSpace, 0x1000);
-            ghidra::Address dataAddr(&ramSpace, 0x2000);
+            ghidra::Address dataAddr(&ramSpace, 0x100000);
 
             auto* mem = dynamic_cast<ghidra::DefaultMemory*>(prog.getMemory());
             mem->createInitializedBlock(".data", dataAddr, 16LL);
 
             auto* instr = new ghidra::Instruction(&prog, instAddr, "MOV", 5, const_cast<ghidra::FlowType*>(&ghidra::RefTypes::FALL_THROUGH));
-            instr->setOperand(0, "0x2000");
-            instr->addOperandScalar(0, new ghidra::Scalar(64, 0x2000, false));
+            instr->setOperand(0, "0x100000");
+            instr->addOperandScalar(0, new ghidra::Scalar(64, 0x100000, false));
             prog.getListing()->addInstruction(instr);
 
             ghidra::ScalarOperandAnalyzer soa;

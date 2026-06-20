@@ -327,8 +327,15 @@ std::vector<MemoryBlock*> DefaultMemory::getBlocks() {
 }
 
 int DefaultMemory::findBlockIndex(const Address& addr) {
+    if (lastFoundIndex_ >= 0 && lastFoundIndex_ < static_cast<int>(blocks_.size()) &&
+        blocks_[lastFoundIndex_]->contains(addr)) {
+        return lastFoundIndex_;
+    }
     for (int i = 0; i < static_cast<int>(blocks_.size()); ++i) {
-        if (blocks_[i]->contains(addr)) return i;
+        if (blocks_[i]->contains(addr)) {
+            lastFoundIndex_ = i;
+            return i;
+        }
     }
     return -1;
 }
@@ -344,6 +351,7 @@ DefaultMemoryBlock* DefaultMemory::createInitializedBlock(const std::string& nam
     auto block = std::make_unique<DefaultMemoryBlock>(name, start, size, true, 0, overlay);
     DefaultMemoryBlock* raw = block.get();
     blocks_.push_back(std::move(block));
+    lastFoundIndex_ = -1;
     return raw;
 }
 
@@ -359,6 +367,7 @@ DefaultMemoryBlock* DefaultMemory::createInitializedBlock(const std::string& nam
     auto block = std::make_unique<DefaultMemoryBlock>(name, start, size, true, initialValue, overlay);
     DefaultMemoryBlock* raw = block.get();
     blocks_.push_back(std::move(block));
+    lastFoundIndex_ = -1;
     return raw;
 }
 
@@ -373,6 +382,7 @@ DefaultMemoryBlock* DefaultMemory::createUninitializedBlock(const std::string& n
     auto block = std::make_unique<DefaultMemoryBlock>(name, start, size, false, 0, overlay);
     DefaultMemoryBlock* raw = block.get();
     blocks_.push_back(std::move(block));
+    lastFoundIndex_ = -1;
     return raw;
 }
 
@@ -383,6 +393,7 @@ bool DefaultMemory::removeBlock(MemoryBlock* block) {
         });
     bool removed = (it != blocks_.end());
     blocks_.erase(it, blocks_.end());
+    if (removed) lastFoundIndex_ = -1;
     return removed;
 }
 
@@ -393,6 +404,7 @@ bool DefaultMemory::removeBlock(const std::string& name) {
         });
     bool removed = (it != blocks_.end());
     blocks_.erase(it, blocks_.end());
+    if (removed) lastFoundIndex_ = -1;
     return removed;
 }
 

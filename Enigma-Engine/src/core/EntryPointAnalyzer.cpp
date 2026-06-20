@@ -17,6 +17,16 @@
 
 namespace ghidra {
 
+// Helper: verify an address resides in an executable, initialized memory block.
+// Used to prevent creating functions at IAT/INT entries in .rdata, etc.
+static bool isExecutableEntry(Program* program, const Address& addr) {
+    if (!program) return false;
+    Memory* memory = program->getMemory();
+    if (!memory) return false;
+    MemoryBlock* block = memory->getBlock(addr);
+    return block && block->isExecute() && block->isInitialized();
+}
+
 EntryPointAnalyzer::EntryPointAnalyzer()
     : AbstractAnalyzer("Disassemble Entry Points",
                        "Disassembles entry points in newly added memory.",
@@ -48,6 +58,8 @@ bool EntryPointAnalyzer::added(Program* program, const AddressSetView& addressSe
         auto* listing = program->getListing();
         for (const Address& entry : redoSet) {
             if (monitor && monitor->isCancelled()) break;
+            // PHASE 1 FIX: only recreate dummy functions in executable memory
+            if (respectExecuteFlags_ && !isExecutableEntry(program, entry)) continue;
             Function* func = funcMgr->getFunctionAt(entry);
             if (!func) continue;
             if (!listing->getInstructionAt(entry)) continue;
@@ -73,6 +85,8 @@ void EntryPointAnalyzer::doDisassembly(Program* program, TaskMonitor* monitor,
         if (monitor && monitor->isCancelled()) return;
         if (!listing->isUndefined(entry)) continue;
         if (funcMgr->getFunctionAt(entry)) continue;
+        // PHASE 1 FIX: do not create functions at non-executable entry points (e.g., .rdata IAT)
+        if (respectExecuteFlags_ && !isExecutableEntry(program, entry)) continue;
         funcMgr->createFunction("", entry, AddressSet(entry, entry), SourceType::ANALYSIS);
     }
 
@@ -80,6 +94,8 @@ void EntryPointAnalyzer::doDisassembly(Program* program, TaskMonitor* monitor,
         if (monitor && monitor->isCancelled()) return;
         if (listing->getInstructionAt(entry) && !funcMgr->getFunctionAt(entry)) {
             if (symTable->isExternalEntryPoint(entry)) {
+                // PHASE 1 FIX: only recreate external-entry functions in executable memory
+                if (respectExecuteFlags_ && !isExecutableEntry(program, entry)) continue;
                 funcMgr->createFunction("", entry, AddressSet(entry, entry),
                                         SourceType::ANALYSIS);
             }
@@ -94,12 +110,10 @@ void EntryPointAnalyzer::addExternalEntryPoints(Program* program, const AddressS
 
     auto extPoints = symTable->getExternalEntryPoints();
     for (const Address& entry : extPoints) {
-        if (set.contains(entry)) {
-            Symbol* sym = symTable->getPrimarySymbol(entry);
-            if (sym && sym->getSource() == SourceType::DEFAULT) {
-                entries.push_back(entry);
-            }
-        }
+        if (!set.contains(entry)) continue;
+        // PHASE 1 FIX: ignore external entry points that point at data sections
+        if (respectExecuteFlags_ && !isExecutableEntry(program, entry)) continue;
+        entries.push_back(entry);
     }
 }
 
@@ -113,9 +127,10 @@ void EntryPointAnalyzer::addSymbolEntryPoints(Program* program, const AddressSet
         Symbol* sym = symIter.next();
         if (!sym) continue;
         Address addr = sym->getAddress();
-        if (set.contains(addr)) {
-            entries.push_back(addr);
-        }
+        if (!set.contains(addr)) continue;
+        // PHASE 1 FIX: ignore symbol entry points that point at data sections
+        if (respectExecuteFlags_ && !isExecutableEntry(program, addr)) continue;
+        entries.push_back(addr);
     }
 }
 

@@ -16,9 +16,13 @@
 #include <ghidra/ArrayDataType.h>
 #include <ghidra/SymbolTable.h>
 #include <ghidra/SourceType.h>
+#include <ghidra/Msg.h>
 #include <memory>
 #include <string>
 #include <vector>
+#include <map>
+#include <cstring>
+#include <algorithm>
 
 namespace ghidra {
 
@@ -160,6 +164,142 @@ bool CoffAnalyzer::added(Program* program, const AddressSetView& set, TaskMonito
                 if (!secName.empty())
                     symTable->createLabel(secAddr, secName, SourceType::ANALYSIS);
             }
+        }
+    }
+
+    // --- COFF symbol table parsing ---
+    uint8_t hdrBuf[20] = {0};
+    if (memory->getBytes(addr, hdrBuf, 20) != 20) {
+        if (monitor) monitor->setMessage("COFF analysis complete.");
+        return true;
+    }
+    uint32_t f_symptr = readU32(hdrBuf + 8, le);
+    uint32_t f_nsyms = readU32(hdrBuf + 12, le);
+
+    if (f_symptr > 0 && f_nsyms > 0 && f_nsyms < 100000) {
+        if (monitor) monitor->setMessage("Parsing COFF symbol table...");
+        uint32_t stringTableOff = f_symptr + f_nsyms * 18;
+
+        // Read string table size
+        uint8_t strSizeBuf[4] = {0};
+        uint32_t stringTableSize = 0;
+        if (memory->getBytes(Address(space, static_cast<int64_t>(stringTableOff)), strSizeBuf, 4) == 4) {
+            stringTableSize = readU32(strSizeBuf, le);
+        }
+
+        std::vector<uint8_t> stringTable;
+        if (stringTableSize > 4 && stringTableSize < 1024 * 1024) {
+            stringTable.resize(stringTableSize);
+            if (memory->getBytes(Address(space, static_cast<int64_t>(stringTableOff)),
+                                 stringTable.data(), static_cast<int>(stringTableSize)) != static_cast<int>(stringTableSize)) {
+                stringTable.clear();
+            }
+        }
+
+        // Build section base address map: section index (1-based) -> virtual address
+        // Section headers start at sectionHeadersOff, each 40 bytes, s_vaddr at offset 12
+        std::map<uint16_t, uint64_t> sectionVAddrs;
+        for (uint16_t i = 0; i < f_nscns; i++) {
+            int secOff = sectionHeadersOff + i * 40;
+            uint8_t secBuf[40] = {0};
+            if (memory->getBytes(Address(space, secOff), secBuf, 40) == 40) {
+                sectionVAddrs[i + 1] = readU32(secBuf + 12, le);
+            }
+        }
+
+        int symCount = 0;
+        uint32_t symOff = f_symptr;
+        for (uint32_t si = 0; si < f_nsyms; si++) {
+            if (monitor && monitor->isCancelled()) break;
+            uint8_t symEntry[18] = {0};
+            if (memory->getBytes(Address(space, static_cast<int64_t>(symOff)), symEntry, 18) != 18) break;
+
+            // Storage class: 2=EXT (external/static), 3=EXT_DEF
+            uint8_t storageClass = symEntry[16];
+            // Section number: 0=undefined, >0 = section index
+            int16_t sectionNum = static_cast<int16_t>(readU16(symEntry + 12, le));
+            uint32_t value = readU32(symEntry + 8, le);
+            uint16_t symType = readU16(symEntry + 14, le);
+
+            // We care about function symbols: storage class EXT(2) or EXT_DEF(3),
+            // section number > 0 (defined in a section), type indicating function (0x20)
+            // or any symbol with a section (might be a label)
+            bool isFunction = (storageClass == 2 || storageClass == 3) &&
+                              sectionNum > 0 &&
+                              value > 0 &&
+                              (symType == 0x20 || symType == 0x00);
+
+            if (!isFunction) {
+                symOff += 18;
+                continue;
+            }
+
+            // Extract symbol name
+            std::string symName;
+            uint8_t nameBytes[8];
+            memcpy(nameBytes, symEntry, 8);
+            // Check if name is in string table (first 4 bytes are 0)
+            uint32_t nameIsOffset = readU32(nameBytes, le);
+            auto safeStrLen = [](const char* s, size_t maxLen) -> size_t {
+                size_t n = 0;
+                while (n < maxLen && s[n] != '\0') ++n;
+                return n;
+            };
+
+            if (nameIsOffset == 0 && !stringTable.empty()) {
+                uint32_t strOff = readU32(nameBytes + 4, le);
+                if (strOff > 4 && strOff < stringTableSize) {
+                    const char* str = reinterpret_cast<const char*>(stringTable.data() + strOff);
+                    size_t strLen = safeStrLen(str, stringTableSize - strOff);
+                    if (strLen > 0) symName = std::string(str, strLen);
+                }
+            } else {
+                // Short name: 8 bytes, null-terminated or padded
+                std::string n(reinterpret_cast<char*>(nameBytes), 8);
+                size_t pos = n.find('\0');
+                if (pos != std::string::npos) n = n.substr(0, pos);
+                // Also check for /nnnn format (long name via string table offset)
+                if (!n.empty() && n[0] == '/' && n.size() > 1) {
+                    try {
+                        uint32_t strOff = static_cast<uint32_t>(std::stoul(n.substr(1)));
+                        if (strOff > 4 && strOff < stringTableSize && !stringTable.empty()) {
+                            const char* str = reinterpret_cast<const char*>(stringTable.data() + strOff);
+                            size_t strLen = safeStrLen(str, stringTableSize - strOff);
+                            if (strLen > 0) symName = std::string(str, strLen);
+                        }
+                    } catch (...) { symName = n; }
+                } else {
+                    symName = n;
+                }
+            }
+
+            if (symName.empty()) {
+                symOff += 18;
+                continue;
+            }
+
+            // Compute virtual address: section base + value (offset within section)
+            auto secIt = sectionVAddrs.find(static_cast<uint16_t>(sectionNum));
+            if (secIt != sectionVAddrs.end()) {
+                uint64_t va = secIt->second + value;
+                Address symAddr(space, static_cast<int64_t>(va));
+
+                // Only create labels, not functions (functions are created by analyzers)
+                if (!symTable->hasSymbol(symAddr)) {
+                    symTable->createLabel(symAddr, symName, SourceType::IMPORTED);
+                    symTable->addExternalEntryPoint(symAddr);
+                    ++symCount;
+                }
+            }
+
+            // Skip aux entries
+            uint8_t numAux = symEntry[17];
+            symOff += 18 + static_cast<uint32_t>(numAux) * 18;
+        }
+
+        if (symCount > 0) {
+            Msg::info(getName(), "COFF: parsed " + std::to_string(symCount) +
+                      " function symbols from symbol table.");
         }
     }
 

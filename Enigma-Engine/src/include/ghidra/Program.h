@@ -74,7 +74,7 @@ public:
     virtual CompilerSpec* getCompilerSpec() const { return compilerSpec_; }
     void setCompilerSpec(CompilerSpec* spec) { compilerSpec_ = spec; }
 
-    LanguageID getLanguageID() const {
+    virtual LanguageID getLanguageID() const {
         return language_ ? language_->getLanguageID() : LanguageID("unknown");
     }
 

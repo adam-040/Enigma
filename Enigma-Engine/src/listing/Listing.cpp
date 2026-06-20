@@ -15,6 +15,7 @@
 #include <ghidra/Data.h>
 #include <ghidra/CodeUnit.h>
 #include <ghidra/AddressSetView.h>
+#include <algorithm>
 #include <sstream>
 
 namespace ghidra {
@@ -30,10 +31,44 @@ Instruction* Listing::getInstructionAt(Address addr) const {
     return (it != instructions_.end()) ? it->second : nullptr;
 }
 
-Instruction* Listing::getInstructionContaining(Address addr) const {
+void Listing::rebuildSortedInstructions() const {
+    sortedInstructions_.clear();
+    sortedInstructions_.reserve(instructions_.size());
     for (const auto& pair : instructions_) {
-        if (pair.second && pair.second->getAddress() == addr) return pair.second;
+        if (pair.second) sortedInstructions_.push_back(pair.second);
     }
+    std::sort(sortedInstructions_.begin(), sortedInstructions_.end(),
+        [](const Instruction* a, const Instruction* b) {
+            return a->getMinAddress() < b->getMinAddress();
+        });
+    instructionsDirty_ = false;
+}
+
+void Listing::rebuildSortedData() const {
+    sortedData_.clear();
+    sortedData_.reserve(data_.size());
+    for (const auto& pair : data_) {
+        if (pair.second) sortedData_.push_back(pair.second);
+    }
+    std::sort(sortedData_.begin(), sortedData_.end(),
+        [](const Data* a, const Data* b) {
+            return a->getAddress() < b->getAddress();
+        });
+    dataDirty_ = false;
+}
+
+Instruction* Listing::getInstructionContaining(Address addr) const {
+    ++perfCounters_.getInstructionContaining_calls;
+    if (instructionsDirty_) rebuildSortedInstructions();
+    auto it = std::upper_bound(sortedInstructions_.begin(), sortedInstructions_.end(), addr,
+        [](const Address& a, const Instruction* inst) {
+            return a < inst->getMinAddress();
+        });
+    if (it == sortedInstructions_.begin()) return nullptr;
+    --it;
+    Instruction* inst = *it;
+    if (inst->getMinAddress() <= addr && addr <= inst->getMaxAddress())
+        return inst;
     return nullptr;
 }
 
@@ -45,38 +80,41 @@ Data* Listing::getDataAt(Address addr) const {
 }
 
 Data* Listing::getDataContaining(Address addr) const {
-    for (const auto& pair : data_) {
-        if (pair.second && pair.second->getAddress() == addr) return pair.second;
-    }
+    if (dataDirty_) rebuildSortedData();
+    auto it = std::upper_bound(sortedData_.begin(), sortedData_.end(), addr,
+        [](const Address& a, const Data* d) {
+            return a < d->getAddress();
+        });
+    if (it == sortedData_.begin()) return nullptr;
+    --it;
+    Data* d = *it;
+    if (d->getAddress() <= addr && addr <= d->getMaxAddress())
+        return d;
     return nullptr;
 }
 
 Instruction* Listing::getInstructionAfter(Address addr) const {
-    Instruction* found = nullptr;
-    for (const auto& pair : instructions_) {
-        Instruction* inst = pair.second;
-        if (!inst) continue;
-        Address instAddr = inst->getAddress();
-        if (instAddr > addr) {
-            if (!found || instAddr < found->getAddress()) {
-                found = inst;
-            }
-        }
-    }
-    return found;
+    if (instructionsDirty_) rebuildSortedInstructions();
+    auto it = std::upper_bound(sortedInstructions_.begin(), sortedInstructions_.end(), addr,
+        [](const Address& a, const Instruction* inst) {
+            return a < inst->getMinAddress();
+        });
+    return (it != sortedInstructions_.end()) ? *it : nullptr;
 }
 
 Data* Listing::getDefinedDataContaining(Address addr) const {
     Data* data = getDataAt(addr);
     if (data && data->isDefined()) return data;
-    for (const auto& pair : data_) {
-        Data* d = pair.second;
-        if (!d || !d->isDefined()) continue;
-        Address dAddr = d->getAddress();
-        if (dAddr <= addr && addr <= d->getMaxAddress()) {
-            return d;
-        }
-    }
+    if (dataDirty_) rebuildSortedData();
+    auto it = std::upper_bound(sortedData_.begin(), sortedData_.end(), addr,
+        [](const Address& a, const Data* d) {
+            return a < d->getAddress();
+        });
+    if (it == sortedData_.begin()) return nullptr;
+    --it;
+    Data* d = *it;
+    if (d->getAddress() <= addr && addr <= d->getMaxAddress() && d->isDefined())
+        return d;
     return nullptr;
 }
 
@@ -95,6 +133,7 @@ void Listing::addInstruction(Instruction* inst) {
     std::ostringstream ss;
     ss << inst->getAddress().toString();
     instructions_[ss.str()] = inst;
+    instructionsDirty_ = true;
 }
 
 Data* Listing::createData(Address addr, DataType* dataType, int length) {
@@ -112,18 +151,21 @@ void Listing::addData(Data* data) {
     std::ostringstream ss;
     ss << data->getAddress().toString();
     data_[ss.str()] = data;
+    dataDirty_ = true;
 }
 
 void Listing::removeInstruction(Address addr) {
     std::ostringstream ss;
     ss << addr.toString();
     instructions_.erase(ss.str());
+    instructionsDirty_ = true;
 }
 
 void Listing::removeData(Address addr) {
     std::ostringstream ss;
     ss << addr.toString();
     data_.erase(ss.str());
+    dataDirty_ = true;
 }
 
 bool Listing::isUndefined(Address addr) const {
@@ -142,6 +184,17 @@ std::vector<Instruction*> Listing::getInstructions(const AddressSetView& set) co
     }
     return result;
 }
+
+std::vector<Instruction*> Listing::getAllInstructions() const {
+    std::vector<Instruction*> result;
+    result.reserve(instructions_.size());
+    for (const auto& pair : instructions_) {
+        if (pair.second) result.push_back(pair.second);
+    }
+    return result;
+}
+
+
 
 std::vector<Data*> Listing::getData(const AddressSetView& set) const {
     std::vector<Data*> result;

@@ -1,5 +1,6 @@
 #include <ghidra/AutoAnalysisManager.h>
 #include <ghidra/FunctionDiscoveryAnalyzerAdapter.h>
+#include <ghidra/MainRecognitionAnalyzer.h>
 #include <ghidra/DisassemblyAnalyzer.h>
 #include <ghidra/ImportThunkAnalyzer.h>
 #include <ghidra/FunctionAnalyzer.h>
@@ -23,6 +24,7 @@
 #include <ghidra/ExternalSymbolResolverAnalyzer.h>
 #include <ghidra/SharedReturnJumpAnalyzer.h>
 #include <ghidra/EmbeddedMediaAnalyzer.h>
+#include <iostream>
 #include <ghidra/DWARFAnalyzer.h>
 #include <ghidra/ApplyDataArchiveAnalyzer.h>
 #include <ghidra/AggressiveInstructionFinderAnalyzer.h>
@@ -65,6 +67,7 @@
 #include <ghidra/SwiftDemanglerAnalyzer.h>
 #include <ghidra/FunctionStartAnalyzer.h>
 #include <ghidra/FunctionStartDataPostAnalyzer.h>
+#include <ghidra/DataSectionFunctionScannerAnalyzer.h>
 #include <ghidra/FunctionStartFuncAnalyzer.h>
 #include <ghidra/FunctionStartPostAnalyzer.h>
 #include <ghidra/FunctionStartPreFuncAnalyzer.h>
@@ -72,6 +75,7 @@
 #include <ghidra/PdbUniversalAnalyzer.h>
 #include <ghidra/CoffAnalyzer.h>
 #include <ghidra/CoffArchiveAnalyzer.h>
+#include <ghidra/FragmentMergeAnalyzer.h>
 #include <ghidra/FidAnalyzer.h>
 #include <ghidra/FormatStringAnalyzer.h>
 #include <ghidra/CFStringAnalyzer.h>
@@ -137,6 +141,7 @@
 #include <ghidra/AddressFactory.h>
 #include <ghidra/Memory.h>
 #include <ghidra/AnalysisScheduler.h>
+#include <ghidra/AggressiveRecoveryAnalyzer.h>
 #include <algorithm>
 #include <map>
 
@@ -282,6 +287,7 @@ void AutoAnalysisManager::initializeDefaultAnalyzers() {
     registerAnalyzer(std::make_unique<RustDemanglerAnalyzer>());
     registerAnalyzer(std::make_unique<SwiftDemanglerAnalyzer>());
     registerAnalyzer(std::make_unique<FunctionStartAnalyzer>());
+    registerAnalyzer(std::make_unique<DataSectionFunctionScannerAnalyzer>());
     registerAnalyzer(std::make_unique<FunctionStartDataPostAnalyzer>());
     registerAnalyzer(std::make_unique<FunctionStartFuncAnalyzer>());
     // NOTE: FunctionStartPostAnalyzer disabled - byte-by-byte scan is too slow for large binaries
@@ -352,6 +358,16 @@ void AutoAnalysisManager::initializeDefaultAnalyzers() {
     registerAnalyzer(std::make_unique<LzssAnalyzer>());
     registerAnalyzer(std::make_unique<JavaAnalyzer>());
     registerAnalyzer(std::make_unique<JvmSwitchAnalyzer>());
+    registerAnalyzer(std::make_unique<FragmentMergeAnalyzer>());
+    // Late ImportThunkAnalyzer pass: processes functions created by later analyzers
+    // (FunctionStart*, FunctionDiscovery*, etc.) and catches thunks whose data
+    // references were only created after reference-creating analyzers ran.
+    registerAnalyzer(std::make_unique<ImportThunkAnalyzer>());
+    registerAnalyzer(std::make_unique<MainRecognitionAnalyzer>());
+    // PHASE B: Aggressive recovery — disabled by default. Enable manually for
+    // heuristic function recovery from orphan islands, gap CALL targets, and tiny helpers.
+    // Confidence scoring and bookmark creation included. NEVER enable in production.
+    registerAnalyzer(std::make_unique<AggressiveRecoveryAnalyzer>());
 }
 
 Analyzer* AutoAnalysisManager::getAnalyzer(const std::string& name) const {
@@ -412,27 +428,26 @@ void AutoAnalysisManager::analyze(TaskMonitor* monitor) {
 void AutoAnalysisManager::analyzeRange(const AddressSetView& set, TaskMonitor* monitor) {
     if (!program_) return;
 
-    fprintf(stderr, "[ANALYZE] analyzeRange: %zu task lists\n", sizeof(taskArray_)/sizeof(taskArray_[0])); fflush(stderr);
-
     for (auto* taskList : taskArray_) {
-        fprintf(stderr, "[ANALYZE] next task list %p\n", (void*)taskList); fflush(stderr);
         for (const auto& scheduler : taskList->getSchedulers()) {
             if (monitor && monitor->isCancelled()) break;
             Analyzer* analyzer = scheduler->getAnalyzer();
-            fprintf(stderr, "[ANALYZE] checking analyzer: %s\n", analyzer ? analyzer->getName().c_str() : "(null)"); fflush(stderr);
             bool shouldRun = false;
             try {
                 shouldRun = analyzer->canAnalyze(program_) && analyzer->getDefaultEnablement(program_);
             } catch (...) {
                 shouldRun = false;
             }
-            fprintf(stderr, "[ANALYZE] shouldRun=%d\n", shouldRun); fflush(stderr);
             if (shouldRun) {
                 if (monitor) {
                     monitor->setMessage("Running analyzer: " + analyzer->getName());
                 }
+                std::cerr << "[INFO] AutoAnalysisManager: starting analyzer '"
+                          << analyzer->getName() << "'" << std::endl;
                 scheduler->added(set);
                 scheduler->runAnalyzer(program_, monitor, log_);
+                std::cerr << "[INFO] AutoAnalysisManager: finished analyzer '"
+                          << analyzer->getName() << "'" << std::endl;
             }
         }
     }

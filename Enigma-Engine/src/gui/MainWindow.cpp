@@ -31,10 +31,16 @@
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
 {
+    setDockOptions(QMainWindow::AllowNestedDocks |
+                   QMainWindow::AllowTabbedDocks |
+                   QMainWindow::GroupedDragging);
+
     createMenuBar();
     createDockWidgets();
-    createCentralArea();
     createStatusBar();
+
+    setCentralWidget(new QWidget(this));
+    centralWidget()->hide();
 
     decompInterface_ = std::make_unique<ghidra::DecompInterface>();
 }

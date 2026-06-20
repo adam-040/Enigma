@@ -40,6 +40,12 @@ public:
     void invalidateCache(bool all) override { clearCache(all); }
     std::string getName() const override { return "ReferenceManager"; }
 
+    // PHASE 5: diagnostic counters for duplicate detection
+    int64_t getDuplicateCount() const { return duplicateCount_; }
+    int64_t getSkippedCount() const { return skippedCount_; }
+    int64_t getCreatedCount() const { return static_cast<int64_t>(references_.size()); }
+    void resetCounters() { duplicateCount_ = 0; skippedCount_ = 0; }
+
     Reference* addReference(Reference* reference) override;
     Reference* addStackReference(Address fromAddr, int opIndex, int stackOffset,
                                   const RefType* type, SourceType source) override;
@@ -104,12 +110,17 @@ private:
     void removeFromIndex(const std::string& key, Reference* ref,
                          std::unordered_map<std::string, std::vector<Reference*>>& index);
 
+    // PHASE 5: check whether a (fromAddr, toAddr, opIndex) tuple already exists
+    bool hasDuplicate(Address fromAddr, Address toAddr, int opIndex) const;
+
     Program* program_ = nullptr;
     std::unordered_map<long, std::unique_ptr<Reference>> references_;
     std::unordered_map<std::string, std::vector<Reference*>> refsFrom_;
     std::unordered_map<std::string, std::vector<Reference*>> refsTo_;
     long nextID_ = 1;
     int revision_ = 0;
+    int64_t duplicateCount_ = 0;
+    int64_t skippedCount_ = 0;
 };
 
 } // namespace ghidra

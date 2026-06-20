@@ -35,15 +35,15 @@ void Msg::debug(const std::string& originator, const std::string& message, const
 }
 
 void Msg::info(const std::string& originator, const std::string& message) {
-    std::cout << "[INFO] " << originator << ": " << message << std::endl;
+    std::cerr << "[INFO] " << originator << ": " << message << std::endl;
 }
 
 void Msg::info(const std::string& originator, const std::string& message, const std::exception& e) {
-    std::cout << "[INFO] " << originator << ": " << message << " - " << e.what() << std::endl;
+    std::cerr << "[INFO] " << originator << ": " << message << " - " << e.what() << std::endl;
 }
 
 void Msg::showInfo(const std::string& originator, void* parent, const std::string& title, const std::string& message) {
-    std::cout << "[SHOW_INFO] " << title << " (" << originator << "): " << message << std::endl;
+    std::cerr << "[SHOW_INFO] " << title << " (" << originator << "): " << message << std::endl;
 }
 
 void Msg::warn(const std::string& originator, const std::string& message) {

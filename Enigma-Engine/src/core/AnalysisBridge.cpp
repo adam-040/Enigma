@@ -514,7 +514,7 @@ ghidra_decompiler::Datatype* AnalysisBridge::toDecompilerDatatype(DataType* dt) 
     return nullptr;
 }
 
-void AnalysisBridge::bridgeSignatures() {
+void AnalysisBridge::bridgeNoReturnFlags() {
     if (!program_ || !arch_) return;
     FunctionManager* fm = program_->getFunctionManager();
     if (!fm) return;
@@ -524,7 +524,7 @@ void AnalysisBridge::bridgeSignatures() {
     if (!codeSpc || !globalScope) return;
 
     FunctionIterator fit = fm->getFunctions(true);
-    int totalFuncs = 0, ccSet = 0;
+    int totalFuncs = 0, noReturnSet = 0;
 
     while (fit.hasNext()) {
         Function* func = fit.next();
@@ -537,13 +537,236 @@ void AnalysisBridge::bridgeSignatures() {
         if (!fd) continue;
         totalFuncs++;
 
-        if (func->hasNoReturn())
+        if (func->hasNoReturn()) {
             fd->getFuncProto().setNoReturn(true);
+            noReturnSet++;
+        }
+    }
+
+    // Also apply TypeDatabase no-return info for external functions
+    if (typeDB_) {
+        for (const auto& pair : symbolNames_) {
+            if (pair.first == 0) continue;
+            ghidra_decompiler::Address addr(codeSpc, pair.first);
+            ghidra_decompiler::Funcdata* fd = globalScope->queryFunction(addr);
+            if (!fd) continue;
+            if (typeDB_->isNoReturn(pair.second)) {
+                fd->getFuncProto().setNoReturn(true);
+                noReturnSet++;
+            }
+        }
     }
 
     if (std::getenv("ENIGMA_DEBUG"))
-        std::cerr << "[AnalysisBridge] bridgeSignatures: " << totalFuncs << " funcs, "
-                  << ccSet << " cc set\n";
+        std::cerr << "[AnalysisBridge] bridgeNoReturnFlags: " << totalFuncs << " funcs, "
+                  << noReturnSet << " no-return set\n";
+}
+
+ghidra_decompiler::Datatype* AnalysisBridge::resolveTypeName(const std::string& typeName) {
+    if (!arch_ || !arch_->types) return nullptr;
+    ghidra_decompiler::TypeFactory* tf = arch_->types;
+
+    // Check cache
+    auto cacheIt = typeCache_.find(typeName);
+    if (cacheIt != typeCache_.end()) return cacheIt->second;
+
+    // Check if already in TypeFactory
+    ghidra_decompiler::Datatype* existing = tf->findByName(typeName);
+    if (existing) {
+        typeCache_[typeName] = existing;
+        return existing;
+    }
+
+    // Map common Windows type names to decompiler types
+         if (typeName == "void" || typeName == "Void")                         { auto* t = tf->getTypeVoid(); typeCache_[typeName] = t; return t; }
+    else if (typeName == "BOOL" || typeName == "BOOLEAN" || typeName == "bool") { auto* t = tf->getBase(1, ghidra_decompiler::TYPE_BOOL); typeCache_[typeName] = t; return t; }
+    else if (typeName == "BYTE"  || typeName == "CHAR"  || typeName == "char")  { auto* t = tf->getBase(1, ghidra_decompiler::TYPE_UINT); typeCache_[typeName] = t; return t; }
+    else if (typeName == "WORD"  || typeName == "wchar_t" || typeName == "WCHAR" ||
+             typeName == "short" || typeName == "SHORT" || typeName == "USHORT") { auto* t = tf->getBase(2, ghidra_decompiler::TYPE_UINT); typeCache_[typeName] = t; return t; }
+    else if (typeName == "INT"   || typeName == "int"   || typeName == "LONG"  ||
+             typeName == "long"  || typeName == "DWORD" || typeName == "UINT"  ||
+             typeName == "ULONG" || typeName == "INT32" || typeName == "UINT32"||
+             typeName == "BOOL32"|| typeName == "HRESULT"||typeName == "NTSTATUS"||
+             typeName == "COLORREF"||typeName == "LSTATUS"||typeName == "ATOM" ||
+             typeName == "REGSAM"|| typeName == "SECURITY_INFORMATION")         { auto* t = tf->getBase(4, ghidra_decompiler::TYPE_UINT); typeCache_[typeName] = t; return t; }
+    else if (typeName == "LONGLONG"  || typeName == "ULONGLONG" || typeName == "INT64" ||
+             typeName == "UINT64"    || typeName == "DWORD64"    || typeName == "DWORD_PTR"||
+             typeName == "LONG_PTR"  || typeName == "ULONG_PTR"  || typeName == "SIZE_T"  ||
+             typeName == "size_t"    || typeName == "LARGE_INTEGER"||typeName == "ULARGE_INTEGER"||
+             typeName == "time_t")                                             { auto* t = tf->getBase(8, ghidra_decompiler::TYPE_UINT); typeCache_[typeName] = t; return t; }
+    else if (typeName == "float"  || typeName == "FLOAT")                       { auto* t = tf->getBase(4, ghidra_decompiler::TYPE_FLOAT); typeCache_[typeName] = t; return t; }
+    else if (typeName == "double" || typeName == "DOUBLE"||typeName=="LONGDOUBLE") { auto* t = tf->getBase(8, ghidra_decompiler::TYPE_FLOAT); typeCache_[typeName] = t; return t; }
+    else if (typeName == "SOCKET" || typeName == "HANDLE" || typeName == "HANDLE" ||
+             typeName == "HWND"   || typeName == "HMODULE"|| typeName == "HINSTANCE"||
+             typeName == "HKEY"   || typeName == "HDC"    || typeName == "HFONT" ||
+             typeName == "HBRUSH" || typeName == "HCURSOR"|| typeName == "HICON" ||
+             typeName == "HGDIOBJ"|| typeName == "HBITMAP"|| typeName == "HMENU" ||
+             typeName == "HRSRC"  || typeName == "HLOCAL" || typeName == "HGLOBAL"||
+             typeName == "HIMAGELIST"||typeName == "SC_HANDLE"||typeName=="HPROVIDER"||
+             typeName == "HCRYPTPROV"||typeName=="HCRYPTKEY"||typeName=="HCRYPTHASH"||
+             typeName == "BCRYPT_ALG_HANDLE"||typeName=="BCRYPT_KEY_HANDLE"||
+             typeName == "BCRYPT_HASH_HANDLE"||typeName=="BCRYPT_HANDLE")       { auto* p = tf->getTypePointer(tf->getSizeOfPointer(), tf->getTypeVoid(), 1); typeCache_[typeName] = p; return p; }
+    else if (typeName.find("LP") == 0 || typeName.find("P") == 0 ||
+             typeName.find("LPC") == 0 || typeName.find("*") != std::string::npos ||
+             typeName.find("H") == 0 || typeName.find("PF") == 0) {
+        // Handle pointer types generically
+        if (typeName == "LPVOID" || typeName == "PVOID" || typeName == "LPCVOID" ||
+            typeName == "FARPROC" || typeName == "PSID" || typeName == "PACL" ||
+            typeName == "PHANDLE" || typeName == "PHKEY" || typeName == "PULONG" ||
+            typeName == "LPDWORD" || typeName == "PDWORD" || typeName == "PDWORD_PTR" ||
+            typeName == "PLONG" || typeName == "LPLONG" || typeName == "PBOOL" ||
+            typeName == "LPBOOL" || typeName == "LPBYTE" || typeName == "PBYTE" ||
+            typeName == "PSTR" || typeName == "LPSTR" || typeName == "PWSTR" ||
+            typeName == "LPWSTR" || typeName == "LPCSTR" || typeName == "LPCWSTR" ||
+            typeName == "PCSTR" || typeName == "PCWSTR" || typeName == "PUCHAR" ||
+            typeName == "PCHAR" || typeName == "LPARAM" || typeName == "WPARAM" ||
+            typeName == "LRESULT" || typeName == "LPMSG" || typeName == "LPRECT" ||
+            typeName == "LPPOINT" || typeName == "LPSIZE" || typeName == "LPSYSTEMTIME" ||
+            typeName == "LPSTARTUPINFOA" || typeName == "LPSTARTUPINFOW" ||
+            typeName == "LPPROCESS_INFORMATION" || typeName == "LPSECURITY_ATTRIBUTES" ||
+            typeName == "LPOVERLAPPED" || typeName == "LPPAINTSTRUCT" ||
+            typeName == "LPDEBUG_EVENT" || typeName == "LPEXCEPTION_POINTERS" ||
+            typeName == "LPTOP_LEVEL_EXCEPTION_FILTER" || typeName == "PEXCEPTION_POINTERS" ||
+            typeName == "LPCRITICAL_SECTION" || typeName == "LPSERVICE_STATUS" ||
+            typeName == "LPWSADATA" || typeName == "LPWIN32_FIND_DATAA" ||
+            typeName == "LPWIN32_FIND_DATAW" || typeName == "LPITEMIDLIST" ||
+            typeName == "LPBROWSEINFOA" || typeName == "LPBROWSEINFOW" ||
+            typeName == "LPINITCOMMONCONTROLSEX" || typeName == "LPTHREAD_START_ROUTINE" ||
+            typeName == "LPTHREADENTRY32" || typeName == "LPMODULEENTRY32W" ||
+            typeName == "LPPROCESSENTRY32W" || typeName == "PFLS_CALLBACK_FUNCTION" ||
+            typeName == "PIO_APC_ROUTINE" || typeName == "PIO_STATUS_BLOCK" ||
+            typeName == "POBJECT_ATTRIBUTES" || typeName == "PMEMORY_BASIC_INFORMATION" ||
+            typeName == "PSLIST_HEADER" || typeName == "PSLIST_ENTRY" ||
+            typeName == "LPTEXTMETRICA" || typeName == "LPTEXTMETRICW" ||
+            typeName == "PULARGE_INTEGER" || typeName == "LPOVERLAPPED_COMPLETION_ROUTINE" ||
+            typeName == "PVOID" || typeName == "PBYTE" || typeName == "PCHAR" ||
+            typeName == "FILE*" || typeName == "struct hostent*") {
+            int ptrSize = tf->getSizeOfPointer();
+            ghidra_decompiler::Datatype* voidType = tf->getTypeVoid();
+            auto* tp = tf->getTypePointer(ptrSize, voidType, 1);
+            typeCache_[typeName] = tp;
+            return tp;
+        }
+    // Handle string types with known prefixes
+    } else if (typeName == "string" || typeName == "String" || typeName == "std::string") {
+        // As a simplification, treat as char pointer (opaque)
+        int ptrSize = tf->getSizeOfPointer();
+        ghidra_decompiler::Datatype* ch = tf->getBase(1, ghidra_decompiler::TYPE_INT);
+        auto* tp = tf->getTypePointer(ptrSize, ch, 1);
+        typeCache_[typeName] = tp;
+        return tp;
+    }
+
+    // Fallback: pointer-sized opaque type for any unrecognized name
+    int ptrSize = tf->getSizeOfPointer();
+    ghidra_decompiler::Datatype* voidType = tf->getTypeVoid();
+    auto* tp = tf->getTypePointer(ptrSize, voidType, 1);
+    typeCache_[typeName] = tp;
+    return tp;
+}
+
+/// Strip import name decorations (thunk_ prefix, _thunk suffix, DelayLoad_ prefix)
+/// to recover the raw API name for TypeDatabase lookup.
+static std::string cleanImportName(const std::string& raw) {
+    std::string name = raw;
+    // Strip known prefixes
+    static const char* prefixes[] = {"thunk_", "DelayLoad_", "__imp_", "imp_"};
+    for (const char* pfx : prefixes) {
+        size_t len = std::strlen(pfx);
+        if (name.size() > len && name.rfind(pfx, 0) == 0) {
+            name = name.substr(len);
+            break;
+        }
+    }
+    // Strip known suffixes
+    static const char* suffixes[] = {"_thunk"};
+    for (const char* sfx : suffixes) {
+        size_t len = std::strlen(sfx);
+        if (name.size() > len && name.rfind(sfx) == name.size() - len) {
+            name = name.substr(0, name.size() - len);
+            break;
+        }
+    }
+    return name;
+}
+
+void AnalysisBridge::bridgeImportSignatures() {
+    if (!program_ || !arch_ || !typeDB_) return;
+
+    ghidra_decompiler::AddrSpace* codeSpc = getCodeSpace();
+    ghidra_decompiler::Scope* globalScope = getGlobalScope();
+    if (!codeSpc || !globalScope) return;
+
+    // Iterate the decompiler's global scope for FunctionSymbols.
+    // The FunctionManager has import thunks named e.g. "thunk_CloseHandle"
+    // or "CloseHandle_thunk"; strip decorations before TypeDatabase lookup.
+    int totalFuncs = 0, typeApplied = 0;
+
+    for (ghidra_decompiler::MapIterator it = globalScope->begin();
+         it != globalScope->end(); ++it) {
+        const ghidra_decompiler::SymbolEntry* entry = *it;
+        if (!entry) continue;
+        ghidra_decompiler::Symbol* sym = entry->getSymbol();
+        if (!sym) continue;
+        ghidra_decompiler::FunctionSymbol* fsym =
+            dynamic_cast<ghidra_decompiler::FunctionSymbol*>(sym);
+        if (!fsym) continue;
+        ghidra_decompiler::Funcdata* fd = fsym->getFunction();
+        if (!fd) continue;
+        totalFuncs++;
+
+        std::string funcName = fd->getName();
+        if (funcName.empty()) continue;
+
+        // Skip auto-generated names
+        if (funcName.rfind("func_", 0) == 0 || funcName.rfind("FUN_", 0) == 0)
+            continue;
+
+        // Strip import name decorations for TypeDatabase lookup
+        std::string cleanName = cleanImportName(funcName);
+        if (cleanName.empty()) continue;
+
+        std::string returnTypeStr;
+        std::vector<std::string> paramTypes;
+        if (!typeDB_->getFunctionType(cleanName, returnTypeStr, paramTypes))
+            continue;
+
+        // Resolve return type
+        ghidra_decompiler::Datatype* retType = resolveTypeName(returnTypeStr);
+        if (!retType) continue;
+
+        // Resolve parameter types
+        std::vector<ghidra_decompiler::Datatype*> resolvedParams;
+        bool allResolved = true;
+        for (const auto& pt : paramTypes) {
+            ghidra_decompiler::Datatype* pdt = resolveTypeName(pt);
+            if (!pdt) { allResolved = false; break; }
+            resolvedParams.push_back(pdt);
+        }
+        if (!allResolved) continue;
+
+        // Build PrototypePieces
+        ghidra_decompiler::PrototypePieces pieces;
+        pieces.name = cleanName;
+        pieces.outtype = retType;
+        pieces.intypes = resolvedParams;
+        pieces.firstVarArgSlot = -1;
+
+        for (size_t i = 0; i < paramTypes.size(); i++)
+            pieces.innames.push_back("param" + std::to_string(i));
+
+        pieces.model = arch_->defaultfp;
+
+        try {
+            fd->getFuncProto().setPieces(pieces);
+            typeApplied++;
+        } catch (const ghidra_decompiler::LowlevelError&) {
+        }
+    }
+
+    if (std::getenv("ENIGMA_DEBUG"))
+        std::cerr << "[AnalysisBridge] bridgeImportSignatures: " << totalFuncs
+                  << " funcs, " << typeApplied << " types applied\n";
 }
 
 void AnalysisBridge::execute() {
@@ -551,7 +774,8 @@ void AnalysisBridge::execute() {
     enrichSymbolNames();
     bridgeFunctions();
     bridgeTypes();
-    bridgeSignatures();
+    bridgeImportSignatures();
+    bridgeNoReturnFlags();
     bridgeLabels();
     bridgeReadOnlyRanges();
 }

@@ -429,6 +429,14 @@ std::string DecompInterface::disassembleAt(const Address& addr, int numInstructi
     return out.str();
 }
 
+int DecompInterface::instructionLengthAt(uint64_t offset) const {
+    if (!impl || !impl->archInitialized || !impl->arch) return 0;
+    ghidra_decompiler::AddrSpace* space = impl->arch->getDefaultCodeSpace();
+    if (!space) return 0;
+    ghidra_decompiler::Address addr(space, offset);
+    return impl->arch->translate->instructionLength(addr);
+}
+
 bool DecompInterface::initializeLibrary() {
     std::lock_guard<std::mutex> lock(s_initMutex);
     if (s_libraryInitialized) return true;

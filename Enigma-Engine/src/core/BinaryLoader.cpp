@@ -126,6 +126,7 @@ public:
     std::vector<ImportInfo> getImports() const override { return imports_; }
     std::vector<ExportInfo> getExports() const override { return exports_; }
     std::vector<RelocationInfo> getRelocations() const override { return relocations_; }
+    std::vector<DelayLoadInfo> getDelayLoads() const override { return {}; }
 
     std::vector<uint8_t> getBytes(uint64_t address, size_t size) const override {
         std::vector<uint8_t> result;

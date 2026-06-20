@@ -3,8 +3,95 @@
 #include <ghidra/ReferenceManager.h>
 #include <ghidra/SymbolTable.h>
 #include <ghidra/Function.h>
+#include <ghidra/ExternalManager.h>
+#include <ghidra/Listing.h>
+#include <ghidra/Instruction.h>
+#include <ghidra/RefType.h>
+#include <ghidra/Memory.h>
+#include <ghidra/MemoryBlock.h>
+#include <ghidra/AddressFactory.h>
+#include <ghidra/AddressSpace.h>
+#include <string>
+#include <cctype>
 
 namespace ghidra {
+
+namespace {
+
+static bool isAutoName(const std::string& name) {
+    return name.empty() ||
+           name.rfind("FUN_", 0) == 0 ||
+           name.rfind("sub_", 0) == 0 ||
+           name.rfind("func_start_", 0) == 0 ||
+           name.rfind("function_", 0) == 0;
+}
+
+static std::string cleanImportName(const std::string& name) {
+    if (name.rfind("__imp_", 0) == 0) return name.substr(6);
+    if (name.rfind("imp_", 0) == 0) return name.substr(4);
+    if (name.rfind("thunk_", 0) == 0) return name.substr(6);
+    return name;
+}
+
+// Extract the JMP target address from a JMP instruction's operand string.
+// Handles: [rip+0xNNNN] (RIP-relative), [0xNNNN] (absolute), 0xNNNN (direct)
+static Address extractJmpTarget(Program* program, Instruction* instr) {
+    const AddressSpace* constSpace = program->getAddressFactory()->getDefaultAddressSpace();
+    if (!constSpace || instr->getNumOperands() < 1) return Address();
+    AddressSpace* space = const_cast<AddressSpace*>(constSpace);
+
+    std::string opStr = instr->getOperandRefString(0);
+    if (opStr.empty()) return Address();
+
+    // Find the first hex number
+    size_t pos = opStr.find("0x");
+    if (pos == std::string::npos) return Address();
+
+    size_t start = pos + 2;
+    size_t end = start;
+    while (end < opStr.size() && std::isxdigit(static_cast<unsigned char>(opStr[end]))) {
+        end++;
+    }
+    if (end == start) return Address();
+
+    std::string hexStr = opStr.substr(pos, end - pos);
+    uint64_t rawValue;
+    try {
+        rawValue = std::stoull(hexStr, nullptr, 16);
+    } catch (...) {
+        return Address();
+    }
+
+    // Check if RIP-relative (e.g. "[rip + 0xNNNN]" or "[rip - 0xNN]")
+    std::string beforeHex = opStr.substr(0, pos);
+    bool isRipRelative = beforeHex.find("rip") != std::string::npos;
+
+    if (isRipRelative) {
+        // For AARCH64/JUMP, also check for "pc" as the base register
+        // but for now only handle x86 "rip"
+        // Detect sign: look for '-' between "rip" and the hex number
+        size_t ripPos = beforeHex.find("rip");
+        std::string betweenRipAndHex = beforeHex.substr(ripPos + 3);
+        // Trim whitespace after "rip"
+        while (!betweenRipAndHex.empty() &&
+               (betweenRipAndHex[0] == ' ' || betweenRipAndHex[0] == '\t')) {
+            betweenRipAndHex.erase(betweenRipAndHex.begin());
+        }
+        bool isNegative = !betweenRipAndHex.empty() && betweenRipAndHex[0] == '-';
+
+        int64_t signedOffset = static_cast<int64_t>(rawValue);
+        if (isNegative) signedOffset = -signedOffset;
+
+        int64_t base = static_cast<int64_t>(instr->getAddress().getOffset());
+        int64_t target = base + static_cast<int64_t>(instr->getLength()) + signedOffset;
+        return Address(space, target);
+    }
+
+    // Absolute address (direct or bracketed)
+    return Address(space, static_cast<int64_t>(rawValue));
+}
+
+} // anonymous namespace
 
 bool ImportThunkAnalyzer::added(Program* program, const AddressSetView& set, TaskMonitor* monitor, MessageLog& log) {
     if (!program) return false;
@@ -14,44 +101,148 @@ bool ImportThunkAnalyzer::added(Program* program, const AddressSetView& set, Tas
 
     auto* refMgr = program->getReferenceManager();
     auto* symTable = program->getSymbolTable();
+    auto* extMgr = program->getExternalManager();
+    auto* listing = program->getListing();
+    auto* memory = program->getMemory();
     if (!refMgr || !symTable) return false;
 
     auto iter = funcMgr->getFunctions();
     while (iter.hasNext()) {
         auto* func = iter.next();
-        if (!func || func->isThunk() || func->isExternal()) continue;
+        if (!func || func->isExternal()) continue;
+        std::string currentName = func->getName();
+        if (currentName.rfind("thunk_", 0) != 0 && currentName.rfind("DelayLoad_", 0) != 0) {
+            // Process all functions; the import reference check below determines if it's a thunk
+        }
 
         Address entryPoint = func->getEntryPoint();
 
+        // Try to find the import name from the reference manager
+        std::string bestName;
         auto refs = refMgr->getReferencesFrom(entryPoint);
         for (auto* ref : refs) {
             Address target = ref->getToAddress();
 
             auto symbols = symTable->getSymbols(target);
             for (auto* sym : symbols) {
-                if (sym && (sym->isExternal() ||
-                            sym->getName().rfind("__imp_", 0) == 0 ||
-                            sym->getName().rfind("imp_", 0) == 0)) {
+                if (!sym) continue;
+                std::string symName = sym->getName();
+                if (sym->isExternal() ||
+                    symName.rfind("__imp_", 0) == 0 ||
+                    symName.rfind("imp_", 0) == 0) {
 
                     func->setThunk(true);
-
-                    std::string cleanName = sym->getName();
-                    if (cleanName.rfind("__imp_", 0) == 0) {
-                        cleanName = cleanName.substr(6);
-                    } else if (cleanName.rfind("imp_", 0) == 0) {
-                        cleanName = cleanName.substr(4);
-                    }
-
-                    func->setName(cleanName + "_thunk");
+                    std::string cleanName = cleanImportName(symName);
+                    bestName = cleanName + "_thunk";
 
                     auto* thunkedFunc = funcMgr->getFunctionAt(target);
                     if (thunkedFunc) {
                         func->setThunkedFunction(thunkedFunc);
                     }
+                    goto foundName;
+                }
+                if (!isAutoName(symName)) {
+                    bestName = symName;
+                }
+            }
+        }
+
+        // Try external manager as fallback: search external locations by address
+        if (extMgr && bestName.empty()) {
+            auto locs = extMgr->getExternalLocations();
+            for (auto* loc : locs) {
+                if (loc && loc->getAddress() == entryPoint) {
+                    std::string label = loc->getLabel();
+                    if (!label.empty()) {
+                        bestName = label + "_thunk";
+                    }
                     break;
                 }
             }
-            if (func->isThunk()) break;
+        }
+
+        // Fallback: direct instruction inspection for JMP thunks
+        // This handles the case where no references exist (e.g., scalars not populated,
+        // or computed JMPs through IAT that reference creation analyzers missed).
+        if (bestName.empty() && listing && memory) {
+            Instruction* instr = listing->getInstructionAt(entryPoint);
+            if (instr) {
+                FlowType* ft = instr->getFlowType();
+                if (ft && ft->isJump() && !ft->isCall()) {
+                    Address target = extractJmpTarget(program, instr);
+                    if (target.isValid()) {
+                        // Check symbols at target address (order matters: __imp_ first)
+                        auto symbols = symTable->getSymbols(target);
+                        bool foundImp = false;
+                        for (auto* sym : symbols) {
+                            if (!sym) continue;
+                            std::string symName = sym->getName();
+                            if (symName.empty()) continue;
+
+                            // Prefer __imp_ and external symbols over plain labels
+                            if (sym->isExternal() ||
+                                symName.rfind("__imp_", 0) == 0 ||
+                                symName.rfind("imp_", 0) == 0) {
+                                func->setThunk(true);
+                                std::string cleanName = cleanImportName(symName);
+                                bestName = cleanName + "_thunk";
+                                auto* thunkedFunc = funcMgr->getFunctionAt(target);
+                                if (thunkedFunc) func->setThunkedFunction(thunkedFunc);
+                                foundImp = true;
+                                goto foundName;
+                            }
+                        }
+                        if (foundImp) continue;
+
+                        // Non-__imp_ symbols — use plain name
+                        for (auto* sym : symbols) {
+                            if (!sym) continue;
+                            std::string symName = sym->getName();
+                            if (symName.empty() || isAutoName(symName)) continue;
+
+                            std::string cleanName = cleanImportName(symName);
+                            if (sym->isExternal()) {
+                                bestName = cleanName + "_thunk";
+                            } else {
+                                bestName = cleanName;
+                            }
+                            func->setThunk(true);
+                            auto* thunkedFunc = funcMgr->getFunctionAt(target);
+                            if (thunkedFunc) func->setThunkedFunction(thunkedFunc);
+                            goto foundName;
+                        }
+
+                        // If no symbol found, check if target is in a non-executable section
+                        // (IAT entries live in .rdata or similar read-only data sections)
+                        MemoryBlock* block = memory->getBlock(target);
+                        if (block && !block->isExecute()) {
+                            Symbol* primSym = symTable->getPrimarySymbol(target);
+                            if (primSym) {
+                                std::string symName = primSym->getName();
+                                std::string cleanName = cleanImportName(symName);
+                                bestName = cleanName + "_thunk";
+                                func->setThunk(true);
+                                goto foundName;
+                            }
+                        }
+
+                        // Check if target is a function (tail-call thunk)
+                        Function* targetFunc = funcMgr->getFunctionAt(target);
+                        if (targetFunc && !isAutoName(targetFunc->getName())) {
+                            bestName = targetFunc->getName() + "_thunk";
+                            func->setThunk(true);
+                            func->setThunkedFunction(targetFunc);
+                            goto foundName;
+                        }
+                    }
+                }
+            }
+        }
+
+foundName:
+        if (!bestName.empty()) {
+            func->setThunk(true);
+            func->setName(bestName);
         }
     }
 

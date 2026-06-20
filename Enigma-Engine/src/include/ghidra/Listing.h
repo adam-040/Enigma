@@ -19,6 +19,7 @@
 #include <vector>
 #include <string>
 #include <unordered_map>
+#include <cstdint>
 
 namespace ghidra {
 
@@ -51,12 +52,33 @@ public:
     size_t getDataCount() const;
 
     std::vector<Instruction*> getInstructions(const AddressSetView& set) const;
+    std::vector<Instruction*> getAllInstructions() const;
     std::vector<Data*> getData(const AddressSetView& set) const;
+
+    // Performance counters (reset before each analyzer)
+    struct PerformanceCounters {
+        int64_t getInstructionAt_calls = 0;
+        int64_t getInstructionContaining_calls = 0;
+        int64_t getDataAt_calls = 0;
+        int64_t getDataContaining_calls = 0;
+        int64_t addInstruction_calls = 0;
+        void reset() { *this = PerformanceCounters{}; }
+    };
+    PerformanceCounters& getPerfCounters() const { return perfCounters_; }
+    void resetPerfCounters() const { perfCounters_.reset(); }
 
 private:
     Program* program_ = nullptr;
     std::unordered_map<std::string, Instruction*> instructions_;
     std::unordered_map<std::string, Data*> data_;
+
+    void rebuildSortedInstructions() const;
+    void rebuildSortedData() const;
+    mutable std::vector<Instruction*> sortedInstructions_;
+    mutable std::vector<Data*> sortedData_;
+    mutable bool instructionsDirty_ = true;
+    mutable bool dataDirty_ = true;
+    mutable PerformanceCounters perfCounters_;
 };
 
 } // namespace ghidra

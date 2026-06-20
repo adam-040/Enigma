@@ -38,6 +38,7 @@
 #include <ghidra/SymbolTable.h>
 #include <ghidra/AddressSet.h>
 #include <ghidra/AnalysisBridge.h>
+#include <ghidra/TypeDatabase.h>
 
 using namespace ghidra_decompiler;
 
@@ -405,6 +406,96 @@ public:
     void getReadonly(RangeList& list) const override {}
 };
 
+/// Apply TypeDatabase prototypes to all call sites within a decompiled function.
+/// This handles DIRECT imports (IAT calls) where CALLIND couldn't resolve a prototype.
+/// Must run AFTER the action pipeline (perform) but BEFORE print (docFunction).
+static void applyTypeDatabaseToCallSpecs(Funcdata* fd, ghidra::TypeDatabase* typeDB,
+    ghidra_decompiler::TypeFactory* tf, ghidra_decompiler::Architecture* arch)
+{
+    if (!fd || !typeDB) return;
+
+    // --- resolveTypeName: maps Windows type names → decompiler Datatype* ---
+    int4 ptrSize = tf->getSizeOfPointer();
+    auto resolveTypeName = [tf, ptrSize](const std::string& tn) -> Datatype* {
+        if (tn.empty() || tn == "void") return tf->getTypeVoid();
+        // --- unsigned integer types ---
+        if (tn == "BOOL" || tn == "BOOLEAN" || tn == "BYTE" || tn == "UCHAR") return tf->getBase(1, TYPE_UINT);
+        if (tn == "WORD" || tn == "USHORT" || tn == "WCHAR" || tn == "OLECHAR") return tf->getBase(2, TYPE_UINT);
+        if (tn == "DWORD" || tn == "UINT" || tn == "ULONG" || tn == "DWORD32") return tf->getBase(4, TYPE_UINT);
+        if (tn == "DWORD64" || tn == "ULONGLONG" || tn == "QWORD" || tn == "ULONG64") return tf->getBase(8, TYPE_UINT);
+        if (tn == "DWORD_PTR" || tn == "ULONG_PTR" || tn == "SIZE_T" || tn == "LPARAM" || tn == "WPARAM" || tn == "LRESULT") return tf->getBase(ptrSize, TYPE_UINT);
+        if (tn == "UINT_PTR") return tf->getBase(ptrSize, TYPE_UINT);
+        // --- signed integer types ---
+        if (tn == "CHAR" || tn == "int8" || tn == "INT8") return tf->getBase(1, TYPE_INT);
+        if (tn == "SHORT" || tn == "short" || tn == "INT16") return tf->getBase(2, TYPE_INT);
+        if (tn == "int" || tn == "LONG" || tn == "INT" || tn == "INT32") return tf->getBase(4, TYPE_INT);
+        if (tn == "LONGLONG" || tn == "LONG64" || tn == "INT64") return tf->getBase(8, TYPE_INT);
+        if (tn == "LONG_PTR") return tf->getBase(ptrSize, TYPE_INT);
+        // --- floating point ---
+        if (tn == "float" || tn == "FLOAT") return tf->getBase(4, TYPE_FLOAT);
+        if (tn == "double" || tn == "DOUBLE") return tf->getBase(8, TYPE_FLOAT);
+        // --- common typedefs ---
+        if (tn == "HANDLE" || tn == "HWND" || tn == "HDC" || tn == "HINSTANCE" || tn == "HMODULE")
+            return tf->getTypePointer(ptrSize, tf->getTypeVoid(), ptrSize);
+        if (tn == "LPVOID" || tn == "PVOID" || tn == "LPCVOID" || tn == "PVOID64")
+            return ptrSize == 8 ? tf->getTypePointer(8, tf->getTypeVoid(), 8) : tf->getTypePointer(4, tf->getTypeVoid(), 4);
+        if (tn == "LPSTR" || tn == "LPCSTR") return tf->getTypePointer(ptrSize, tf->getBase(1, TYPE_INT), ptrSize);
+        if (tn == "LPWSTR" || tn == "LPCWSTR") return tf->getTypePointer(ptrSize, tf->getBase(2, TYPE_UINT), ptrSize);
+        if (tn == "LPDWORD" || tn == "PDWORD" || tn == "PUINT") return tf->getTypePointer(ptrSize, tf->getBase(4, TYPE_UINT), ptrSize);
+        if (tn == "HCRYPTPROV" || tn == "HCRYPTKEY" || tn == "HCRYPTHASH") return tf->getTypePointer(ptrSize, tf->getTypeVoid(), ptrSize);
+        // --- pointer fallback: names starting with P, LP, or containing * ---
+        if (tn.size() > 1 && (tn[0] == 'P' || (tn.size() > 2 && tn[0] == 'L' && tn[1] == 'P')))
+            return tf->getTypePointer(ptrSize, tf->getTypeVoid(), ptrSize);
+        if (tn.find('*') != std::string::npos) return tf->getTypePointer(ptrSize, tf->getTypeVoid(), ptrSize);
+        // --- NTSTATUS / HRESULT ---
+        if (tn == "NTSTATUS" || tn == "HRESULT" || tn == "SCODE") return tf->getBase(4, TYPE_INT);
+        if (tn == "NET_API_STATUS") return tf->getBase(4, TYPE_UINT);
+        return tf->getTypePointer(ptrSize, tf->getTypeVoid(), ptrSize); // void* fallback
+    };
+
+    int applied = 0;
+    for (int4 i = 0; i < fd->numCalls(); ++i) {
+        FuncCallSpecs* fc = fd->getCallSpecs(i);
+        if (!fc) continue;
+        std::string name = fc->getName();
+        if (name.empty()) continue;
+        // Skip if already has a convention/model
+        if (fc->hasModel()) continue;
+
+        std::string retTypeStr;
+        std::vector<std::string> paramTypes;
+        if (!typeDB->getFunctionType(name, retTypeStr, paramTypes)) continue;
+
+        Datatype* retType = resolveTypeName(retTypeStr);
+        if (!retType) continue;
+
+        std::vector<Datatype*> params;
+        bool ok = true;
+        for (const auto& pt : paramTypes) {
+            Datatype* pdt = resolveTypeName(pt);
+            if (!pdt) { ok = false; break; }
+            params.push_back(pdt);
+        }
+        if (!ok) continue;
+
+        PrototypePieces pieces;
+        pieces.name = name;
+        pieces.outtype = retType;
+        pieces.intypes = params;
+        pieces.firstVarArgSlot = -1;
+        for (size_t j = 0; j < paramTypes.size(); j++)
+            pieces.innames.push_back("p" + std::to_string(j));
+        pieces.model = arch->defaultfp;
+
+        try {
+            fc->setPieces(pieces);
+            applied++;
+        } catch (const LowlevelError&) {}
+    }
+    if (applied > 0 && std::getenv("ENIGMA_DEBUG"))
+        std::cerr << "[CallSite] " << fd->getName() << ": " << applied << " call-site types applied\n";
+}
+
 int main(int argc, char** argv) {
     std::string binary;
     std::string langId = "x86:LE:64:default";
@@ -657,16 +748,30 @@ int main(int argc, char** argv) {
         // Phase 2: Bridge analysis results into arch->symboltab.
         // Functions discovered by the analysis pipeline become FunctionSymbols,
         // code labels become LabSymbols, read-only memory ranges are marked.
+        // Create TypeDatabase for import/export type bridging (lives for full decompile scope)
+        std::unique_ptr<ghidra::TypeDatabase> typeDB;
+        if (isPE)
+            typeDB = ghidra::createWindowsTypeDatabase();
+
         if (analysisProgram && !noBridge) {
             ghidra::AnalysisBridge bridge(analysisProgram.get(), arch.get(), symbolNames,
                 baseAddr, detectedBase, userSetBase);
+
+            if (typeDB) bridge.setTypeDatabase(typeDB.get());
+
             bridge.bridgeFunctions();
             if (!noTypeBridge) bridge.bridgeTypes();
             try {
-                bridge.bridgeSignatures();
+                bridge.bridgeImportSignatures();
             } catch (const std::exception& e) {
                 if (std::getenv("ENIGMA_DEBUG"))
-                    std::cerr << "bridgeSignatures error: " << e.what() << "\n";
+                    std::cerr << "bridgeImportSignatures error: " << e.what() << "\n";
+            }
+            try {
+                bridge.bridgeNoReturnFlags();
+            } catch (const std::exception& e) {
+                if (std::getenv("ENIGMA_DEBUG"))
+                    std::cerr << "bridgeNoReturnFlags error: " << e.what() << "\n";
             }
             bridge.bridgeLabels();
             bridge.bridgeReadOnlyRanges();
@@ -1129,6 +1234,7 @@ int main(int argc, char** argv) {
             }
         }
         arch->allacts.getCurrent()->perform(*fdEntry);
+        if (typeDB) applyTypeDatabaseToCallSpecs(fdEntry, typeDB.get(), arch->types, arch.get());
         auto t1 = std::chrono::high_resolution_clock::now();
 
         if (std::getenv("ENIGMA_DEBUG"))
@@ -1218,6 +1324,7 @@ int main(int argc, char** argv) {
             try {
                 auto t0 = std::chrono::high_resolution_clock::now();
                 arch->allacts.getCurrent()->perform(*fd);
+                if (typeDB) applyTypeDatabaseToCallSpecs(fd, typeDB.get(), arch->types, arch.get());
                 if (showTiming) {
                     auto dt = std::chrono::duration_cast<std::chrono::milliseconds>(
                         std::chrono::high_resolution_clock::now() - t0).count();
@@ -1715,6 +1822,7 @@ int main(int argc, char** argv) {
             arch->allacts.getCurrent()->reset(*fd);
             try {
                 arch->allacts.getCurrent()->perform(*fd);
+                if (typeDB) applyTypeDatabaseToCallSpecs(fd, typeDB.get(), arch->types, arch.get());
             } catch (const LowlevelError&) { continue; }
             if (fd->isProcStarted()) {
                 rememberOutput(fd);

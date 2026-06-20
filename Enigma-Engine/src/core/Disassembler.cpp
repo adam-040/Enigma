@@ -17,11 +17,51 @@
 #include "ghidra/Msg.h"
 
 #include <capstone/capstone.h>
+#include <capstone/x86.h>
 #include <unordered_map>
 
 namespace ghidra {
 
 static std::unordered_map<std::string, FlowType*> flowTypeCache;
+
+// Extract address-relevant scalar values from a Capstone instruction.
+// For x86/x86_64 this resolves RIP/EIP-relative displacements to absolute
+// addresses and records absolute immediates / absolute memory operands.
+static void extractOperandScalars(const cs_insn* insn, DisassembledInstruction& di, int bitness) {
+    if (!insn || !insn->detail) return;
+
+    const cs_x86& x86 = insn->detail->x86;
+    di.operandScalars.resize(x86.op_count);
+
+    for (uint8_t i = 0; i < x86.op_count; ++i) {
+        const cs_x86_op& op = x86.operands[i];
+        std::vector<std::unique_ptr<Scalar>>& out = di.operandScalars[i];
+
+        if (op.type == X86_OP_IMM) {
+            // Immediate operands may be addresses (e.g. absolute CALL/JMP on x86,
+            // or address constants loaded into registers).  Let ScalarOperandAnalyzer
+            // decide whether the value is a valid address.
+            int scalarBits = (bitness >= 64) ? 64 : 32;
+            out.push_back(std::make_unique<Scalar>(scalarBits, op.imm));
+        } else if (op.type == X86_OP_MEM) {
+            bool hasBase = (op.mem.base != X86_REG_INVALID);
+            bool hasIndex = (op.mem.index != X86_REG_INVALID);
+            bool isRipRelative = (op.mem.base == X86_REG_RIP || op.mem.base == X86_REG_EIP);
+
+            if (isRipRelative) {
+                // RIP-relative: target = instruction_addr + instruction_len + disp
+                uint64_t target = insn->address + insn->size + static_cast<uint64_t>(op.mem.disp);
+                out.push_back(std::make_unique<Scalar>(64, static_cast<int64_t>(target)));
+            } else if (!hasBase && !hasIndex && op.mem.disp != 0) {
+                // Absolute memory operand such as [0xNNNN]
+                int scalarBits = (bitness >= 64) ? 64 : 32;
+                out.push_back(std::make_unique<Scalar>(scalarBits, static_cast<int64_t>(op.mem.disp)));
+            }
+            // [reg+disp] and [base+index*scale] displacements are offsets, not
+            // addresses, so they are intentionally skipped to avoid false positives.
+        }
+    }
+}
 
 FlowType* Disassembler::determineFlowType(const std::string& mnemonic, const std::vector<std::string>& operands) {
     if (mnemonic == "jmp" || mnemonic == "b" || mnemonic == "br" || mnemonic == "jr" ||
@@ -54,7 +94,7 @@ FlowType* Disassembler::determineFlowType(const std::string& mnemonic, const std
 
 class CapstoneDisassembler : public Disassembler {
 public:
-    CapstoneDisassembler() : handle_(0), arch_("unknown"), alignment_(1) {}
+    CapstoneDisassembler() : handle_(0), arch_("unknown"), alignment_(1), bitness_(64) {}
 
     ~CapstoneDisassembler() override {
         if (handle_ != 0) {
@@ -72,18 +112,22 @@ public:
             csArch = CS_ARCH_X86;
             csMode = (bitness == 64) ? CS_MODE_64 : CS_MODE_32;
             alignment_ = 1;
+            bitness_ = bitness;
         } else if (architecture.find("arm") != std::string::npos || architecture.find("ARM") != std::string::npos) {
             csArch = CS_ARCH_ARM;
             csMode = (bitness == 64) ? CS_MODE_ARM : CS_MODE_ARM;
             alignment_ = 4;
+            bitness_ = bitness;
         } else if (architecture.find("mips") != std::string::npos || architecture.find("MIPS") != std::string::npos) {
             csArch = CS_ARCH_MIPS;
             csMode = (bitness == 64) ? CS_MODE_MIPS64 : CS_MODE_MIPS32;
             alignment_ = 4;
+            bitness_ = bitness;
         } else if (architecture.find("ppc") != std::string::npos || architecture.find("PowerPC") != std::string::npos) {
             csArch = CS_ARCH_PPC;
             csMode = (bitness == 64) ? CS_MODE_64 : CS_MODE_32;
             alignment_ = 4;
+            bitness_ = bitness;
         } else {
             Msg::error("CapstoneDisassembler", "Unsupported architecture: " + architecture);
             return false;
@@ -130,6 +174,7 @@ public:
             }
 
             result.flowType = determineFlowType(result.mnemonic, result.operands);
+            extractOperandScalars(insn, result, bitness_);
             cs_free(insn, count);
         }
 
@@ -169,7 +214,8 @@ public:
             }
 
             di.flowType = determineFlowType(di.mnemonic, di.operands);
-            results.push_back(di);
+            extractOperandScalars(&insn[i], di, bitness_);
+            results.push_back(std::move(di));
         }
 
         if (insn) cs_free(insn, count);
@@ -196,10 +242,17 @@ public:
 
         auto instructions = disassembleRange(bytes, start, totalSize, totalSize);
 
-        for (const auto& di : instructions) {
+        for (auto& di : instructions) {
             auto* inst = new Instruction(program, di.address, di.mnemonic, di.length, di.flowType);
             for (const auto& op : di.operands) {
                 inst->setOperand(static_cast<int>(inst->getNumOperands()), op);
+            }
+            for (size_t oi = 0; oi < di.operandScalars.size(); ++oi) {
+                for (auto& scalar : di.operandScalars[oi]) {
+                    if (scalar) {
+                        inst->addOperandScalar(static_cast<int>(oi), scalar.release());
+                    }
+                }
             }
             listing->addInstruction(inst);
         }
@@ -214,6 +267,7 @@ private:
     csh handle_;
     std::string arch_;
     int alignment_;
+    int bitness_;
 };
 
 std::unique_ptr<Disassembler> createDisassembler(const std::string& architecture, int bitness, bool bigEndian) {

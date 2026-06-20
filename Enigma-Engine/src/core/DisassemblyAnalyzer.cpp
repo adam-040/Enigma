@@ -55,7 +55,6 @@ bool DisassemblyAnalyzer::canAnalyze(Program* program) const {
 
 bool DisassemblyAnalyzer::added(Program* program, const AddressSetView& set,
                                 TaskMonitor* monitor, MessageLog& log) {
-    fprintf(stderr, "[DISASM] added() called\n"); fflush(stderr);
     if (!program) return false;
     auto* mem = program->getMemory();
     auto* listing = program->getListing();
@@ -92,13 +91,23 @@ bool DisassemblyAnalyzer::added(Program* program, const AddressSetView& set,
     // Build initial work queue from ProgramDB
     std::queue<uint64_t> workQueue;
     std::unordered_set<uint64_t> visited;
+    std::unordered_set<uint64_t> functionEntryPoints;
 
-    auto addEntry = [&](uint64_t ea) {
+    auto addEntry = [&](uint64_t ea, bool isFuncStart) {
         if (ea == 0) return;
+        if (isFuncStart) {
+            functionEntryPoints.insert(ea);
+        }
         if (visited.find(ea) != visited.end()) return;
         Address testAddr(codeSpace, static_cast<int64_t>(ea));
-        if (!mem->getBlock(testAddr)) {
+        MemoryBlock* block = mem->getBlock(testAddr);
+        if (!block) {
             log.append("DisassemblyAnalyzer: entry 0x" + std::to_string(ea) + " not in memory");
+            return;
+        }
+        // PHASE 2 FIX: do not enqueue non-executable addresses (prevents descent into .rdata/.data)
+        if (!block->isExecute()) {
+            log.append("DisassemblyAnalyzer: entry 0x" + std::to_string(ea) + " not executable");
             return;
         }
         visited.insert(ea);
@@ -111,7 +120,7 @@ bool DisassemblyAnalyzer::added(Program* program, const AddressSetView& set,
         FunctionIterator fit = funcMgr->getFunctions(true);
         while (fit.hasNext()) {
             Function* f = fit.next();
-            if (f) addEntry(static_cast<uint64_t>(f->getEntryPoint().getOffset()));
+            if (f) { addEntry(static_cast<uint64_t>(f->getEntryPoint().getOffset()), true); }
         }
     }
 
@@ -120,7 +129,7 @@ bool DisassemblyAnalyzer::added(Program* program, const AddressSetView& set,
     if (symTable) {
         auto extPoints = symTable->getExternalEntryPoints();
         for (const Address& ea : extPoints) {
-            addEntry(static_cast<uint64_t>(ea.getOffset()));
+            addEntry(static_cast<uint64_t>(ea.getOffset()), true);
         }
     }
 
@@ -132,15 +141,17 @@ bool DisassemblyAnalyzer::added(Program* program, const AddressSetView& set,
             if (loc) {
                 Address locAddr = loc->getAddress();
                 if (locAddr.isValid())
-                    addEntry(static_cast<uint64_t>(locAddr.getOffset()));
+                    { addEntry(static_cast<uint64_t>(locAddr.getOffset()), true); }
             }
         }
     }
 
     // BFS recursive descent disassembly
     uint64_t totalInstructions = 0;
+    uint64_t totalEntries = workQueue.size();
+    uint64_t nextLogEntry = 1000;
+    uint64_t nextLogInstr = 100000;
     std::vector<uint8_t> readBuf(16);
-    uint64_t nextProgressReport = 1000;
 
     while (!workQueue.empty()) {
         if (monitor && monitor->isCancelled()) break;
@@ -163,8 +174,26 @@ bool DisassemblyAnalyzer::added(Program* program, const AddressSetView& set,
                 break;  // Already decoded in another path
             }
 
-            // Verify address is in memory
-            if (!mem->getBlock(instAddr)) break;
+            // Verify address is in executable memory
+            {
+                MemoryBlock* block = mem->getBlock(instAddr);
+                if (!block || !block->isExecute()) {
+                    // PHASE 2 FIX: stop linear decode when leaving executable section
+                    break;
+                }
+            }
+
+            // Create function at the start of this linear run
+            if (linearCount == 0) {
+                if (funcMgr && functionEntryPoints.count(currentAddr) && !funcMgr->getFunctionAt(instAddr) && !funcMgr->getFunctionContaining(instAddr)) {
+                    MemoryBlock* block = mem->getBlock(instAddr);
+                    // PHASE 2 FIX: only create functions in executable sections
+                    if (block && block->isExecute()) {
+                        AddressSet body(instAddr, instAddr);
+                        funcMgr->createFunction("", instAddr, body, SourceType::ANALYSIS);
+                    }
+                }
+            }
 
             // Read bytes
             int got = mem->getBytes(instAddr, readBuf.data(), static_cast<int>(readBuf.size()));
@@ -179,13 +208,21 @@ bool DisassemblyAnalyzer::added(Program* program, const AddressSetView& set,
             for (size_t oi = 0; oi < di.operands.size(); ++oi) {
                 inst->setOperand(static_cast<int>(oi), di.operands[oi]);
             }
+            // Propagate decoded operand scalars (ownership transfers to Instruction)
+            for (size_t oi = 0; oi < di.operandScalars.size(); ++oi) {
+                for (auto& scalar : di.operandScalars[oi]) {
+                    if (scalar) {
+                        inst->addOperandScalar(static_cast<int>(oi), scalar.release());
+                    }
+                }
+            }
             listing->addInstruction(inst);
             ++totalInstructions;
-            if (totalInstructions >= nextProgressReport) {
-                fprintf(stderr, "[DISASM] %llu instrs decoded, queue=%zu, visited=%zu\n",
-                        (unsigned long long)totalInstructions, workQueue.size(), visited.size());
-                fflush(stderr);
-                nextProgressReport = totalInstructions + 10000;
+
+            if (totalInstructions >= nextLogInstr) {
+                std::cerr << "[INFO] DisassemblyAnalyzer: " << totalInstructions
+                    << " instructions decoded, " << workQueue.size() << " entries remaining" << std::endl;
+                nextLogInstr += 100000;
             }
 
             // Log first 20 instructions to main debug file
@@ -212,18 +249,8 @@ bool DisassemblyAnalyzer::added(Program* program, const AddressSetView& set,
                         Address targetAddr(codeSpace, static_cast<int64_t>(target));
                         inst->addOperandReference(0, targetAddr, &RefTypes::UNCONDITIONAL_CALL,
                                                   SourceType::ANALYSIS);
-                        // Create function at call target
-                        if (targetAddr.getOffset() > 0 && mem->getBlock(targetAddr)) {
-                            auto* funcMgr = program->getFunctionManager();
-                            if (funcMgr && !funcMgr->getFunctionAt(targetAddr)) {
-                                funcMgr->createFunction("", targetAddr,
-                                    AddressSet(targetAddr, targetAddr), SourceType::ANALYSIS);
-                            }
-                        }
-                        if (visited.find(target) == visited.end() && mem->getBlock(targetAddr)) {
-                            visited.insert(target);
-                            workQueue.push(target);
-                        }
+                        // Mark as function entry — actual createFunction happens when popped
+                        addEntry(target, true);
                     }
                 }
                 // Call continues at next instruction
@@ -237,10 +264,7 @@ bool DisassemblyAnalyzer::added(Program* program, const AddressSetView& set,
                     Address targetAddr(codeSpace, static_cast<int64_t>(target));
                     auto refType = ft->isConditional() ? &RefTypes::CONDITIONAL_JUMP : &RefTypes::UNCONDITIONAL_JUMP;
                     inst->addOperandReference(0, targetAddr, refType, SourceType::ANALYSIS);
-                    if (visited.find(target) == visited.end() && mem->getBlock(targetAddr)) {
-                        visited.insert(target);
-                        workQueue.push(target);
-                    }
+                    addEntry(target, false);
                 }
                 if (ft->isConditional()) {
                     // Follow fallthrough too

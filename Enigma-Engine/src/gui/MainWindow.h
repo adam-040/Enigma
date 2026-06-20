@@ -4,10 +4,8 @@
 #include <QTreeWidget>
 #include <QLineEdit>
 #include <QPlainTextEdit>
-#include <QTabWidget>
 #include <QLabel>
 #include <QStatusBar>
-#include <QSplitter>
 #include <QDockWidget>
 #include <QMenuBar>
 #include <QAction>

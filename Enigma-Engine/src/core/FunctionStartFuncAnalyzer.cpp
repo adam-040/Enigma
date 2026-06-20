@@ -14,12 +14,11 @@
 #include <ghidra/MessageLog.h>
 #include <ghidra/SourceType.h>
 #include <ghidra/Msg.h>
-
 namespace ghidra {
 
 FunctionStartFuncAnalyzer::FunctionStartFuncAnalyzer()
     : AbstractAnalyzer("Function Start Search After Function",
-                       "Function discovery variant of function start search.",
+                       "Creates functions at direct CALL targets that lack standard prologues.",
                        AnalyzerType::BYTE_ANALYZER) {
     setPriority(AnalysisPriority::FUNCTION_ANALYSIS.after());
     setDefaultEnablement(true);
@@ -33,38 +32,53 @@ bool FunctionStartFuncAnalyzer::canAnalyze(Program* program) const {
 bool FunctionStartFuncAnalyzer::added(Program* program, const AddressSetView& set,
                                        TaskMonitor* monitor, MessageLog& log) {
     if (!program || !monitor) return false;
-    monitor->setMessage("Finding function starts from function references...");
+    monitor->setMessage("Creating functions at CALL targets...");
 
     Memory* memory = program->getMemory();
     FunctionManager* funcMgr = program->getFunctionManager();
     ReferenceManager* refMgr = program->getReferenceManager();
-    if (!memory || !funcMgr || !refMgr) return true;
+    Listing* listing = program->getListing();
+    if (!memory || !funcMgr || !refMgr || !listing) return true;
 
     int found = 0;
-    FunctionIterator iter = funcMgr->getFunctions(true);
-    while (iter.hasNext() && !monitor->isCancelled()) {
-        Function* func = iter.next();
-        Address entry = func->getEntryPoint();
+    int skippedDataSection = 0;
+    int skippedHasFunc = 0;
 
-        // Check call references from this function for potential function starts
-        auto refsFrom = refMgr->getReferencesFrom(entry);
-        for (auto* ref : refsFrom) {
+    std::vector<Instruction*> instructions = listing->getAllInstructions();
+    for (Instruction* inst : instructions) {
+        if (monitor->isCancelled()) break;
+        if (!inst) continue;
+
+        FlowType* ft = inst->getFlowType();
+        if (!ft || !ft->isCall() || ft->isComputed()) continue;
+
+        Address fromAddr = inst->getAddress();
+        auto refs = refMgr->getReferencesFrom(fromAddr);
+        if (refs.empty()) continue;
+
+        for (Reference* ref : refs) {
             if (monitor->isCancelled()) break;
-            if (!ref->getReferenceType()->isCall()) continue;
+            if (!ref || !ref->getReferenceType()->isCall()) continue;
 
             Address toAddr = ref->getToAddress();
-            if (!memory->getBlock(toAddr)) continue;
-            if (funcMgr->getFunctionAt(toAddr) || funcMgr->getFunctionContaining(toAddr)) continue;
+            if (!toAddr.isValid()) continue;
+
+            MemoryBlock* block = memory->getBlock(toAddr);
+            if (!block || !block->isExecute()) { ++skippedDataSection; continue; }
+
+            if (funcMgr->getFunctionAt(toAddr)) { ++skippedHasFunc; continue; }
+            if (funcMgr->getFunctionContaining(toAddr)) { ++skippedHasFunc; continue; }
 
             AddressSet body(toAddr, toAddr);
-            funcMgr->createFunction("func_call_" + std::to_string(toAddr.getOffset()),
-                                    toAddr, body, SourceType::ANALYSIS);
+            funcMgr->createFunction("", toAddr, body, SourceType::ANALYSIS);
             ++found;
         }
     }
 
-    if (found > 0) {
-        Msg::info(getName(), "Found " + std::to_string(found) + " function starts from calls.");
+    if (found > 0 || skippedDataSection > 0) {
+        Msg::info(getName(),
+                  "Created " + std::to_string(found) + " functions at CALL targets "
+                  "(skipped " + std::to_string(skippedDataSection) + " in non-executable sections).");
     }
     return true;
 }

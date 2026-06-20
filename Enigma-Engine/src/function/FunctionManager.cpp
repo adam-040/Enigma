@@ -35,38 +35,81 @@ PrototypeModel* FunctionManager::getCallingConvention(const std::string& name) c
 
 Function* FunctionManager::createFunction(const std::string& name, Address entryPoint,
                                           const AddressSet& body, SourceType source) {
+    perfCounters_.createFunction_calls++;
     std::string funcName = name;
     if (funcName.empty()) {
         funcName = "FUN_" + entryPoint.toString();
     }
-    // Check for overlapping functions
-    for (const auto& pair : functions_) {
-        Function* existing = pair.second.get();
-        if (existing->getBody().intersects(body)) {
-            throw std::runtime_error("Function body overlaps existing function at " +
-                                     existing->getEntryPoint().toString());
+
+    // PHASE 10: O(log N) overlap check using std::set of body ranges
+    // (was O(N) linear scan). The set is built lazily and incrementally maintained.
+    if (sortedBodyRanges_.empty() && !functions_.empty()) {
+        for (const auto& pair : functions_) {
+            const AddressSet& existingBody = pair.second->getBody();
+            if (existingBody.isEmpty()) continue;
+            sortedBodyRanges_.insert({static_cast<uint64_t>(existingBody.getMinAddress().getOffset()),
+                                       static_cast<uint64_t>(existingBody.getMaxAddress().getOffset())});
         }
     }
+    Address bodyMin = body.getMinAddress();
+    Address bodyMax = body.getMaxAddress();
+    if (bodyMin.isValid() && bodyMax.isValid()) {
+        uint64_t newStart = static_cast<uint64_t>(bodyMin.getOffset());
+        uint64_t newEnd = static_cast<uint64_t>(bodyMax.getOffset());
+        // Find the first range with start > newEnd (i.e., ranges ending before newStart)
+        auto it = sortedBodyRanges_.upper_bound({newEnd, UINT64_MAX});
+        if (it != sortedBodyRanges_.begin()) {
+            --it;
+            // Check if this range overlaps with [newStart, newEnd]
+            if (it->first <= newEnd && newStart <= it->second) {
+                throw std::runtime_error("Function body overlaps existing function at " +
+                                         std::to_string(it->first));
+            }
+        }
+    }
+
     auto func = std::make_unique<Function>(funcName, entryPoint, nullptr, source);
     func->setProgram(program_);
     func->setBody(body);
     Function* raw = func.get();
     functions_[entryPoint.toString()] = std::move(func);
+    functionsDirty_ = true;
+    // PHASE 10: O(log N) insert into sorted body range set (no shift, no full rebuild)
+    if (bodyMin.isValid() && bodyMax.isValid()) {
+        sortedBodyRanges_.insert({static_cast<uint64_t>(bodyMin.getOffset()),
+                                   static_cast<uint64_t>(bodyMax.getOffset())});
+    }
     return raw;
 }
 
 Function* FunctionManager::createFunction(const std::string& name, Namespace* nameSpace,
                                           Address entryPoint, const AddressSet& body, SourceType source) {
+    perfCounters_.createFunction_calls++;
     std::string funcName = name;
     if (funcName.empty()) {
         funcName = "FUN_" + entryPoint.toString();
     }
-    // Check for overlapping functions
-    for (const auto& pair : functions_) {
-        Function* existing = pair.second.get();
-        if (existing->getBody().intersects(body)) {
-            throw std::runtime_error("Function body overlaps existing function at " +
-                                     existing->getEntryPoint().toString());
+    // PHASE 10: O(log N) overlap check using std::set
+    if (sortedBodyRanges_.empty() && !functions_.empty()) {
+        for (const auto& pair : functions_) {
+            const AddressSet& existingBody = pair.second->getBody();
+            if (existingBody.isEmpty()) continue;
+            sortedBodyRanges_.insert({static_cast<uint64_t>(existingBody.getMinAddress().getOffset()),
+                                       static_cast<uint64_t>(existingBody.getMaxAddress().getOffset())});
+        }
+    }
+    Address bodyMin = body.getMinAddress();
+    Address bodyMax = body.getMaxAddress();
+    if (bodyMin.isValid() && bodyMax.isValid()) {
+        uint64_t newStart = static_cast<uint64_t>(bodyMin.getOffset());
+        uint64_t newEnd = static_cast<uint64_t>(bodyMax.getOffset());
+        auto it = sortedBodyRanges_.upper_bound({newEnd, UINT64_MAX});
+        if (it != sortedBodyRanges_.begin()) {
+            --it;
+            if (it->first <= newEnd && newStart <= it->second) {
+                throw std::runtime_error("Function body overlaps existing function at " +
+                                         std::to_string(it->first));
+            }
         }
     }
     auto func = std::make_unique<Function>(funcName, entryPoint, nameSpace, source);
@@ -74,23 +117,62 @@ Function* FunctionManager::createFunction(const std::string& name, Namespace* na
     func->setBody(body);
     Function* raw = func.get();
     functions_[entryPoint.toString()] = std::move(func);
+    functionsDirty_ = true;
+    // PHASE 10: O(log N) insert into sorted body range set
+    if (bodyMin.isValid() && bodyMax.isValid()) {
+        sortedBodyRanges_.insert({static_cast<uint64_t>(bodyMin.getOffset()),
+                                   static_cast<uint64_t>(bodyMax.getOffset())});
+    }
     return raw;
 }
 
 bool FunctionManager::removeFunction(Address entryPoint) {
-    return functions_.erase(entryPoint.toString()) > 0;
+    auto it = functions_.find(entryPoint.toString());
+    if (it == functions_.end()) return false;
+    AddressSet body = it->second->getBody();
+    if (!body.isEmpty()) {
+        sortedBodyRanges_.erase({static_cast<uint64_t>(body.getMinAddress().getOffset()),
+                                  static_cast<uint64_t>(body.getMaxAddress().getOffset())});
+    }
+    functions_.erase(it);
+    functionsDirty_ = true;
+    return true;
 }
 
 Function* FunctionManager::getFunctionAt(Address entryPoint) const {
+    perfCounters_.getFunctionAt_calls++;
     auto it = functions_.find(entryPoint.toString());
     return (it != functions_.end()) ? it->second.get() : nullptr;
 }
 
-Function* FunctionManager::getFunctionContaining(Address addr) const {
+void FunctionManager::rebuildSortedFunctions() const {
+    sortedFunctions_.clear();
+    sortedFunctions_.reserve(functions_.size());
     for (const auto& pair : functions_) {
-        Function* func = pair.second.get();
-        if (func->getBody().contains(addr)) {
-            return func;
+        sortedFunctions_.push_back(pair.second.get());
+    }
+    std::sort(sortedFunctions_.begin(), sortedFunctions_.end(),
+        [](Function* a, Function* b) {
+            return a->getEntryPoint() < b->getEntryPoint();
+        });
+    functionsDirty_ = false;
+}
+
+Function* FunctionManager::getFunctionContaining(Address addr) const {
+    perfCounters_.getFunctionContaining_calls++;
+    if (functions_.empty()) return nullptr;
+    if (functionsDirty_) rebuildSortedFunctions();
+
+    // Binary search for the last function with entry point <= addr
+    auto it = std::upper_bound(sortedFunctions_.begin(), sortedFunctions_.end(), addr,
+        [](const Address& addr, Function* func) {
+            return addr < func->getEntryPoint();
+        });
+
+    if (it != sortedFunctions_.begin()) {
+        --it;
+        if ((*it)->getBody().contains(addr)) {
+            return *it;
         }
     }
     return nullptr;

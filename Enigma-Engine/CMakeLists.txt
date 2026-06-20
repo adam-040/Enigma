@@ -81,7 +81,7 @@ add_library(enigma_engine ${SOURCES} ${HEADERS})
 add_dependencies(enigma_engine flatbuffers_schemas)
 target_include_directories(enigma_engine PUBLIC ${CMAKE_SOURCE_DIR}/src/include ${FBS_OUTPUT_DIR})
 target_include_directories(enigma_engine PRIVATE ${CAPSTONE_INCLUDE_DIR} ${SQLITE3_INCLUDE_DIR} ${LMDB_INCLUDE_DIR} ${CMAKE_SOURCE_DIR}/src/decompiler)
-target_link_libraries(enigma_engine PRIVATE ${CAPSTONE_LIBRARY} ${SQLITE3_LIBRARY} ${LMDB_LIBRARY} ${FLATBUFFERS_LIBRARY} decompiler)
+target_link_libraries(enigma_engine PRIVATE ${CAPSTONE_LIBRARY} ${SQLITE3_LIBRARY} ${LMDB_LIBRARY} ${FLATBUFFERS_LIBRARY} decompiler dbghelp)
 target_compile_definitions(enigma_engine PRIVATE ENIGMA_SLEIGH_DIR="${ENIGMA_SLEIGH_DIR}")
 
 function(enigma_apply_warning_policy target_name)
@@ -92,6 +92,25 @@ function(enigma_apply_warning_policy target_name)
     endif()
 endfunction()
 
+# Qt-Advanced-Docking-System (FetchContent from GitHub)
+include(FetchContent)
+set(BUILD_STATIC ON CACHE BOOL "" FORCE)
+set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(
+    qtadvanceddocking
+    GIT_REPOSITORY https://github.com/githubuser0xFFFF/Qt-Advanced-Docking-System.git
+    GIT_TAG 4.5.0
+    GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(qtadvanceddocking)
+
+# QScintilla
+find_library(QSCINTILLA_LIBRARY NAMES qscintilla2_qt6 HINTS "$ENV{MSYSTEM_PREFIX}/lib" "${MSYS2_MINGW64_ROOT}/lib")
+find_path(QSCINTILLA_INCLUDE_DIR NAMES Qsci/qsciscintilla.h HINTS "$ENV{MSYSTEM_PREFIX}/include" "${MSYS2_MINGW64_ROOT}/include")
+if(NOT QSCINTILLA_LIBRARY OR NOT QSCINTILLA_INCLUDE_DIR)
+    message(FATAL_ERROR "QScintilla (qscintilla2_qt6) was not found. Set MSYS2_MINGW64_ROOT or install qscintilla-qt6.")
+endif()
+
 # Qt6 GUI
 find_package(Qt6 QUIET COMPONENTS Widgets Concurrent)
 if(Qt6_FOUND)
@@ -99,11 +118,16 @@ if(Qt6_FOUND)
     file(GLOB_RECURSE GUI_SOURCES CONFIGURE_DEPENDS "src/gui/*.cpp")
     file(GLOB_RECURSE GUI_HEADERS CONFIGURE_DEPENDS "src/gui/*.h")
     add_executable(enigma_gui ${GUI_SOURCES} ${GUI_HEADERS} src/gui/resources.qrc)
-    target_include_directories(enigma_gui PRIVATE ${CMAKE_SOURCE_DIR}/src/include)
-    target_link_libraries(enigma_gui PRIVATE enigma_engine Qt6::Widgets Qt6::Concurrent)
+    target_include_directories(enigma_gui PRIVATE ${CMAKE_SOURCE_DIR}/src/include ${QSCINTILLA_INCLUDE_DIR})
+    target_link_libraries(enigma_gui PRIVATE enigma_engine Qt6::Widgets Qt6::Concurrent ads::qtadvanceddocking-qt6 ${QSCINTILLA_LIBRARY})
     target_compile_definitions(enigma_gui PRIVATE ENIGMA_SLEIGH_DIR="${ENIGMA_SLEIGH_DIR}")
+
+    # Add the icons directory as a resource search path
+    set_target_properties(enigma_gui PROPERTIES AUTORCC ON)
+
     enigma_apply_warning_policy(enigma_gui)
     message(STATUS "Qt6 GUI enabled: enigma_gui")
+    message(STATUS "QScintilla: ${QSCINTILLA_LIBRARY}")
 else()
     message(STATUS "Qt6 not found — GUI target disabled")
 endif()
@@ -212,6 +236,18 @@ target_link_libraries(enigma_binary_audit PRIVATE enigma_engine)
 target_include_directories(enigma_binary_audit SYSTEM PRIVATE ${CMAKE_SOURCE_DIR}/src/decompiler)
 target_compile_definitions(enigma_binary_audit PRIVATE ENIGMA_SLEIGH_DIR="${ENIGMA_SLEIGH_DIR}")
 enigma_apply_warning_policy(enigma_binary_audit)
+
+add_executable(enigma_pipeline_audit tools/enigma_pipeline_audit.cpp)
+target_link_libraries(enigma_pipeline_audit PRIVATE enigma_engine)
+target_include_directories(enigma_pipeline_audit SYSTEM PRIVATE ${CMAKE_SOURCE_DIR}/src/decompiler)
+target_compile_definitions(enigma_pipeline_audit PRIVATE ENIGMA_SLEIGH_DIR="${ENIGMA_SLEIGH_DIR}")
+enigma_apply_warning_policy(enigma_pipeline_audit)
+
+add_executable(enigma_dump_functions tools/enigma_dump_functions.cpp)
+target_link_libraries(enigma_dump_functions PRIVATE enigma_engine)
+target_include_directories(enigma_dump_functions SYSTEM PRIVATE ${CMAKE_SOURCE_DIR}/src/decompiler)
+target_compile_definitions(enigma_dump_functions PRIVATE ENIGMA_SLEIGH_DIR="${ENIGMA_SLEIGH_DIR}")
+enigma_apply_warning_policy(enigma_dump_functions)
 
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 add_test(NAME enigma_test_cli_regression COMMAND Python3::Interpreter ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_cli_regression.py)

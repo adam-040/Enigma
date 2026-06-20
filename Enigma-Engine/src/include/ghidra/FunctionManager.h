@@ -20,8 +20,10 @@
 #include <ghidra/Variable.h>
 #include <string>
 #include <vector>
+#include <set>
 #include <unordered_map>
 #include <memory>
+#include <cstdint>
 
 namespace ghidra {
 
@@ -77,12 +79,33 @@ public:
 
     void invalidateCache(bool all = true);
 
+    void rebuildSortedFunctions() const;
+
+    // Performance counters (reset before each analyzer)
+    struct PerformanceCounters {
+        int64_t getFunctionContaining_calls = 0;
+        int64_t getFunctionAt_calls = 0;
+        int64_t createFunction_calls = 0;
+        void reset() { *this = PerformanceCounters{}; }
+    };
+    PerformanceCounters& getPerfCounters() const { return perfCounters_; }
+    void resetPerfCounters() const { perfCounters_.reset(); }
+
 private:
     Program* program_ = nullptr;
     std::unordered_map<std::string, std::unique_ptr<Function>> functions_;
     std::unordered_map<std::string, std::unique_ptr<PrototypeModel>> callingConventions_;
     std::string defaultCallingConventionName_;
     std::unordered_map<std::string, void*> cache_;
+
+    // Sorted-by-entry-point function vector for O(log N) getFunctionContaining.
+    // Rebuilt lazily when functions change.
+    mutable std::vector<Function*> sortedFunctions_;
+    mutable bool functionsDirty_ = true;
+    // PHASE 10: std::set of body ranges for O(log N) overlap detection
+    // and O(log N) insertion. Each range stored as a uint64_t pair.
+    mutable std::set<std::pair<uint64_t, uint64_t>> sortedBodyRanges_;
+    mutable PerformanceCounters perfCounters_;
 };
 
 } // namespace ghidra

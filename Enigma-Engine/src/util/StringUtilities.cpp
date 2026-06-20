@@ -3,7 +3,7 @@
  */
 /// \file StringUtilities.cpp
 /// \brief Static string manipulation utilities
-#include "../../include/ghidra/StringUtilities.h"
+#include <ghidra/StringUtilities.h>
 #include <algorithm>
 #include <cctype>
 #include <sstream>

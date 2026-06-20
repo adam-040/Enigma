@@ -1,0 +1,758 @@
+INFO  Using log config file: jar:file:/C:/Users/pc/Desktop/Crack%20tools/Ghidra/Ghidra/Framework/Generic/lib/Generic.jar!/generic.log4j.xml (LoggingInitialization)  
+INFO  Using log file: C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\application.log (LoggingInitialization)  
+INFO  Loading user preferences: C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\preferences (Preferences)  
+INFO  Searching for classes... (ClassSearcher)  
+INFO  Class search complete (2252 ms) (ClassSearcher)  
+INFO  Initializing SSL Context (DefaultSSLContextInitializer)  
+INFO  Initializing Random Number Generator... (SecureRandomFactory)  
+INFO  Random Number Generator initialization complete: SHA1PRNG (SecureRandomFactory)  
+INFO  Trust manager disabled, cacerts have not been set (DefaultTrustManagerFactory)  
+INFO  Headless startup complete (4847 ms) (AnalyzeHeadless)  
+INFO  Class searcher loaded 58 extension points (18 false positives) (ClassSearcher)  
+INFO  HEADLESS Script Paths:
+    C:\Users\pc\Desktop\Crack tools\Ghidra\Ghidra\Features\VersionTracking\ghidra_scripts
+    C:\Users\pc\Desktop\Crack tools\Ghidra\Ghidra\Processors\Atmel\ghidra_scripts
+    C:\Users\pc\Desktop\Crack tools\Ghidra\Ghidra\Debug\Debugger\ghidra_scripts
+    C:\Users\pc\Desktop\Crack tools\Ghidra\Ghidra\Features\Base\ghidra_scripts
+    C:\Users\pc\Desktop\Crack tools\Ghidra\Ghidra\Features\Decompiler\ghidra_scripts
+    C:\Users\pc\Desktop\Crack tools\Ghidra\Ghidra\Debug\Debugger-rmi-trace\ghidra_scripts
+    C:\Users\pc\Desktop\Crack tools\Ghidra\Ghidra\Features\Jython\ghidra_scripts
+    C:\Users\pc\Desktop\Crack tools\Ghidra\Ghidra\Features\BytePatterns\ghidra_scripts
+    C:\Users\pc\Desktop\Crack tools\Ghidra\Ghidra\Features\WildcardAssembler\ghidra_scripts
+    C:\Users\pc\Desktop\Crack tools\Ghidra\Ghidra\Features\MicrosoftCodeAnalyzer\ghidra_scripts
+    C:\Users\pc\Desktop\Crack tools\Ghidra\Ghidra\Features\DecompilerDependent\ghidra_scripts
+    C:\Users\pc\Desktop\Crack tools\Ghidra\Ghidra\Features\PyGhidra\ghidra_scripts
+    C:\Users\pc\Desktop\Crack tools\Ghidra\Ghidra\Features\SwiftDemangler\ghidra_scripts
+    C:\Users\pc\Desktop\Enigma IDE Local\Enigma-Engine\tools
+    C:\Users\pc\Desktop\Crack tools\Ghidra\Ghidra\Features\FileFormats\ghidra_scripts
+    C:\Users\pc\Desktop\Crack tools\Ghidra\Ghidra\Features\SystemEmulation\ghidra_scripts
+    C:\Users\pc\Desktop\Crack tools\Ghidra\Ghidra\Features\GnuDemangler\ghidra_scripts
+    C:\Users\pc\Desktop\Crack tools\Ghidra\Ghidra\Processors\JVM\ghidra_scripts
+    C:\Users\pc\Desktop\Crack tools\Ghidra\Ghidra\Features\PDB\ghidra_scripts
+    C:\Users\pc\Desktop\Crack tools\Ghidra\Ghidra\Processors\PIC\ghidra_scripts
+    C:\Users\pc\Desktop\Crack tools\Ghidra\Ghidra\Features\BSim\ghidra_scripts
+    C:\Users\pc\Desktop\Crack tools\Ghidra\Ghidra\Processors\8051\ghidra_scripts
+    C:\Users\pc\Desktop\Crack tools\Ghidra\Ghidra\Features\FunctionID\ghidra_scripts
+    C:\Users\pc\Desktop\Crack tools\Ghidra\Ghidra\Processors\DATA\ghidra_scripts (HeadlessAnalyzer)  
+INFO  HEADLESS: execution starts (HeadlessAnalyzer)  
+INFO  Creating project: C:\Users\pc\Desktop\Enigma IDE Local\tmp\ghidra_proj\NotepadTest (HeadlessAnalyzer)  
+INFO  Creating project: C:\Users\pc\Desktop\Enigma IDE Local\tmp\ghidra_proj\NotepadTest (DefaultProject)  
+INFO  REPORT: Processing input files:  (HeadlessAnalyzer)  
+INFO       project: C:\Users\pc\Desktop\Enigma IDE Local\tmp\ghidra_proj\NotepadTest (HeadlessAnalyzer)  
+INFO  IMPORTING: file:///C:/Users/pc/Desktop/Enigma IDE Local/Enigma-Engine/test_binaries/notepad_test.exe (HeadlessAnalyzer)  
+INFO  Using Loader: Portable Executable (PE) (ProgramLoader)  
+INFO  Using Language/Compiler: x86:LE:64:default:windows (ProgramLoader)  
+INFO  Using Library Search Path: [., C:\Windows\SysWOW64, C:\java\jdk-21\bin, C:\Windows\Sun\Java\bin, C:\Windows\system32, C:\Windows, C:\Windows\System32\Wbem, C:\Windows\System32\WindowsPowerShell\v1.0\, C:\Windows\System32\OpenSSH\, C:\Program Files\dotnet\, C:\Program Files\nodejs\, C:\Program Files\CMake\bin, C:\Users\pc\AppData\Local\Programs\Python\Python311\Scripts\, C:\Users\pc\AppData\Local\Programs\Python\Python311\, C:\Users\pc\AppData\Local\Programs\hermes, C:\Users\pc\.cargo\bin, C:\Users\pc\AppData\Local\Microsoft\WindowsApps, C:\msys64\mingw64\bin, C:\Users\pc\AppData\Local\Microsoft\WinGet\Links, D:\msys64\mingw64\bin, C:\Users\pc\AppData\Local\PowerToys\DSCModules\, C:\Users\pc\AppData\Local\Programs\Ollama, C:\Users\pc\.dotnet\tools, D:\Microsoft VS Code\bin, D:\Antigravity\bin, C:\Users\pc\AppData\Roaming\npm, C:\Users\pc\AppData\Local\Microsoft\WinGet\Packages\Ninja-build.Ninja_Microsoft.Winget.Source_8wekyb3d8bbwe, C:\Users\pc\AppData\Local\GitHubDesktop\bin, C:\Users\pc\AppData\Local\Programs\Antigravity IDE\bin] (ProgramLoader)  
+WARN  Invalid or missing function at 180092b90 (ExportDataDirectory)  
+INFO  TLS callbacks at 1800ae398 (TLSDirectory)  
+WARN  Invalid or missing function at 1800193f0 (ExportDataDirectory)  
+WARN  Invalid or missing function at 1800dc56c (ExportDataDirectory)  
+INFO  TLS callbacks at 180604200 (TLSDirectory)  
+WARN  Invalid or missing function at 1806ed624 (ExportDataDirectory)  
+INFO  TLS callbacks at 180147040 (TLSDirectory)  
+WARN  Invalid or missing function at 180177e1c (ExportDataDirectory)  
+WARN  Invalid or missing function at 1800a3f84 (ExportDataDirectory)  
+INFO  TLS callbacks at 18006ab98 (TLSDirectory)  
+WARN  Invalid or missing function at 18007f194 (ExportDataDirectory)  
+INFO  Additional info:
+Loading file:///C:/Users/pc/Desktop/Enigma IDE Local/Enigma-Engine/test_binaries/notepad_test.exe?MD5=6f51bcabf1b2b34ad7e670aee6da451f...
+------------------------------------------------
+
+Searching 22 paths for library ADVAPI32.DLL...
+Skipping library which is the wrong architecture: file:///C:/Windows/SysWOW64/advapi32.dll
+Loading file:///C:/Windows/System32/advapi32.dll?MD5=c472e0c047db3281795f68d7753ab881...
+Using existing exports file: C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\advapi32.exports
+Library not saved to project.
+------------------------------------------------
+
+Searching 22 paths for library API-MS-WIN-CORE-COM-L1-1-0.DLL...
+Library not found.
+------------------------------------------------
+
+Searching 22 paths for library API-MS-WIN-CORE-ERRORHANDLING-L1-1-0.DLL...
+Loading file:///C:/java/jdk-21/bin/api-ms-win-core-errorhandling-l1-1-0.dll?MD5=c2f8c03ecce9941492bfbe4b82f7d2d5...
+Using existing exports file: C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\api-ms-win-core-errorhandling-l1-1-0.exports
+Library not saved to project.
+------------------------------------------------
+
+Searching 22 paths for library API-MS-WIN-CORE-INTERLOCKED-L1-1-0.DLL...
+Loading file:///C:/java/jdk-21/bin/api-ms-win-core-interlocked-l1-1-0.dll?MD5=86023497fa48ca2c7705d3f90b76ebc5...
+Using existing exports file: C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\api-ms-win-core-interlocked-l1-1-0.exports
+Library not saved to project.
+------------------------------------------------
+
+Searching 22 paths for library API-MS-WIN-CORE-LIBRARYLOADER-L1-2-0.DLL...
+Library not found.
+------------------------------------------------
+
+Searching 22 paths for library API-MS-WIN-CORE-PROCESSTHREADS-L1-1-0.DLL...
+Loading file:///C:/java/jdk-21/bin/api-ms-win-core-processthreads-l1-1-0.dll?MD5=c123f2c161884fbff4f00ef1e1391266...
+Using existing exports file: C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\api-ms-win-core-processthreads-l1-1-0.exports
+Library not saved to project.
+------------------------------------------------
+
+Searching 22 paths for library API-MS-WIN-CORE-PROCESSTHREADS-L1-1-1.DLL...
+Loading file:///C:/java/jdk-21/bin/api-ms-win-core-processthreads-l1-1-1.dll?MD5=385f562bdc391ccd4f81aca3719f3236...
+Using existing exports file: C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\api-ms-win-core-processthreads-l1-1-1.exports
+Library not saved to project.
+------------------------------------------------
+
+Searching 22 paths for library API-MS-WIN-CORE-PROFILE-L1-1-0.DLL...
+Loading file:///C:/java/jdk-21/bin/api-ms-win-core-profile-l1-1-0.dll?MD5=7a629293eeb0bca5f9bdee8ade477c54...
+Using existing exports file: C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\api-ms-win-core-profile-l1-1-0.exports
+Library not saved to project.
+------------------------------------------------
+
+Searching 22 paths for library API-MS-WIN-CORE-RTLSUPPORT-L1-1-0.DLL...
+Loading file:///C:/java/jdk-21/bin/api-ms-win-core-rtlsupport-l1-1-0.dll?MD5=3c5c7a3130b075b2def5c413c127173f...
+Using existing exports file: C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\api-ms-win-core-rtlsupport-l1-1-0.exports
+Library not saved to project.
+------------------------------------------------
+
+Searching 22 paths for library API-MS-WIN-CORE-SHLWAPI-LEGACY-L1-1-0.DLL...
+Library not found.
+------------------------------------------------
+
+Searching 22 paths for library API-MS-WIN-CORE-STRING-L1-1-0.DLL...
+Loading file:///C:/java/jdk-21/bin/api-ms-win-core-string-l1-1-0.dll?MD5=28005b20fbef6e1db10912d0fdd6471c...
+Using existing exports file: C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\api-ms-win-core-string-l1-1-0.exports
+Library not saved to project.
+------------------------------------------------
+
+Searching 22 paths for library API-MS-WIN-CORE-SYNCH-L1-1-0.DLL...
+Loading file:///C:/java/jdk-21/bin/api-ms-win-core-synch-l1-1-0.dll?MD5=436ea0237ed040513ec887046418faaa...
+Using existing exports file: C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\api-ms-win-core-synch-l1-1-0.exports
+Library not saved to project.
+------------------------------------------------
+
+Searching 22 paths for library API-MS-WIN-CORE-SYNCH-L1-2-0.DLL...
+Loading file:///C:/java/jdk-21/bin/api-ms-win-core-synch-l1-2-0.dll?MD5=8f107a7bc018227b181a0e7e76e9ca39...
+Using existing exports file: C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\api-ms-win-core-synch-l1-2-0.exports
+Library not saved to project.
+------------------------------------------------
+
+Searching 22 paths for library API-MS-WIN-CORE-SYSINFO-L1-1-0.DLL...
+Loading file:///C:/java/jdk-21/bin/api-ms-win-core-sysinfo-l1-1-0.dll?MD5=b65bf5ef316880fd8d21e1b34eb5c8a9...
+Using existing exports file: C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\api-ms-win-core-sysinfo-l1-1-0.exports
+Library not saved to project.
+------------------------------------------------
+
+Searching 22 paths for library API-MS-WIN-CORE-WINRT-ERROR-L1-1-0.DLL...
+Library not found.
+------------------------------------------------
+
+Searching 22 paths for library API-MS-WIN-CORE-WINRT-ERROR-L1-1-1.DLL...
+Library not found.
+------------------------------------------------
+
+Searching 22 paths for library API-MS-WIN-CORE-WINRT-L1-1-0.DLL...
+Library not found.
+------------------------------------------------
+
+Searching 22 paths for library API-MS-WIN-CORE-WINRT-STRING-L1-1-0.DLL...
+Library not found.
+------------------------------------------------
+
+Searching 22 paths for library API-MS-WIN-CRT-PRIVATE-L1-1-0.DLL...
+Loading file:///C:/java/jdk-21/bin/api-ms-win-crt-private-l1-1-0.dll?MD5=c830c6447e6de3d6a611702c591831e3...
+Using existing exports file: C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\api-ms-win-crt-private-l1-1-0.exports
+Library not saved to project.
+------------------------------------------------
+
+Searching 22 paths for library API-MS-WIN-CRT-RUNTIME-L1-1-0.DLL...
+Loading file:///C:/java/jdk-21/bin/api-ms-win-crt-runtime-l1-1-0.dll?MD5=bbaa58e9e1abdf7d8c4c69652d29d789...
+Using existing exports file: C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\api-ms-win-crt-runtime-l1-1-0.exports
+Library not saved to project.
+------------------------------------------------
+
+Searching 22 paths for library API-MS-WIN-CRT-STRING-L1-1-0.DLL...
+Loading file:///C:/java/jdk-21/bin/api-ms-win-crt-string-l1-1-0.dll?MD5=639b1fb35cb61ba633eb1791b750631f...
+Using existing exports file: C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\api-ms-win-crt-string-l1-1-0.exports
+Library not saved to project.
+------------------------------------------------
+
+Searching 22 paths for library API-MS-WIN-EVENTING-PROVIDER-L1-1-0.DLL...
+Library not found.
+------------------------------------------------
+
+Searching 22 paths for library API-MS-WIN-SHCORE-OBSOLETE-L1-1-0.DLL...
+Library not found.
+------------------------------------------------
+
+Searching 22 paths for library API-MS-WIN-SHCORE-PATH-L1-1-0.DLL...
+Library not found.
+------------------------------------------------
+
+Searching 22 paths for library API-MS-WIN-SHCORE-SCALING-L1-1-1.DLL...
+Library not found.
+------------------------------------------------
+
+Searching 22 paths for library COMCTL32.DLL...
+Skipping library which is the wrong architecture: file:///C:/Windows/SysWOW64/comctl32.dll
+Loading file:///C:/Windows/System32/comctl32.dll?MD5=11835dd03931adca2230b93e1adf35ce...
+Using existing exports file: C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\comctl32.exports
+Library not saved to project.
+------------------------------------------------
+
+Searching 22 paths for library COMDLG32.DLL...
+Skipping library which is the wrong architecture: file:///C:/Windows/SysWOW64/comdlg32.dll
+Loading file:///C:/Windows/System32/comdlg32.dll?MD5=41a22bdcff9984c5ed5ad09f19e2bde3...
+Using existing exports file: C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\comdlg32.exports
+Library not saved to project.
+------------------------------------------------
+
+Searching 22 paths for library GDI32.DLL...
+Skipping library which is the wrong architecture: file:///C:/Windows/SysWOW64/gdi32.dll
+Loading file:///C:/Windows/System32/gdi32.dll?MD5=640f0b81f50c5664df142c8fe5dd1d56...
+Using existing exports file: C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\gdi32.exports
+Library not saved to project.
+------------------------------------------------
+
+Searching 22 paths for library KERNEL32.DLL...
+Skipping library which is the wrong architecture: file:///C:/Windows/SysWOW64/kernel32.dll
+Loading file:///C:/Windows/System32/kernel32.dll?MD5=0a5960b161f98d6e85c108c0247f9da7...
+Using existing exports file: C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\kernel32.exports
+Library not saved to project.
+------------------------------------------------
+
+Searching 22 paths for library PROPSYS.DLL...
+Skipping library which is the wrong architecture: file:///C:/Windows/SysWOW64/propsys.dll
+Loading file:///C:/Windows/System32/propsys.dll?MD5=a0c206fde157d516b7395ed45d10ef1b...
+Using existing exports file: C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\propsys.exports
+Library not saved to project.
+------------------------------------------------
+
+Searching 22 paths for library SHELL32.DLL...
+Skipping library which is the wrong architecture: file:///C:/Windows/SysWOW64/shell32.dll
+Loading file:///C:/Windows/System32/shell32.dll?MD5=84cdb89eb166e488b19590d92f4dc4bc...
+Using existing exports file: C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\shell32.exports
+Library not saved to project.
+------------------------------------------------
+
+Searching 22 paths for library URLMON.DLL...
+Skipping library which is the wrong architecture: file:///C:/Windows/SysWOW64/urlmon.dll
+Loading file:///C:/Windows/System32/urlmon.dll?MD5=4f65f3e866588d1f98279b80d79073d8...
+[urlmon.dll]: failed to create WEVTResource at 18019ed50: Failed to resolve data length for WEVTResource
+Using existing exports file: C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\urlmon.exports
+Library not saved to project.
+------------------------------------------------
+
+Searching 22 paths for library USER32.DLL...
+Skipping library which is the wrong architecture: file:///C:/Windows/SysWOW64/user32.dll
+Loading file:///C:/Windows/System32/user32.dll?MD5=dec6108270be2582a393b3889767b300...
+[user32.dll]: failed to create WEVTResource at 1800c0a70: Failed to resolve data length for WEVTResource
+Using existing exports file: C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\user32.exports
+Library not saved to project.
+------------------------------------------------
+
+Searching 22 paths for library WINSPOOL.DRV...
+Skipping library which is the wrong architecture: file:///C:/Windows/SysWOW64/winspool.drv
+Loading file:///C:/Windows/System32/winspool.drv?MD5=9cd7a4a866c7ac7deba73df4c12ef5bb...
+[winspool.drv]: failed to create WEVTResource at 18008c4b8: Failed to resolve data length for WEVTResource
+Using existing exports file: C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\winspool.exports
+Library not saved to project.
+------------------------------------------------
+
+Applying C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\kernel32.exports
+Applying C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\gdi32.exports
+Applying C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\user32.exports
+Applying C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\api-ms-win-crt-string-l1-1-0.exports
+Applying C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\api-ms-win-crt-runtime-l1-1-0.exports
+Applying C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\api-ms-win-crt-private-l1-1-0.exports
+Applying C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\api-ms-win-core-rtlsupport-l1-1-0.exports
+Applying C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\api-ms-win-core-errorhandling-l1-1-0.exports
+Applying C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\api-ms-win-core-processthreads-l1-1-0.exports
+Applying C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\api-ms-win-core-processthreads-l1-1-1.exports
+Applying C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\api-ms-win-core-profile-l1-1-0.exports
+Applying C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\api-ms-win-core-sysinfo-l1-1-0.exports
+Applying C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\api-ms-win-core-interlocked-l1-1-0.exports
+Applying C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\api-ms-win-core-synch-l1-1-0.exports
+Applying C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\api-ms-win-core-string-l1-1-0.exports
+Applying C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\api-ms-win-core-synch-l1-2-0.exports
+Applying C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\comctl32.exports
+Unable to locate symbol [Ordinal_345] in [C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\comctl32.exports]. Please verify the version is correct.
+Applying C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\advapi32.exports
+Applying C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\comdlg32.exports
+Applying C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\propsys.exports
+Applying C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\shell32.exports
+Applying C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\winspool.exports
+Applying C:\Users\pc\AppData\Roaming\ghidra\ghidra_12.0.4_PUBLIC\symbols\win64\urlmon.exports
+Linking the External Programs of 'notepad_test.exe' to imported libraries...
+  [KERNEL32.DLL] -> not found in project
+  [GDI32.DLL] -> not found in project
+  [USER32.DLL] -> not found in project
+  [API-MS-WIN-CRT-STRING-L1-1-0.DLL] -> not found in project
+  [API-MS-WIN-CRT-RUNTIME-L1-1-0.DLL] -> not found in project
+  [API-MS-WIN-CRT-PRIVATE-L1-1-0.DLL] -> not found in project
+  [API-MS-WIN-CORE-COM-L1-1-0.DLL] -> not found in project
+  [API-MS-WIN-CORE-SHLWAPI-LEGACY-L1-1-0.DLL] -> not found in project
+  [API-MS-WIN-SHCORE-OBSOLETE-L1-1-0.DLL] -> not found in project
+  [API-MS-WIN-SHCORE-PATH-L1-1-0.DLL] -> not found in project
+  [API-MS-WIN-SHCORE-SCALING-L1-1-1.DLL] -> not found in project
+  [API-MS-WIN-CORE-RTLSUPPORT-L1-1-0.DLL] -> not found in project
+  [API-MS-WIN-CORE-ERRORHANDLING-L1-1-0.DLL] -> not found in project
+  [API-MS-WIN-CORE-PROCESSTHREADS-L1-1-0.DLL] -> not found in project
+  [API-MS-WIN-CORE-PROCESSTHREADS-L1-1-1.DLL] -> not found in project
+  [API-MS-WIN-CORE-PROFILE-L1-1-0.DLL] -> not found in project
+  [API-MS-WIN-CORE-SYSINFO-L1-1-0.DLL] -> not found in project
+  [API-MS-WIN-CORE-INTERLOCKED-L1-1-0.DLL] -> not found in project
+  [API-MS-WIN-CORE-LIBRARYLOADER-L1-2-0.DLL] -> not found in project
+  [API-MS-WIN-CORE-WINRT-STRING-L1-1-0.DLL] -> not found in project
+  [API-MS-WIN-CORE-SYNCH-L1-1-0.DLL] -> not found in project
+  [API-MS-WIN-CORE-WINRT-ERROR-L1-1-0.DLL] -> not found in project
+  [API-MS-WIN-CORE-STRING-L1-1-0.DLL] -> not found in project
+  [API-MS-WIN-CORE-WINRT-L1-1-0.DLL] -> not found in project
+  [API-MS-WIN-CORE-WINRT-ERROR-L1-1-1.DLL] -> not found in project
+  [API-MS-WIN-EVENTING-PROVIDER-L1-1-0.DLL] -> not found in project
+  [API-MS-WIN-CORE-SYNCH-L1-2-0.DLL] -> not found in project
+  [COMCTL32.DLL] -> not found in project
+  [ADVAPI32.DLL] -> not found in project
+  [COMDLG32.DLL] -> not found in project
+  [PROPSYS.DLL] -> not found in project
+  [SHELL32.DLL] -> not found in project
+  [WINSPOOL.DRV] -> not found in project
+  [URLMON.DLL] -> not found in project
+------------------------------------------------
+
+ (ProgramLoader)  
+INFO  IMPORTING: Loaded 0 additional files (HeadlessAnalyzer)  
+INFO  REPORT: Execute script: ghidra_dump_functions.java  (HeadlessAnalyzer)  
+INFO  SCRIPT: C:\Users\pc\Desktop\Enigma IDE Local\Enigma-Engine\tools\ghidra_dump_functions.java (HeadlessAnalyzer)  
+INFO  ghidra_dump_functions.java> 0x140001008,FUN_140001008 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140001094,FUN_140001094 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140001130,FUN_140001130 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000125c,FUN_14000125c (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140001300,FUN_140001300 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140001380,FUN_140001380 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140001440,FUN_140001440 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140001460,FUN_140001460 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140001480,FUN_140001480 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400014c0,FUN_1400014c0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140001520,FUN_140001520 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400015d0,FUN_1400015d0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400015f0,FUN_1400015f0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140001630,FUN_140001630 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140001650,FUN_140001650 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140001670,FUN_140001670 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140001690,FUN_140001690 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400016c4,FUN_1400016c4 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000175c,FUN_14000175c (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400017e8,FUN_1400017e8 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400018c0,FUN_1400018c0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140001940,FUN_140001940 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400019c4,FUN_1400019c4 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140001ca0,FUN_140001ca0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140001cb4,FUN_140001cb4 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140001ce0,FUN_140001ce0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140001e20,FUN_140001e20 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140001e70,FUN_140001e70 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140001e90,FUN_140001e90 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140001efc,FUN_140001efc (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140001f5c,FUN_140001f5c (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140001fc0,FUN_140001fc0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140001fe4,FUN_140001fe4 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400022a8,FUN_1400022a8 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140002344,FUN_140002344 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140002450,FUN_140002450 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140002498,FUN_140002498 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140002558,FUN_140002558 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000261c,FUN_14000261c (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140002654,FUN_140002654 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140002674,FUN_140002674 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140002694,FUN_140002694 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400026dc,FUN_1400026dc (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140002710,FUN_140002710 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140002740,FUN_140002740 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400027cc,FUN_1400027cc (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400029a8,FUN_1400029a8 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140002b30,FUN_140002b30 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140002de4,FUN_140002de4 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140002ea4,FUN_140002ea4 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140002ffc,FUN_140002ffc (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400030c8,FUN_1400030c8 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400031d0,FUN_1400031d0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140003330,FUN_140003330 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400033b0,FUN_1400033b0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140003430,FUN_140003430 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400034c4,FUN_1400034c4 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000356c,FUN_14000356c (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140003628,FUN_140003628 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140003938,FUN_140003938 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140003b04,FUN_140003b04 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140003cb0,FUN_140003cb0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140003e3c,FUN_140003e3c (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140003fc4,FUN_140003fc4 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400040f8,FUN_1400040f8 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000418c,FUN_14000418c (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140004378,FUN_140004378 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400043ec,FUN_1400043ec (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140004460,FUN_140004460 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000455c,FUN_14000455c (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140004644,FUN_140004644 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140004738,FUN_140004738 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140004874,FUN_140004874 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400049e8,FUN_1400049e8 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140004ca8,FUN_140004ca8 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400050a0,FUN_1400050a0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000550c,FUN_14000550c (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000561c,FUN_14000561c (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400056b4,FUN_1400056b4 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140005754,FUN_140005754 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140005878,FUN_140005878 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140005960,FUN_140005960 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140005a00,FUN_140005a00 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140005ab0,FUN_140005ab0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140005c00,FUN_140005c00 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140005d28,FUN_140005d28 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140005ea4,FUN_140005ea4 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140005f84,FUN_140005f84 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140006068,FUN_140006068 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400061b0,FUN_1400061b0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400061e0,FUN_1400061e0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140006204,FUN_140006204 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400062f0,FUN_1400062f0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140006318,FUN_140006318 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140006348,FUN_140006348 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140006450,FUN_140006450 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400064c0,FUN_1400064c0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400066b0,FUN_1400066b0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140006760,FUN_140006760 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400067b8,FUN_1400067b8 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400067e8,FUN_1400067e8 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140006818,FUN_140006818 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400068b0,FUN_1400068b0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400068bc,FUN_1400068bc (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140006a98,FUN_140006a98 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140006b68,FUN_140006b68 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140006c10,FUN_140006c10 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140006c48,FUN_140006c48 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140006c80,FUN_140006c80 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140006cb8,FUN_140006cb8 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140006ff0,FUN_140006ff0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400071bc,FUN_1400071bc (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400074e0,FUN_1400074e0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140007694,FUN_140007694 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140007788,FUN_140007788 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140007948,FUN_140007948 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140007994,FUN_140007994 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140007b90,FUN_140007b90 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140007c30,FUN_140007c30 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140007cb0,FUN_140007cb0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140007cf0,FUN_140007cf0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140007d30,FUN_140007d30 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140007d60,FUN_140007d60 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140007d70,FUN_140007d70 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140007dd8,FUN_140007dd8 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140007e24,FUN_140007e24 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140007ee8,FUN_140007ee8 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140007f88,FUN_140007f88 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140008074,FUN_140008074 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140008160,FUN_140008160 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140008240,FUN_140008240 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140008408,FUN_140008408 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140008584,FUN_140008584 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140008794,FUN_140008794 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400088f4,FUN_1400088f4 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140008af8,FUN_140008af8 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140008df0,FUN_140008df0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140009d6c,FUN_140009d6c (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140009eb8,FUN_140009eb8 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000a01c,FUN_14000a01c (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000a07c,FUN_14000a07c (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000a360,FUN_14000a360 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000adb4,FUN_14000adb4 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000ae3c,FUN_14000ae3c (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000b200,FUN_14000b200 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000b424,FUN_14000b424 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000b6c0,FUN_14000b6c0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000b6d0,FUN_14000b6d0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000b820,FUN_14000b820 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000b8ac,FUN_14000b8ac (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000ba98,FUN_14000ba98 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000be14,FUN_14000be14 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000bf90,FUN_14000bf90 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000c050,FUN_14000c050 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000c27c,FUN_14000c27c (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000c440,FUN_14000c440 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000c510,FUN_14000c510 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000c570,FUN_14000c570 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000c5b0,FUN_14000c5b0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000c630,FUN_14000c630 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000c6c0,FUN_14000c6c0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000c718,FUN_14000c718 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000c79c,FUN_14000c79c (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000c7cc,FUN_14000c7cc (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000c908,FUN_14000c908 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000ca44,FUN_14000ca44 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000cb80,FUN_14000cb80 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000ccbc,FUN_14000ccbc (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000cd38,FUN_14000cd38 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000ce74,FUN_14000ce74 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000cef0,FUN_14000cef0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000d02c,FUN_14000d02c (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000d168,FUN_14000d168 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000d1b0,FUN_14000d1b0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000d330,FUN_14000d330 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000d370,FUN_14000d370 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000d390,FUN_14000d390 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000d418,FUN_14000d418 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000d460,FUN_14000d460 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000d6fc,FUN_14000d6fc (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000d9e0,FUN_14000d9e0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000da38,FUN_14000da38 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000dbb0,FUN_14000dbb0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000dc04,FUN_14000dc04 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000de94,FUN_14000de94 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000df94,FUN_14000df94 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000e018,FUN_14000e018 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000e0b4,FUN_14000e0b4 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000e1b4,FUN_14000e1b4 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000e1d8,FUN_14000e1d8 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000e238,FUN_14000e238 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000e424,FUN_14000e424 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000e570,FUN_14000e570 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000e5c8,FUN_14000e5c8 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000ee58,FUN_14000ee58 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000eea0,FUN_14000eea0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000ef78,FUN_14000ef78 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000f950,FUN_14000f950 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000fb10,FUN_14000fb10 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000fbec,FUN_14000fbec (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000fe54,FUN_14000fe54 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14000fe9c,FUN_14000fe9c (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140010140,FUN_140010140 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140010160,FUN_140010160 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400101d0,FUN_1400101d0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140010208,FUN_140010208 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14001027c,FUN_14001027c (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400102e4,FUN_1400102e4 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400103c0,FUN_1400103c0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14001044c,FUN_14001044c (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140010868,FUN_140010868 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140010e0c,FUN_140010e0c (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140010e80,FUN_140010e80 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14001113c,FUN_14001113c (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400112f4,FUN_1400112f4 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140011520,FUN_140011520 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140011770,FUN_140011770 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140011890,FUN_140011890 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400118a4,FUN_1400118a4 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400118f0,FUN_1400118f0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140011938,FUN_140011938 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140011998,FUN_140011998 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140011be4,FUN_140011be4 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140011c34,FUN_140011c34 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140011edc,FUN_140011edc (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14001c4f0,FUN_14001c4f0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14001c618,FUN_14001c618 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14001c754,FUN_14001c754 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14001c7a0,FUN_14001c7a0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14001c820,FUN_14001c820 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14001c898,FUN_14001c898 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14001cb70,FUN_14001cb70 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14001cc50,FUN_14001cc50 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14001cfb0,FUN_14001cfb0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14001d050,FUN_14001d050 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14001d198,FUN_14001d198 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14001d378,FUN_14001d378 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14001d494,FUN_14001d494 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14001de00,FUN_14001de00 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14001df3c,FUN_14001df3c (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14001e430,FUN_14001e430 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14001e53c,FUN_14001e53c (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14001e6ac,FUN_14001e6ac (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14001e800,FUN_14001e800 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14001e81c,FUN_14001e81c (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14001e9d8,FUN_14001e9d8 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14001eba8,FUN_14001eba8 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14001ed28,FUN_14001ed28 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14001ee30,FUN_14001ee30 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14001ee6c,FUN_14001ee6c (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14001eeb8,FUN_14001eeb8 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14001f1b8,FUN_14001f1b8 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14001f584,FUN_14001f584 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14001f6d8,FUN_14001f6d8 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14001f800,FUN_14001f800 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14001f8a4,FUN_14001f8a4 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14001fa54,FUN_14001fa54 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14001fad4,FUN_14001fad4 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14001fb60,FUN_14001fb60 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14001fbe0,FUN_14001fbe0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14001fcc4,FUN_14001fcc4 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14001fd44,FUN_14001fd44 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14001fea0,FUN_14001fea0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400201c0,FUN_1400201c0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140020270,FUN_140020270 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400203a8,FUN_1400203a8 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140020434,FUN_140020434 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400204b4,FUN_1400204b4 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140020540,FUN_140020540 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400205d4,FUN_1400205d4 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140020670,FUN_140020670 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400206f0,FUN_1400206f0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140020720,FUN_140020720 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140020730,FUN_140020730 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14002075c,FUN_14002075c (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14002078c,FUN_14002078c (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400207d8,FUN_1400207d8 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140020880,FUN_140020880 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400208e0,FUN_1400208e0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140020940,FUN_140020940 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400209a0,FUN_1400209a0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400209d0,FUN_1400209d0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140020a00,FUN_140020a00 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140020a24,FUN_140020a24 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140020a80,FUN_140020a80 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140020bec,FUN_140020bec (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140020df0,FUN_140020df0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140020fb4,FUN_140020fb4 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140021090,FUN_140021090 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140021318,FUN_140021318 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140021498,FUN_140021498 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140021724,FUN_140021724 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140021940,FUN_140021940 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140021a48,FUN_140021a48 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140021b30,FUN_140021b30 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140021ccc,FUN_140021ccc (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140021dd4,FUN_140021dd4 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140021f04,FUN_140021f04 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140021f84,FUN_140021f84 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140022044,FUN_140022044 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400220f0,FUN_1400220f0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140022160,FUN_140022160 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400221a0,FUN_1400221a0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140022220,FUN_140022220 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140022240,FUN_140022240 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400222c0,FUN_1400222c0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400224b4,FUN_1400224b4 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140022740,FUN_140022740 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140022768,FUN_140022768 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140022a00,FUN_140022a00 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140022a80,FUN_140022a80 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140022b00,FUN_140022b00 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140022b70,FUN_140022b70 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140022bb0,FUN_140022bb0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140022cc0,FUN_140022cc0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140022dd0,FUN_140022dd0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140022e30,FUN_140022e30 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140022e60,FUN_140022e60 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140022eb0,FUN_140022eb0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140022ee0,FUN_140022ee0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140022ef0,FUN_140022ef0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140022f00,FUN_140022f00 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140022f10,FUN_140022f10 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140022f20,FUN_140022f20 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400231bc,FUN_1400231bc (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140023268,FUN_140023268 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140023694,FUN_140023694 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400236b0,FUN_1400236b0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140023700,FUN_140023700 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14002372a,DelayLoad_OpenProcessToken (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140023736,FUN_140023736 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400237b5,DelayLoad_GetTokenInformation (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400237c7,DelayLoad_DuplicateEncryptionInfoFile (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400237d9,DelayLoad_RegSetValueExW (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400237eb,DelayLoad_RegQueryValueExW (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400237fd,DelayLoad_RegCreateKeyW (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14002380f,DelayLoad_RegCloseKey (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140023821,DelayLoad_RegOpenKeyExW (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140023833,DelayLoad_RegCreateKeyExW (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140023845,DelayLoad_RegDeleteKeyExW (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140023857,DelayLoad_RegQueryInfoKeyW (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140023869,DelayLoad_RegEnumValueW (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14002387b,DelayLoad_EventSetInformation (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14002388d,DelayLoad_EventRegister (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400238ab,DelayLoad_EventUnregister (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400238c9,DelayLoad_EventWriteTransfer (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400238db,DelayLoad_IsTextUnicode (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400238f0,FUN_1400238f0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140023930,FUN_140023930 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140023960,FUN_140023960 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140023a10,FUN_140023a10 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140023a30,FUN_140023a30 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140023a50,FUN_140023a50 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140023bd0,entry (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140023c00,FUN_140023c00 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140023c28,FUN_140023c28 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140023c90,FUN_140023c90 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140023d68,FUN_140023d68 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140023d84,FUN_140023d84 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140023e28,FUN_140023e28 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140023e9c,FUN_140023e9c (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140023f14,FUN_140023f14 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140023f54,FUN_140023f54 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140023fa4,FUN_140023fa4 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14002405c,FUN_14002405c (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400240fc,FUN_1400240fc (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140024128,FUN_140024128 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140024158,FUN_140024158 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400241b0,FUN_1400241b0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400241dc,FUN_1400241dc (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140024200,FUN_140024200 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140024300,_guard_check_icall (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14002430c,FUN_14002430c (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140024360,FUN_140024360 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400244b4,FUN_1400244b4 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140024500,FUN_140024500 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140024570,FUN_140024570 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400245b0,FUN_1400245b0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140024600,FUN_140024600 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140024644,FUN_140024644 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400247e8,FUN_1400247e8 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140024838,FUN_140024838 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400248a0,FUN_1400248a0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140024908,FUN_140024908 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140024960,FUN_140024960 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400249a4,FUN_1400249a4 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400249cc,FUN_1400249cc (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140024a00,FUN_140024a00 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140024a20,FUN_140024a20 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140024b30,FUN_140024b30 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140024bcc,FUN_140024bcc (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140024c34,FUN_140024c34 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140024c81,DelayLoad_DecryptFileW (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140024c93,DelayLoad_CommDlgExtendedError (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140024c9f,FUN_140024c9f (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140024d1e,DelayLoad_GetOpenFileNameW (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140024d30,DelayLoad_GetSaveFileNameW (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140024d42,DelayLoad_ReplaceTextW (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140024d54,DelayLoad_FindTextW (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140024d66,DelayLoad_ChooseFontW (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140024d78,DelayLoad_PageSetupDlgW (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140024d8a,DelayLoad_GetFileTitleW (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140024d9c,DelayLoad_PrintDlgExW (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140024dae,DelayLoad_PSGetPropertyDescriptionListFromString (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140024dba,FUN_140024dba (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140024e39,DelayLoad_PropVariantToStringVectorAlloc (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140024e4b,DelayLoad_SHCreateItemFromParsingName (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140024e57,FUN_140024e57 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140024ed6,DelayLoad_ShellExecuteW (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140024ee8,DelayLoad_ShellAboutW (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140024efa,DelayLoad_DragQueryFileW (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140024f0c,DelayLoad_DragFinish (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140024f1e,DelayLoad_SHAddToRecentDocs (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140024f30,DelayLoad_DragAcceptFiles (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140024f42,DelayLoad_SHGetKnownFolderPath (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140024f54,DelayLoad_OpenPrinterW (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140024f60,FUN_140024f60 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140024fdf,DelayLoad_GetPrinterDriverW (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140024ff1,DelayLoad_ClosePrinter (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140025003,DelayLoad_FindMimeFromData (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14002500f,FUN_14002500f (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140025090,FUN_140025090 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400250b4,FUN_1400250b4 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140025118,FUN_140025118 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400251b0,FUN_1400251b0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140025250,_guard_dispatch_icall (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140025258,FUN_140025258 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14002527c,FUN_14002527c (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x14002529a,FUN_14002529a (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400252c0,FUN_1400252c0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400252f0,FUN_1400252f0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140025370,FUN_140025370 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x1400253d0,FUN_1400253d0 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140025430,FUN_140025430 (GhidraScript)  
+INFO  ghidra_dump_functions.java> 0x140025460,FUN_140025460 (GhidraScript)  
+INFO  /notepad_test.exe: file created (pc) (LocalFileSystem)  
+INFO  REPORT: Save succeeded for: /notepad_test.exe (NotepadTest:/notepad_test.exe) (HeadlessAnalyzer)  
+INFO  REPORT: Import succeeded (HeadlessAnalyzer)  

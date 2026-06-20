@@ -40,6 +40,10 @@ bool FunctionStartDataPostAnalyzer::added(Program* program, const AddressSetView
     ReferenceManager* refMgr = program->getReferenceManager();
     if (!memory || !listing || !funcMgr || !refMgr) return true;
 
+    if (refMgr->getReferenceCount() == 0) {
+        return true;
+    }
+
     int found = 0;
     int scanned = 0;
     static constexpr int MAX_FOUND = 500;

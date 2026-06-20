@@ -49,6 +49,21 @@ void FunctionDiscoveryAnalyzer::clear() {
 }
 
 void FunctionDiscoveryAnalyzer::analyzeLoader(const BinaryLoader& loader) {
+    // Pre-compute executable section ranges for validity checking.
+    // When sections are available, skip candidates outside executable regions
+    // (e.g., IAT entries in .rdata for PE). Raw binaries without sections pass through.
+    auto sections = loader.getSections();
+    auto isInExecSection = [&sections](uint64_t addr) -> bool {
+        if (sections.empty()) return true;
+        for (const auto& sec : sections) {
+            if (!sec.isExecutable) continue;
+            uint64_t secEnd = sec.virtualAddress + std::max(sec.virtualSize, sec.fileSize);
+            if (addr >= sec.virtualAddress && addr < secEnd)
+                return true;
+        }
+        return false;
+    };
+
     if (options_.includeEntryPoint && loader.getEntryPoint() != 0) {
         FunctionCandidate candidate;
         candidate.address = loader.getEntryPoint();
@@ -63,6 +78,7 @@ void FunctionDiscoveryAnalyzer::analyzeLoader(const BinaryLoader& loader) {
         for (const auto& exp : loader.getExports()) {
             if (exp.address == 0)
                 continue;
+            if (!isInExecSection(exp.address)) continue;
             FunctionCandidate candidate;
             candidate.address = exp.address;
             candidate.name = exp.name.empty() ? defaultFunctionName(exp.address) : exp.name;
@@ -77,6 +93,7 @@ void FunctionDiscoveryAnalyzer::analyzeLoader(const BinaryLoader& loader) {
         for (const auto& sym : loader.getSymbols()) {
             if (!sym.isFunction || sym.address == 0)
                 continue;
+            if (!isInExecSection(sym.address)) continue;
             FunctionCandidate candidate;
             candidate.address = sym.address;
             candidate.name = sym.name.empty() ? defaultFunctionName(sym.address) : sym.name;
@@ -92,6 +109,7 @@ void FunctionDiscoveryAnalyzer::analyzeLoader(const BinaryLoader& loader) {
         for (const auto& imp : loader.getImports()) {
             if (imp.address == 0)
                 continue;
+            if (!isInExecSection(imp.address)) continue;
             FunctionCandidate candidate;
             candidate.address = imp.address;
             candidate.name = imp.functionName.empty() ? defaultFunctionName(imp.address) : imp.functionName;

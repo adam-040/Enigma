@@ -24,6 +24,10 @@
 #include <vector>
 #include <fstream>
 #include <unordered_map>
+#include <sstream>
+#include <iomanip>
+#include <algorithm>
+#include <direct.h>
 
 namespace ghidra {
 
@@ -31,7 +35,15 @@ namespace {
 static const uint8_t RSDS_SIG[4] = {'R', 'S', 'D', 'S'};
 static const uint8_t NB10_SIG[4] = {'N', 'B', '1', '0'};
 
-static std::string extractPdbPath(Memory* memory) {
+struct PdbInfo {
+    std::string pdbPath;
+    std::string guidStr; // GUID as hex string (uppercase, no dashes) + age
+    bool valid = false;
+    bool hasRsds = false; // RSDS has GUID info; NB10 does not
+};
+
+static PdbInfo extractPdbInfo(Memory* memory) {
+    PdbInfo info;
     for (auto* block : memory->getBlocks()) {
         std::string name = block->getName();
         if (name.find("debug") == std::string::npos && name.find(".rdata") == std::string::npos)
@@ -57,7 +69,25 @@ static std::string extractPdbPath(Memory* memory) {
                 std::string path;
                 for (int64_t j = pathOff; j < pathOff + maxLen && buf[static_cast<size_t>(j)] != 0; ++j)
                     path += static_cast<char>(buf[static_cast<size_t>(j)]);
-                if (!path.empty()) return path;
+                if (!path.empty()) {
+                    info.pdbPath = path;
+                    // Build GUID string from bytes 4-19
+                    std::stringstream guidSs;
+                    for (int g = 4; g < 20; ++g) {
+                        guidSs << std::hex << std::uppercase << std::setw(2) << std::setfill('0')
+                               << static_cast<int>(buf[static_cast<size_t>(i + g)]);
+                    }
+                    // Age: bytes 20-23
+                    uint32_t age = static_cast<uint32_t>(buf[static_cast<size_t>(i + 20)]) |
+                                   (static_cast<uint32_t>(buf[static_cast<size_t>(i + 21)]) << 8) |
+                                   (static_cast<uint32_t>(buf[static_cast<size_t>(i + 22)]) << 16) |
+                                   (static_cast<uint32_t>(buf[static_cast<size_t>(i + 23)]) << 24);
+                    guidSs << std::hex << age;
+                    info.guidStr = guidSs.str();
+                    info.hasRsds = true;
+                    info.valid = true;
+                    return info;
+                }
             }
             if (isNb10 && i + 16 + 256 < read) {
                 int64_t pathOff = i + 16;
@@ -65,11 +95,63 @@ static std::string extractPdbPath(Memory* memory) {
                 std::string path;
                 for (int64_t j = pathOff; j < pathOff + maxLen && buf[static_cast<size_t>(j)] != 0; ++j)
                     path += static_cast<char>(buf[static_cast<size_t>(j)]);
-                if (!path.empty()) return path;
+                if (!path.empty()) {
+                    info.pdbPath = path;
+                    info.valid = true;
+                    info.hasRsds = false;
+                    return info;
+                }
             }
         }
     }
-    return "";
+    return info;
+}
+
+// Try to download PDB from Microsoft symbol server
+static bool downloadPdbFromSymbolServer(const std::string& pdbFilename,
+                                          const std::string& guidAge,
+                                          const std::string& localPath) {
+    if (pdbFilename.empty() || guidAge.empty()) return false;
+
+    // Microsoft symbol server URL format:
+    // https://msdl.microsoft.com/download/symbols/<PDB>/<GUID><AGE>/<PDB>
+    std::string url = "https://msdl.microsoft.com/download/symbols/" +
+                      pdbFilename + "/" + guidAge + "/" + pdbFilename;
+
+    Msg::info("PDB Universal", "Downloading PDB: " + url);
+
+    // Use URLDownloadToFile via COM (Windows)
+    // We use the simpler WinHTTP approach
+#if defined(_WIN32)
+    // Build a PowerShell download command that works on all modern Windows
+    std::string cmd = "powershell -Command \"$wc = New-Object System.Net.WebClient; try { $wc.DownloadFile('" +
+                      url + "', '" + localPath + "'); Write-Output 'OK' } catch { Write-Output 'FAIL' }\" 2>nul";
+
+    FILE* pipe = popen(cmd.c_str(), "r");
+    if (pipe) {
+        char buf[16] = {0};
+        if (fgets(buf, sizeof(buf), pipe)) {
+            pclose(pipe);
+            std::string result(buf);
+            // Trim whitespace
+            while (!result.empty() && (result.back() == '\n' || result.back() == '\r' || result.back() == ' '))
+                result.pop_back();
+            bool success = (result == "OK");
+
+            // Verify the downloaded file
+            if (success) {
+                std::ifstream f(localPath, std::ios::binary | std::ios::ate);
+                if (f.good() && f.tellg() > 1024) {
+                    Msg::info("PDB Universal", "PDB downloaded successfully: " + localPath);
+                    return true;
+                }
+            }
+        } else {
+            pclose(pipe);
+        }
+    }
+#endif
+    return false;
 }
 } // anonymous namespace
 
@@ -95,10 +177,14 @@ bool PdbUniversalAnalyzer::added(Program* program, const AddressSetView& set,
     Memory* memory = program->getMemory();
     if (!memory) return true;
 
-    std::string pdbPath = extractPdbPath(memory);
-    if (pdbPath.empty()) return true;
+    PdbInfo info = extractPdbInfo(memory);
+    if (!info.valid || info.pdbPath.empty()) return true;
 
-    Msg::info(getName(), "PDB file: " + pdbPath);
+    std::string pdbPath = info.pdbPath;
+    // Normalize path separators for local file operations
+    std::replace(pdbPath.begin(), pdbPath.end(), '/', '\\');
+
+    Msg::info(getName(), "PDB reference: " + info.pdbPath);
 
     // Try to find the PDB file on disk
     std::vector<std::string> searchPaths = {
@@ -106,17 +192,43 @@ bool PdbUniversalAnalyzer::added(Program* program, const AddressSetView& set,
         "./" + pdbPath,
     };
     // Extract just the filename for local directory search
-    size_t lastSlash = pdbPath.find_last_of("/\\");
-    if (lastSlash != std::string::npos)
-        searchPaths.push_back(pdbPath.substr(lastSlash + 1));
+    size_t lastSlash = info.pdbPath.find_last_of("/\\");
+    std::string pdbFilename;
+    if (lastSlash != std::string::npos) {
+        pdbFilename = info.pdbPath.substr(lastSlash + 1);
+        searchPaths.push_back(pdbFilename);
+    } else {
+        pdbFilename = info.pdbPath;
+    }
+    searchPaths.push_back("pdbs/" + pdbFilename);
 
     pdb::PdbFile pdb;
     bool opened = false;
     for (const auto& sp : searchPaths) {
         if (pdb.open(sp)) { opened = true; break; }
     }
+
+    // Try symbol server download if not found locally
+    if (!opened && info.hasRsds && !pdbFilename.empty() && !info.guidStr.empty()) {
+        std::string downloadPath = "pdbs/" + pdbFilename;
+        // Create pdbs directory
+        (void)_mkdir("pdbs");
+        if (downloadPdbFromSymbolServer(pdbFilename, info.guidStr, downloadPath)) {
+            if (pdb.open(downloadPath)) {
+                opened = true;
+                pdbPath = downloadPath;
+                Msg::info(getName(), "PDB downloaded from symbol server: " + downloadPath);
+            }
+        }
+    }
+
     if (!opened) {
-        Msg::info(getName(), "PDB file not found on disk: " + pdbPath);
+        Msg::info(getName(), "PDB file not found on disk: " + info.pdbPath);
+        if (info.hasRsds) {
+            Msg::info(getName(), "To download PDB automatically, ensure internet connectivity. "
+                      "URL: https://msdl.microsoft.com/download/symbols/" +
+                      pdbFilename + "/" + info.guidStr + "/" + pdbFilename);
+        }
         return true;
     }
 

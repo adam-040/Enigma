@@ -13,6 +13,7 @@
 #include <ghidra/Structure.h>
 #include <ghidra/Union.h>
 #include <ghidra/Enum.h>
+#include <ghidra/TypeDatabase.h>
 #include <map>
 #include <string>
 #include <unordered_map>
@@ -39,8 +40,11 @@ public:
     void bridgeTypes();
     void bridgeLabels();
     void bridgeReadOnlyRanges();
-    void bridgeSignatures();
+    void bridgeNoReturnFlags();
+    void bridgeImportSignatures();
     void enrichSymbolNames();
+
+    void setTypeDatabase(TypeDatabase* db) { typeDB_ = db; }
 
 private:
     ProgramDB* program_;
@@ -49,6 +53,7 @@ private:
     uint64_t baseAddr_;
     uint64_t detectedBase_;
     bool userSetBase_;
+    TypeDatabase* typeDB_ = nullptr;
 
     // Cache for ghidra DataType* -> decompiler Datatype* conversion
     std::unordered_map<std::string, ghidra_decompiler::Datatype*> typeCache_;
@@ -58,6 +63,7 @@ private:
     ghidra_decompiler::AddrSpace* getCodeSpace() const;
     ghidra_decompiler::Scope* getGlobalScope() const;
     ghidra_decompiler::Datatype* toDecompilerDatatype(DataType* dt);
+    ghidra_decompiler::Datatype* resolveTypeName(const std::string& typeName);
 };
 
 } // namespace ghidra

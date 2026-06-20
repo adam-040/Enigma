@@ -58,6 +58,12 @@ struct ExportInfo {
     uint64_t address;
 };
 
+struct DelayLoadInfo {
+    std::string name;
+    std::string libraryName;
+    uint64_t address;
+};
+
 struct RelocationInfo {
     uint64_t address;
     int64_t type;
@@ -83,6 +89,7 @@ public:
     virtual std::vector<SymbolInfo> getSymbols() const = 0;
     virtual std::vector<ImportInfo> getImports() const = 0;
     virtual std::vector<ExportInfo> getExports() const = 0;
+    virtual std::vector<DelayLoadInfo> getDelayLoads() const = 0;
     virtual std::vector<RelocationInfo> getRelocations() const = 0;
 
     virtual std::vector<uint8_t> getBytes(uint64_t address, size_t size) const = 0;

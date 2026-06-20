@@ -4,8 +4,8 @@ Compact guidance for OpenCode sessions working in this repository.
 
 ## What this project is
 
-Enigma Engine is a Java-free, Ghidra-compatible C++17 decompiler/RE framework.
-Two parallel paths live in `Enigma-Engine/`:
+Enigma Engine is a Java-free, Ghidra-compatible C++17 decompiler/RE framework
+with a Qt Widgets desktop GUI. Three parallel paths live in `Enigma-Engine/`:
 
 - **Official product (first version)**: `enigma_decompile_full` — wraps the
   original Ghidra C++ decompiler under `Enigma-Engine/decompiler/` (built as the
@@ -15,6 +15,11 @@ Two parallel paths live in `Enigma-Engine/`:
   `src/pcode/EnigmaPipeline.cpp` + `src/pcode/PcodeCapstoneMapper.cpp` +
   `src/core/Disassembler.cpp`. Uses Capstone for disassembly and a hand-written
   mnemonic→pcode mapper (x86/ARM/MIPS/PPC only).
+- **Qt6 GUI**: `enigma_gui` target in `src/gui/` uses
+  Qt-Advanced-Docking-System (ADS) for a multi-pane workspace with
+  Disassembly, Decompiler, Hex, and Explorer views. Navigation sync via
+  `CutterSeekable` interface — all views highlight/scroll to the same
+  address on seek.
 
 > **No-AI constraint**: do not introduce AI/LLM features until the official
 > first-version decompiler fully matches the C++ Ghidra behavior. See
@@ -25,7 +30,8 @@ Two parallel paths live in `Enigma-Engine/`:
 ```
 Enigma-Engine/
   include/ghidra/    public C++ headers (namespace ghidra)
-  src/               implementation (subdirs: core, pcode, types, ...)
+  src/               implementation (subdirs: core, gui, pcode, types, ...)
+  src/gui/           Qt6 GUI views — MainWindow, HexView, DisassemblyView, DecompilerView, ConsoleWidget, FunctionExplorer
   decompiler/        original Ghidra C++ decompiler (read-only reference base)
   sleigh/            compiled .sla specs (resolved via ENIGMA_SLEIGH_DIR)
   tests/             41 CTest suites (custom TEST macro, no GTest)
@@ -45,7 +51,7 @@ Working dir for all commands: `Enigma-Engine/`.
   `cmake -S . -B build-cmake -G Ninja`
 - Build everything: `cmake --build build-cmake`
 - Build a single target: `cmake --build build-cmake --target enigma_engine`
-  (or `enigma_test_pipeline`, `enigma_decompile_full`, ...)
+  (or `enigma_gui`, `enigma_test_pipeline`, `enigma_decompile_full`, ...)
 - Run all tests: `cd build-cmake && ctest --output-on-failure`
 - Run one suite: `ctest -R enigma_test_pipeline --output-on-failure`
 - Run the CLI directly:
@@ -63,13 +69,17 @@ just to register files.
 
 ## Required toolchain
 
-CMake >= 3.16, Ninja, MinGW64 g++ (15.2.0), MSYS2. CMake `find_*` calls in
-`CMakeLists.txt` look under `$ENV{MSYSTEM_PREFIX}` (set by MSYS2) and
-`MSYS2_MINGW64_ROOT`. If you see `FATAL_ERROR: Capstone was not found`, set
-the env var or pass `-DMSYS2_MINGW64_ROOT=/path/to/msys64/mingw64`.
+CMake >= 3.16, Ninja (for backend) or MSYS Makefiles (for GUI), MinGW64 g++
+(15.2.0), MSYS2. CMake `find_*` calls in `CMakeLists.txt` look under
+`$ENV{MSYSTEM_PREFIX}` (set by MSYS2) and `MSYS2_MINGW64_ROOT`. If you see
+`FATAL_ERROR: Capstone was not found`, set the env var or pass
+`-DMSYS2_MINGW64_ROOT=/path/to/msys64/mingw64`.
 
 Required libs: **Capstone** (disassembly), **LMDB** (index cache),
-**zlib** (linked transitively by the decompiler), **Python3** (CLI regression).
+**zlib** (linked transitively by the decompiler), **Python3** (CLI regression),
+**Qt6** (Widgets, Core, Gui — `mingw-w64-x86_64-qt6-base` via pacman).
+**Qt-Advanced-Docking-System** (ADS) v4.5.0 fetched automatically from GitHub
+via CMake FetchContent (`BUILD_STATIC=ON`, `BUILD_EXAMPLES=OFF`).
 
 ## Test framework (no GTest)
 
@@ -149,6 +159,69 @@ classes from `decompiler/*.hh` instead.
   DataTypeArchive, etc.) and cannot be completed without porting those.
 - **Update status**: edit `Enigma-Engine/PLAN/PROGRESS.md` after any meaningful
   change set. It is the single source of truth for what is done / next.
+
+## GUI architecture
+
+```
+src/gui/               Qt6 views + main window
+src/include/gui/       GUI interfaces (CutterSeekable.h)
+CMakeLists.txt         enigma_gui target (FetchContent ADS, link Qt6::Widgets + ads::qtadvanceddocking-qt6)
+```
+
+### Widget hierarchy
+- **MainWindow** (QMainWindow): owns `ads::CDockManager`, menu bar, toggle actions, seek hub, and the shared `SelectionManager`
+  - **Explorer** (FunctionExplorer, Left dock): QTreeView with bold categories, monospace addresses, filter + clear
+- **DisassemblyFieldView** (Center dock): custom `QAbstractScrollArea` (`FieldView` subclass) with cell-grid rendering, token-model syntax coloring, glyph-height blinking caret, and field-level selection
+- **DecompilerView** (Right dock, tab 1): `CodePlainTextEdit` (QPlainTextEdit) with CppHighlighter; word-level selection + occurrence highlight
+- **HexView** (Right dock, tab 2): custom `QAbstractScrollArea` painting offset/hex/ASCII; highlights the byte range of the currently selected instruction
+  - **ConsoleWidget** (Bottom dock): QPlainTextEdit, title bar hidden via `HideSingleWidgetTitleBar`
+
+### Shared editor theme (`EditorTheme`)
+- `src/gui/EditorTheme.h/.cpp` is the single source of truth for font family (`JetBrains Mono`), size (10 pt), weights (Normal 400 / Medium 500), cell metrics, line spacing (1.35), and token colors.
+- All text views (`FieldView`, `CodePlainTextEdit`, `HexView`) read font and spacing from `EditorTheme`.
+
+### Navigation sync (`CutterSeekable`)
+- Pure virtual interface in `src/include/gui/CutterSeekable.h` (no QObject base)
+- Methods: `seek(Address)`, `currentAddress()`, `setSyncState(bool)`, `syncState()`
+- Each view emits its own `seekRequested(Address)` signal for navigation (double-click / Ctrl+click)
+- MainWindow `seekAll(addr)` iterates synced views and calls `seek()`; `onAddressSeeked()` adds history + forwards to `seekAll()`
+
+### Unified selection model (`SelectionManager`)
+- `SelectionState` carries the selected instruction address, byte-range end, token text, and token kind.
+- `SelectionManager` lives in `MainWindow`; every view has `setSelectionManager()` and an `applySelection(const SelectionState&)` slot.
+- Selecting a token in any view resolves the containing instruction range and broadcasts it; all views update their highlight to the same address and token.
+- Disassembly highlights the selected field (primary selection) plus occurrences; Decompiler highlights the matching line; Hex highlights the full instruction byte range with the caret on the first byte.
+
+#### Cross-view selection — critical ordering & address-resolution rules
+
+1. **`DecompilerView::applySelection` — `setTextCursor` before `updateOccurrenceHighlight`.**  
+   `setTextCursor` triggers `cursorPositionChanged` → `highlightCurrentLine` → `setExtraSelections({lineHighlight})`, which wipes any extras set before it. Always move the cursor **first**, then call `updateOccurrenceHighlight` which sets both the line highlight and occurrence highlights in a single `setExtraSelections` call.
+
+2. **`DecompilerView::lineForAddress` — nearest-containing-line, not exact match.**  
+   `Document::lineForAddress` uses `std::upper_bound` (last address ≤ target). `DecompilerView::lineForAddress` formerly required exact match (`lineAddrMap_[i] == addr`), causing most cross-view selections to miss the decompiler line. Now uses linear scan returning the last entry ≤ addr.
+
+3. **`CodePlainTextEdit::mousePressEvent` — never select words on click.**  
+   The base class previously called `cursor.select(QTextCursor::WordUnderCursor)` on every left click, which broke click-drag text selection (copy/paste). Now delegates to `QPlainTextEdit::mousePressEvent` without modification. Word text is still extracted by `DecompilerView::mousePressEvent` using a **temporary** `wordCursor` copy without modifying the editor's cursor.
+
+4. **`FieldView::mouseReleaseEvent` — always push to `SelectionManager` on click.**  
+   Even when `tokenAt` returns null (click on whitespace/gap), the line address is pushed to `SelectionManager` so all views scroll to the same line. Click on a token calls `selectTokenAt` which creates a full `SelectionState` with `tokenText`, `tokenKind`, and the instruction address range.
+
+5. **Hover cursor for clickable addresses.**  
+   - `FieldView::mouseMoveEvent`: hand cursor (`Qt::PointingHandCursor`) when hovering over tokens with `refTarget != 0` or kind `Function`/`Label`/`Address`; arrow cursor otherwise. Mouse tracking enabled on viewport.
+   - `DecompilerView::mouseMoveEvent`: hand cursor when `extractAddress(word)` returns non-zero; arrow cursor otherwise.
+
+6. **`SelectionManager::select` deduplicates via `operator==`.**  
+   `SelectionState::operator==` compares all fields including `originView`. `applySelectionToAllViews` sets `originView = nullptr` so the broadcast state differs from the originating view's state and is always applied.
+
+### ADS source patches (persist in build tree)
+- `_deps/qtadvanceddocking-src/src/DockOverlay.cpp` — `cursorLocation()` rewritten to full-window proportional drop zones (25%/25%/25%/25%/center)
+- `_deps/qtadvanceddocking-src/src/DockManager.cpp` — `startDragDistance()` multiplier 1.5→4 (~40px before undock)
+- Survive `cmake --build` rebuilds; reverted by CMake re-configure (FetchContent re-fetch)
+
+### QSS policy
+- No global QSS, no QPalette
+- Only targeted QSS: `QSplitter::handle` (1px solid), border removal on dock widgets, ads--CDockOverlayCross icon color transparency
+- Do NOT touch `ads--CDockDropIndicator` or other internal ADS classes
 
 ## Conventions (do not fight these)
 
@@ -366,3 +439,26 @@ dispatching tasks.
     datatype information. 5 new test suites: apply_known_signature (52),
     signature_persistence (70), repository_reload (37), type_roundtrip (33),
     gap_verification (26).
+41. Build + run tests once to confirm the baseline: **48/48 suites pass**
+    (post W149 Function Discovery Cleanup). Scalar → Reference pipeline restored
+    (`CapstoneDisassembler` emits resolved operand scalars, `ProgramDB` duplicate
+    address fields removed, reference analyzers re-enabled). Forensic audit vs
+    Ghidra on `notepad_test.exe` drove three deterministic analyzer fixes:
+    `EntryPointAnalyzer` skips non-executable entry points; `DisassemblyAnalyzer`
+    recursive descent stays within executable sections; `FunctionStartAnalyzer`
+    rejects candidates reached by normal fallthrough. 380 false positives
+    eliminated; final metrics: 405 matching, 72 legitimate extras, 29 missing
+    (unreachable compiler helpers). All temporary instrumentation removed.
+42. **Phase 3a: TypeDatabase & Call-Site Annotation** — abstract `TypeDatabase` base +
+    `WindowsTypeDatabase` (1487-entry), `LinuxTypeDatabase`/`MacOSTypeDatabase` stubs,
+    `TypeDatabaseFactory` with platform detection, `AnalysisBridge::bridgeImportSignatures()`
+    bridge on scope iteration, `applyTypeDatabaseToCallSpecs()` post-decompilation hook.
+    notepad: 53 types applied (was 0), shell32: 298 types applied (was 0). All 48/48 suites pass.
+43. **Phase 3b: Qt GUI Workspace** — ADS refactoring (CDockManager replaces QDockWidget/QSplitter),
+    CutterSeekable interface + impl in Hex/Disasm/Decompiler views, MainWindow seek hub
+    (`seekAll`/`onAddressSeeked`/`navigateTo`/`onNavigateBack`), View menu checkmarks,
+    Console title bar hidden, Explorer improvements (sort/monospace/bold/tooltips/clear),
+    full-window ADS drop zones, increased drag threshold. Build and run with:
+    `cmake -S . -B build-cmake -G "MSYS Makefiles" -DCMAKE_BUILD_TYPE=Debug` then
+    `cmake --build build-cmake --target enigma_gui` then
+    `./build-cmake/enigma_gui.exe`

@@ -14,10 +14,11 @@
 
 #include <ghidra/Address.h>
 #include <ghidra/RefType.h>
+#include <ghidra/Scalar.h>
 #include <string>
 #include <vector>
-#include <cstdint>
 #include <memory>
+#include <cstdint>
 
 namespace ghidra {
 
@@ -30,6 +31,9 @@ struct DisassembledInstruction {
     Address address;
     std::string mnemonic;
     std::vector<std::string> operands;
+    // Per-operand scalar objects extracted by the decoder.  Ownership is
+    // transferred to the Instruction during listing creation.
+    std::vector<std::vector<std::unique_ptr<Scalar>>> operandScalars;
     int length;
     FlowType* flowType;
     uint64_t bytes[16];

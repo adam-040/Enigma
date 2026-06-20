@@ -44,7 +44,8 @@ PEExceptionAnalyzer::PEExceptionAnalyzer()
 
 bool PEExceptionAnalyzer::canAnalyze(Program* program) const {
     if (!program) return false;
-    return program->getExecutableFormat() == "Portable Executable";
+    const std::string& fmt = program->getExecutableFormat();
+    return fmt.find("PE") != std::string::npos;
 }
 
 bool PEExceptionAnalyzer::added(Program* program, const AddressSetView& set,

@@ -153,15 +153,6 @@ public:
 
     Register* getContextRegister() const { return contextRegister_; }
 
-    Address getImageBase() const { return imageBase_; }
-    void setImageBase(Address base) { imageBase_ = base; }
-
-    Address getMinAddress() const { return minAddress_; }
-    void setMinAddress(Address addr) { minAddress_ = addr; }
-
-    Address getMaxAddress() const { return maxAddress_; }
-    void setMaxAddress(Address addr) { maxAddress_ = addr; }
-
     bool isChangeable() const { return changeable_; }
     void setChangeable(bool c) { changeable_ = c; }
 
@@ -203,9 +194,6 @@ private:
     std::unique_ptr<ProgramChangeSet> changeSet_;
     std::unique_ptr<Namespace> globalNamespace_;
     Register* contextRegister_ = nullptr;
-    Address imageBase_;
-    Address minAddress_;
-    Address maxAddress_;
     Address effectiveImageBase_;
     UniversalID uniqueID_;
     bool changeable_ = true;

@@ -3,6 +3,7 @@
 #include <ghidra/Program.h>
 #include <ghidra/Address.h>
 #include <ghidra/TaskMonitor.h>
+#include <ghidra/TypeDatabase.h>
 #include <string>
 #include <memory>
 #include <vector>
@@ -34,6 +35,7 @@ public:
     int stackPurgeSize;
     std::string conventionName;
     std::string cCode;
+    std::vector<uint64_t> lineAddresses;
     std::vector<DecompiledCall> calls;
     int callCount;
 
@@ -55,6 +57,12 @@ public:
 
     /// Disassemble N instructions at address, return assembly text (one line per instruction)
     std::string disassembleAt(const Address& addr, int numInstructions);
+
+    /// Length in bytes of the instruction at the given offset in the default code space (0 on error)
+    int instructionLengthAt(uint64_t offset) const;
+
+    /// Access the type database for known API function prototypes
+    TypeDatabase* getTypeDatabase() const;
 
     static bool initializeLibrary();
     static void shutdownLibrary();

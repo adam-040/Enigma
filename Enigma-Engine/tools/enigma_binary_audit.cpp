@@ -23,6 +23,12 @@
 #include <ghidra/FunctionStartDataPostAnalyzer.h>
 #include <ghidra/FunctionStartFuncAnalyzer.h>
 #include <ghidra/ApplyDataArchiveAnalyzer.h>
+#include <ghidra/FragmentMergeAnalyzer.h>
+#include <ghidra/MainRecognitionAnalyzer.h>
+#include <ghidra/ExternalEntryFunctionAnalyzer.h>
+#include <ghidra/FunctionDiscoveryAnalyzer.h>
+#include <ghidra/DataRefFunctionAnalyzer.h>
+#include <ghidra/PEExceptionAnalyzer.h>
 
 #include <iostream>
 #include <string>
@@ -135,6 +141,25 @@ int main(int argc, char* argv[]) {
     std::cout << "Symbols: " << symCount << "\n";
     std::cout << "Instructions: " << instCount << "\n";
 
+    // --- FunctionDiscoveryAnalyzer: import thunks, exports, etc. ---
+    {
+        FunctionDiscoveryOptions fdOpts;
+        fdOpts.includeExternalInFunctionManager = true;
+        FunctionDiscoveryAnalyzer fdAnalyzer(fdOpts);
+        fdAnalyzer.analyzeLoader(*loader);
+        if (fm && ramSpace) {
+            auto fdResult = fdAnalyzer.applyTo(*fm, ramSpace);
+            std::cout << "\n=== FUNCTION DISCOVERY ANALYZER ===\n";
+            std::cout << "  Created: " << fdResult.createdFunctions << " functions\n";
+            std::cout << "  Skipped (existing): " << fdResult.skippedExisting << "\n";
+            std::cout << "  Skipped (external): " << fdResult.skippedExternal << "\n";
+            std::cout << "  Failed: " << fdResult.failedCreates << "\n";
+            std::cout << "  Candidates: " << fdResult.candidates.size() << "\n";
+            auto* pfm = prog->getFunctionManager();
+            std::cout << "  Total functions after: " << (pfm ? pfm->getFunctionCount() : -1) << "\n";
+        }
+    }
+
     // Dump functions
     if (fm) {
         auto fit = fm->getFunctions(true);
@@ -167,6 +192,11 @@ int main(int argc, char* argv[]) {
     analysisMgr->registerAnalyzer(std::make_unique<FunctionStartDataPostAnalyzer>());
     analysisMgr->registerAnalyzer(std::make_unique<FunctionStartFuncAnalyzer>());
     analysisMgr->registerAnalyzer(std::make_unique<ApplyDataArchiveAnalyzer>());
+    analysisMgr->registerAnalyzer(std::make_unique<ExternalEntryFunctionAnalyzer>());
+    analysisMgr->registerAnalyzer(std::make_unique<ghidra::PEExceptionAnalyzer>());
+    analysisMgr->registerAnalyzer(std::make_unique<DataRefFunctionAnalyzer>());
+    analysisMgr->registerAnalyzer(std::make_unique<FragmentMergeAnalyzer>());
+    analysisMgr->registerAnalyzer(std::make_unique<MainRecognitionAnalyzer>());
     fprintf(stderr, "done register analyzers\n"); fflush(stderr);
 
     std::cout << "Before analysis:\n";

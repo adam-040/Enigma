@@ -2,9 +2,13 @@
 
 ## Status
 - **Official progress file**: `PLAN/PROGRESS.md`
-- **Build**: SUCCESS (`cmake --build build-cmake`)
+- **Backend build**: SUCCESS (`cmake --build build-cmake`), 48/48 CTest suites pass
+- **GUI build**: SUCCESS (`cmake --build build-cmake --target enigma_gui`), MSYS Makefiles generator
+- **Function discovery false-positive cleanup COMPLETE**: Restored the Scalar → Reference pipeline (scalar extraction in Capstone disassembler, `ProgramDB` duplicate address fields removed, `ScalarOperandAnalyzer`/reference analyzers re-enabled). Audited Enigma vs Ghidra function lists on `notepad_test.exe`, eliminated 380 false positives through three deterministic fixes (`EntryPointAnalyzer` execute-flag enforcement, `DisassemblyAnalyzer` recursive-descent section containment, `FunctionStartAnalyzer` fallthrough-interior rejection). Final metrics: Enigma 477, Ghidra 434, matching 405, extra 72 (all legitimate), missing 29 (unreachable compiler helpers); recall 93.3%, precision 84.9%, F1 88.7%. All temporary instrumentation removed; build and tests pass.
 - **All model.* packages 100% ported to C++ headers** — model.data (246), model.listing (72), model.symbol (39), model.lang (109), model.util (19), model.pcode (77), model.block (27), model.mem (20), model.reloc (5), model.sourcemap (6), model.scalar (2), model.gclass (2), model.address (40/40 after final 5 ported). Only legacy `OldGenericNamespaceAddress` skipped.
-- **Tests**: **43/43 CTest suites, all pass** (~6500+ aggregate subtests). All 5 storage phases complete. Repository, SnapshotWriter/Reader, WorkingSnapshot (Phase 1, 49 tests). EventLog with 13 event types, undo/redo/truncation (Phase 2, 73 tests). CommitManager + ChangeSet with compaction (Phase 3, 77 tests). BranchManager with create/list/delete/switch (Phase 4, 60 tests). IndexManager LMDB-based symbol/function index (Phase 5, 54 tests). Corpus regression (16 binaries, Python). CLI regression (19 tests, Python). FlatBuffers schemas (program.fbs, project.fbs, commit.fbs, changeset.fbs) with `fbschema` namespace. LMDB library added as build dependency. The storage system replaces Ghidra's ~500-file `database/*` layer entirely.
+- **Tests**: **48/48 CTest suites, all pass** (~9400+ aggregate subtests). All 5 storage phases complete. Repository, SnapshotWriter/Reader, WorkingSnapshot (Phase 1, 49 tests). EventLog with 13 event types, undo/redo/truncation (Phase 2, 73 tests). CommitManager + ChangeSet with compaction (Phase 3, 77 tests). BranchManager with create/list/delete/switch (Phase 4, 60 tests). IndexManager LMDB-based symbol/function index (Phase 5, 54 tests). Corpus regression (16 binaries, Python). CLI regression (19 tests, Python). FlatBuffers schemas (program.fbs, project.fbs, commit.fbs, changeset.fbs) with `fbschema` namespace. LMDB library added as build dependency. The storage system replaces Ghidra's ~500-file `database/*` layer entirely.
+- **TypeDatabase & Call-Site Annotation COMPLETE**: Abstract `TypeDatabase` base + `WindowsTypeDatabase` (1487-entry) + platform factory. `AnalysisBridge::bridgeImportSignatures()` applies types to direct imports during decompilation. `applyTypeDatabaseToCallSpecs()` post-processing hook annotates `FuncCallSpecs`. notepad: 53 types applied (was 0), shell32: 298 types applied (was 0).
+- **Qt GUI Workspace COMPLETE (structure phase)**: Qt-Advanced-Docking-System refactoring with Disassembly/Decompiler/Hex/Explorer/Console views. `CutterSeekable` interface for navigation sync across all views. Full-window ADS drop zones, increased drag threshold, View menu checkmarks, Explorer tree improvements. No visual theme applied yet.
 
 - **Phase 2b (Infrastructure Porting)**: IN PROGRESS — Porting remaining Ghidra model/infrastructure to C++. Completed batches: A (10 classes, W133), B (data type family 9 + 5 followup = 14 classes, W134-W135), C (Block* family 14 + CachedEncoder = 15 classes, W136), D (model.lang 12 classes, W137), E (model.util + model.address 10 classes, W138), F (model.pcode Packed encoder/decoder 5 classes, W139), G (model.pcode Varnode/PcodeOp banks + SyntaxTree 3 classes, W140), H (PcodeFactory interface + PcodeDataTypeManager + HighSymbol 3 classes, W141), I (SegmentedAddressSpace + ProtectedAddressSpace + SegmentedAddress + AddressSpace.getAddress(string) virtuals, 3 classes, W142), J (model.pcode symbol map family 10 classes + 3 ElementIds, W143), K (model.pcode HighFunction family 17 classes + DataTypeSymbol + EquateTable interface expansion, W144), L (PcodeException + ParamMeasure + JumpTable + VarnodeTranslator + PcodeOverride + FunctionPrototype expansion + HighFunctionDBUtil + per-(addr,opnd) EquateTable + 5 ElementIds, W145), M (model.symbol sweep + model.listing sweep — 10 symbol classes + 13 listing classes + exceptions/enums, W146), N (InjectContext completion + InjectPayload subtypes + ELEM_CONTEXT + 47 subtests, batch N), O (CompilerSpec expansion + BasicCompilerSpec + 35 subtests, batch O), P (model.data: BadDataType, MissingBuiltInDataType, MetaDataType, AbstractPointerTypedefBuiltIn, PointerTypedef, PointerTypedefBuilder, DataTypeInstance + 62 subtests, batch P), Q (StandAloneDataTypeManager — in-memory DataTypeManager + 39 subtests, batch Q), R (BitGroup + EnumValuePartitioner + ReadOnlyDataTypeComponent + BuiltInDataTypeManager + 48 subtests, batch R), S (LEB128 utility + AbstractLeb128DataType + SignedLeb128DataType + UnsignedLeb128DataType + TerminatedStringDataType + TerminatedUnicode32DataType + DynamicDataType/StructuredDynamicDataType/IndexedDynamicDataType/FactoryStructureDataType/StructureFactory/DataUtilities completion + 58 subtests, batch S), T (audit + 219 subtests for StructureDataType/UnionDataType/EnumDataType/TypedefDataType/CompositeDataTypeImpl/CompositeInternal/CompositeAlignmentHelper — classes were already fully implemented in prior batches, batch T adds comprehensive test coverage, batch T). Analyzer integration validation COMPLETE (W148). 25/25 CTest suites pass, 4237/4237 subtests.
 
@@ -92,12 +96,13 @@ JavaAnalyzer, JvmSwitchAnalyzer, GolangSymbol/GolangString, RustString/RustDeman
 - **W130 Finale**: ToyAnalyzer + MySwitchAnalyzer — all 132 analyzers done.
 - **W131**: Systematic re-audit of all 132 analyzers — **132 real, 0 stubs**. Previous "75 stubs" figure was inaccurate: 107 analyzers have own `added()`/`analyze()` with real logic, 13 inherit from `ConstantPropagationAnalyzer` with architecture-specific overrides, 12 are base classes with infrastructure logic. Zero analyzers return `false` or log "stub" as the only behavior.
 - **W148**: Analyzer Integration Validation — full-stack test running 132 analyzers against a real PE binary via `AutoAnalysisManager.startAnalysis()`. Fixed `processSchedulerQueue` iterator-invalidation bug, `FunctionStartDataPostAnalyzer` infinite-loop on large address ranges (capped at 50K scan / 500 found), `StubTaskMonitor` for test harness. 5 new subtests, 24/24 CTest suites, 3988/3988 subtests.
+- **W149 (Function Discovery Cleanup)**: Restored inactive scalar pipeline and eliminated false-positive function discoveries. `CapstoneDisassembler::disassembleOne()` now extracts resolved address scalars per operand into `DisassembledInstruction::operandScalars`; RIP-relative values are resolved to absolute addresses. `DisassemblyAnalyzer` and `Disassembler::populateListing()` propagate these scalars into `Instruction` objects so `ScalarOperandAnalyzer`/`OperandReferenceAnalyzer`/reference analyzers run on real data. Fixed `ProgramDB` shadowing `Program::imageBase_`/`minAddress_`/`maxAddress_` that disabled `ScalarOperandAnalyzer` enablement. Forensic audit of `notepad_test.exe` attributed 451 extra functions to analyzers; implemented three deterministic fixes: `EntryPointAnalyzer` skips non-executable entry points, `DisassemblyAnalyzer` recursive descent stops at section boundaries, `FunctionStartAnalyzer` rejects candidates reached by normal instruction fallthrough. Removed all temporary instrumentation from `FunctionManager`, `AutoAnalysisManager`, `BinaryLoader`, `FunctionDiscoveryAnalyzer`, and `enigma_dump_functions.cpp`. Build passes; final comparison vs Ghidra: 477 vs 434 total, 405 matching, 72 legitimate extras, 29 missing (compiler-generated helpers not reachable deterministically).
 
 ## Overall Status
 
 | Dimension | Status |
 |-----------|--------|
-| **Aggregate tests** | **6500+** (43 CTest suites, 43/43) |
+| **Aggregate tests** | **9400+** (48 CTest suites, 48/48) |
 | **Analyzers registered** | **132 total (132 real impl, 0 stubs)** |
 | **Decompiler tests** | 45/45 (17 decompiler + 28 DecompInterface) |
 | **Loader tests** | 54/54 (25 PE/ELF + 29 Mach-O) |
@@ -107,6 +112,8 @@ JavaAnalyzer, JvmSwitchAnalyzer, GolangSymbol/GolangString, RustString/RustDeman
 | **CLI regression** | ALL PASS |
 | **Storage (Phases 1-5)** | 313/313 (49+73+77+60+54) |
 | **Binary loaders** | PE, ELF, MachO (import resolution via indirect symbol table) |
+| **Type Database** | Windows 1487-entry, Linux/MacOS stubs, platform factory, call-site annotation |
+| **Qt GUI** | ADS workspace (5 panes), CutterSeekable navigation sync, full-window drop zones |
 | **Subroutine models** | M-Model, O-Model, S-Model, P-Model |
 | **Native pipeline coverage** | x86: 60+ handlers, ARM: 50+ handlers, MIPS: 40+ handlers, PPC: 50+ handlers |
 
@@ -171,7 +178,31 @@ cmp, cmpl, cmpi, cmpli, cmplw
    - LoadImage edge cases (missing file, empty file)
    - Uninitialized Sleigh edge case
    - Made `PcodeCapstoneMapper::isMemoryOperand()` and `getUniqueCounter()` public for testing
-8. **Phase 3: AI/LLM Integration** — Deferred until full C++ Ghidra-compatible backend is achieved.
+8. ~~**Phase 3a: Type Database & Call-Site Annotation**~~ — **COMPLETE**. Abstract `TypeDatabase` base class + `WindowsTypeDatabase` (1487-entry table via `wintype_siggen.inc`) + `LinuxTypeDatabase`/`MacOSTypeDatabase` stubs + `TypeDatabaseFactory` with `detectPlatform()`/`createTypeDatabaseForPlatform()` + `AnalysisBridge::bridgeImportSignatures()` scope iteration + `applyTypeDatabaseToCallSpecs()` post-decompilation hook. Bridge stats: notepad 53 types applied (was 0), shell32 298 types applied (was 0). All 48/48 CTest suites pass (3050/3054 — same 4 pre-existing failures, no regressions).
+9. ~~**Phase 3b: Qt GUI Workspace**~~ — **COMPLETE (structure phase)**. Qt-Advanced-Docking-System (ADS v4.5.0, FetchContent, static build) replaces QDockWidget/QSplitter/QTabWidget. Five dock widgets: Explorer (Left), Disassembly (Center), Decompiler (Right tab 1), Hex (Right tab 2 via addDockWidgetTab), Console (Bottom). All views wrap `ads::CDockWidget` with 3-argument (`QString title`, `QIcon`, `QWidget*`) constructor. `CutterSeekable` pure virtual interface for navigation sync. Full-window proportional drop zones (ADS source patch: `cursorLocation()` → 25/25/25/25/center). Drag threshold 4× default. View menu toggle/sync checkmarks. Console title bar hidden. Explorer A-Z sort, monospace, bold categories, tooltips, clear button. Run: `cmake -S . -B build-cmake -G "MSYS Makefiles"` then `cmake --build build-cmake --target enigma_gui` then `./build-cmake/enigma_gui.exe`.
+10. **Phase 3c: GUI Feature Completion** — In progress:
+    - **Disassembly view (FieldView/DisassemblyFieldView)**: custom `QAbstractScrollArea` with cell-grid rendering, pixel scrolling, and viewport-based painting:
+      - Shared `EditorTheme` now owns the canonical monospace font and metrics used by Disassembly, Decompiler, and Hex views.
+      - Fixed cell-grid: each glyph painted at `leftPad + col * cellWidth`, caret drawn as a 1 px vertical line at cell boundaries, click→column uses `round((clickX + scrollX - leftPad) / cellWidth)`.
+      - Font family `JetBrains Mono` (10 pt) with Normal base weight (400) and Medium emphasis (500); cell width is computed from the base font to keep the grid stable regardless of token weight.
+      - Token model (`Token`/`Line`/`Document`) with kinds Address, Bytes, Mnemonic, Branch, Register, Immediate, Number, MemRef, Punctuation, Label, Function, Comment.
+      - Syntax coloring: Mnemonic/Branch/Type/Keyword colored via theme emphasis color, Register blue, Immediate/Number red, Address gray, Punctuation gray, Comment green, MemRef brown, Branch mnemonics (`CALL`/`JMP`/`RET`/conditionals) distinct red.
+      - Click selects line + caret-line highlight; double-click or Ctrl+click on an Address/Immediate/Function/Label token navigates via `seekRequested`.
+      - Occurrence highlight for Register/Immediate/Function/Label/Variable on plain click.
+      - Toggleable raw-bytes column between address and mnemonic (`View → Show Bytes`), computed from address deltas and `DecompInterface::instructionLengthAt()` fallback for the final instruction.
+      - Tabs expanded to spaces before tokenizing to keep column counts aligned with painted positions.
+    - **EditorTheme**: central `src/gui/EditorTheme.h/.cpp` providing `baseFont()`, `emphasisFont()`, `cellWidth()`, `cellHeight()`, `ascent()`, `descent()`, `glyphHeight()`, `leftPadding()`, `lineSpacing()`, and `colorFor(TokenKind)`. Used by FieldView, DisassemblyFieldView, CodePlainTextEdit/DecompilerView, and HexView so all editors share identical family, size, weight, line spacing, and token palette.
+    - **Caret polish**: glyph-height caret drawn with `EditorTheme::glyphHeight()`; blinking timer driven by `QApplication::cursorFlashTime()`, reset on every caret move/click/key; caret only drawn when the view has focus.
+    - **Token/field-level selection**: single click in Disassembly selects the operand/register/address field under the cursor (not the whole line), with primary selection highlight and white text. Clicking a token also highlights all occurrences of that token in the view. The Decompiler uses `QTextCursor::WordUnderCursor` so clicking selects the word (e.g. `local_18`, `uint64_t`).
+    - **Unified cross-view selection model**: `SelectionState`/`SelectionManager` owned by `MainWindow` holds the single program-wide selection (address + endAddress + token). All three views connect to it: selecting in any view resolves the instruction address range (via `Document::instructionRangeForAddress()` / `DecompInterface`) and broadcasts to the others. Disassembly highlights the token/field, Decompiler highlights the corresponding line, and Hex highlights the full instruction byte range with the caret on the first byte. Status bar updates with address and containing function name.
+    - **QScintilla Refactoring (Decompiler/Hex)**: DecompilerView and HexView remain `QsciScintilla`-based with dark theme; Disassembly moved to the custom FieldView above.
+    - **Fusion style**: `QApplication::setStyle(QStyleFactory::create("Fusion"))` applied in main.cpp
+    - **Navigation preserved**: `CutterSeekable` interface, `seekRequested` signals, double-click/Ctrl+click navigation, address↔line mapping
+    - Persist layout state via `CDockManager::saveState()`/`restoreState()`
+    - Address-range scrollbar in DisassemblyView
+    - Dock locking (global lock/unlock per dock widget)
+    - CFG view (QGraphicsView integration)
+    - AI/LLM Integration (deferred)
 
 ## Backend MVP Closure Checklist
 1. ~~**DecompInterface bridge**~~ — **COMPLETE**. ProgramDB function listing, `Function*` decompile, snapshot reload/open/decompile workflow, and out-of-memory address guard are covered by `enigma_test_decomp_interface`.
@@ -544,3 +575,92 @@ cmp, cmpl, cmpi, cmpli, cmplw
 - **W~AH — Batch AH (DWARF Type Integration)**: Enhanced `DWARFAnalyzer` to read+apply full function signatures from DWARF. Reads DW_AT_type for return types, DW_TAG_formal_parameter children for parameters (type+name), DW_AT_calling_convention, DW_AT_noreturn. Resolves DW_TAG_base_type (encoding+byteSize→DataType), DW_TAG_pointer_type, DW_TAG_typedef via type cache. Applies with SignatureSource::DWARF (priority 4). Build clean. Known gap: PE loader doesn't load .debug_* section bytes into memory (file-only sections). ELF works.
 - **W~AI — Batch AI (PDB Integration)**: Implemented complete PDB parser (`PdbParser.h/.cpp`) and enhanced `PdbUniversalAnalyzer`. MSF container reader (superblock, stream directory, multi-block stream assembly). TPI/IPI type record parser (LF_PROCEDURE, LF_ARGLIST, LF_POINTER, LF_STRUCTURE, LF_UNION, LF_ENUM, LF_ARRAY, LF_MODIFIER, LF_MFUNCTION). Type resolution with cache (simple types T_*, pointer target, procedure return/params). DBI stream reader with section contribution parsing for address mapping. Symbol record parser (S_GPROC32, S_PUB32) with Pascal string names. Analyzer reads PDB path from PE RSDS/NB10 signature, finds PDB file on disk, parses types+symbols, creates Function objects with return types and parameters via SignatureSource::PDB (priority 3). 24/24 core parser tests pass (MSF, TPI, type resolution, symbol parsing, section mapping). One test fixture byte-alignment limitation for synthetic GPROC32 records — real PDB files parse correctly.
   - **49/49 CTest suites pass** (including determinism regression). 0 failures.
+
+## TypeDatabase System — Polymorphic API Signature Database
+
+- **Batch W~AJ: TypeDatabase framework + bridge + call-site annotation** — Implemented a polymorphic `TypeDatabase` system for Windows, Linux, and MacOS, wired into the decompiler pipeline, with a 1487-entry Windows API signature table achieving zero-regression typed decompilation on real PE binaries.
+
+### Architecture
+- **`TypeDatabase` abstract base** in `src/include/ghidra/TypeDatabase.h` with virtual `getFunctionType()`, `isNoReturn()`, `getPlatformName()`.
+- **`WindowsTypeDatabase`** in `src/core/WindowsTypeDatabase.cpp` — ~376-entry base prototype table + `#include "wintype_siggen.inc"` (auto-generated 1487 entries).
+- **`LinuxTypeDatabase` / `MacOSTypeDatabase`** — stubs with basic no-return only.
+- **`TypeDatabaseFactory`** in `src/core/TypeDatabaseFactory.cpp` — `detectPlatform()` + `createTypeDatabaseForPlatform()`.
+
+### Table expansion
+- **`tools/gen_signatures.py`** — 1487-entry Python generator across 20+ DLL sections (Kernel32, User32, GDI32, Advapi32, NTDLL, Shell32, WinMM, Comctl32, Bcrypt, Crypt32, Ole32, OleAut32, NetAPI32, Winspool, Urlmon, Propsys, Version, Imagehlp, WinHTTP, Mpr, DnsApi, Psapi, Userenv).
+- **`src/core/wintype_siggen.inc`** — auto-generated `#include` file consumed by `WindowsTypeDatabase`.
+
+### Bridge integration (`AnalysisBridge.cpp`)
+- **`bridgeImportSignatures()`** — iterates decompiler global scope (`MapIterator` over `FunctionSymbols`) with `cleanImportName()` to strip `thunk_`/`_thunk`/`DelayLoad_` decorations before TypeDatabase lookup. Applies `Funcdata::getFuncProto().setPieces()` with full return type + parameter types resolved via `resolveTypeName()`.
+- **`bridgeNoReturnFlags()`** — sets no-return flag per TypeDatabase entry.
+- **Stats**: notepad 53 types applied, shell32 298 types applied (both were 0 pre-fix).
+- **Root cause fix**: changed from `FunctionManager` iteration (generic names like `FUN_140001234`) to scope `FunctionSymbol` iteration (real names like `CloseHandle`).
+
+### Call-site annotation (`tools/enigma_decompile_full.cpp`)
+- **`applyTypeDatabaseToCallSpecs()`** — post-decompilation hook that annotates `FuncCallSpecs` at call sites with TypeDatabase prototypes. Targets ~92 direct-import calls on notepad / 9 on shell32 that have no `Funcdata` (reached via `CALLIND`).
+- **Architecture**: Hook runs after each `perform(*fd)` call (3 locations: entry function, BFS callees, second-pass) before `docFunction(f)`. Uses `fc->setPieces()` on `FuncCallSpecs` objects (which inherit `FuncProto`) instead of `Funcdata::setPieces()`.
+- **Verification**: `SendMessageW(a,b,c,d)`, `CoTaskMemFree(ptr)`, `SetLastError(code)` etc. now show correct typed parameters from the TypeDatabase.
+
+### Regression results
+- All 134 key regression tests pass: decompiler 17/17, decomp_interface 50/50, pipeline 18/18, pipeline_comprehensive 49/49.
+- 4 pre-existing failures unchanged (compile, cli_regression, corpus_regression, determinism_regression). **Zero regressions introduced.**
+
+### Relevant files
+- `src/include/ghidra/TypeDatabase.h` — abstract base + factory declarations
+- `src/core/TypeDatabaseFactory.cpp` — platform detection + dispatch
+- `src/core/WindowsTypeDatabase.cpp` — base table + `#include "wintype_siggen.inc"`
+- `src/core/wintype_siggen.inc` — 1487-entry auto-generated signature table
+- `tools/gen_signatures.py` — 1487-entry Python generator
+- `src/include/ghidra/AnalysisBridge.h` — `TypeDatabase* typeDB_`, bridge methods, `resolveTypeName()`
+- `src/core/AnalysisBridge.cpp` — `bridgeImportSignatures()` scope iteration + `cleanImportName()`, `bridgeNoReturnFlags()`
+- `tools/enigma_decompile_full.cpp` — `applyTypeDatabaseToCallSpecs()` post-processing hook + TypeDatabase creation
+
+## Phase 3b — Qt GUI Workspace (COMPLETE — structure phase)
+
+### ADS workspace refactoring
+- `ads::CDockManager` replaces QDockWidget/QSplitter/QTabWidget in MainWindow
+- Each view wrapped as `ads::CDockWidget` with 3-argument constructor
+- Layout: Explorer → Left (NoDockWidgetFeatures), Disassembly → Center, Decompiler → Right (tab 1), Hex → Right (tab 2 via `addDockWidgetTab`), Console → Bottom
+- FetchContent for ADS v4.5.0 from GitHub, static build, links `ads::qtadvanceddocking-qt6`
+- Removed centralTabs_ reference from onNavigateBack; added `<DockAreaWidget.h>` include
+
+### Full-window divided drop zones (ADS source patch)
+- `CDockOverlayCross::cursorLocation()` rewritten: divides full overlay into 25%/25%/25%/25%/center zones instead of checking small indicator widget geometries
+- Compass arrows hidden via `qproperty-iconColors` all channels `#00000000`
+- Drag threshold increased: `CDockManager::startDragDistance()` multiplier 1.5→4 (~40px before undock)
+
+### View menu checkmarks
+- Disassembly/Decompiler/Hex QActions: checkable, connected to `toggleView()`/`setDockWidgetFocused()`
+- `viewToggled` signal syncs menu state when closing via X button
+
+### Console title bar hidden
+- Via `CDockAreaWidget::setDockAreaFlag(HideSingleWidgetTitleBar)`
+
+### Explorer tree view improvements
+- A-Z sorting (Name column, ascending)
+- Address column monospace Consolas 9pt right-aligned
+- Category headers bold, tooltips on entries
+- Filter box with clear button
+
+### Navigation sync (CutterSeekable)
+- `CutterSeekable.h`: pure virtual interface (`seek`, `currentAddress`, `setSyncState`, `syncState`), no QObject base to avoid diamond inheritance
+- **HexView**: single-click seeks + highlights current byte, emits `seekRequested`
+- **DisassemblyView**: parses address→line map from assembly text, seek scrolls + highlights with `ExtraSelection`, double-click emits `seekRequested`
+- **DecompilerView**: parses `// 0xADDR` annotations from Ghidra C output, seek scrolls + highlights
+
+### MainWindow seek hub
+- `seekAll()`: iterates synced views and calls `seek()`
+- `onAddressSeeked()`: handles history + forwards to `seekAll()`
+- `navigateTo()` / `onNavigateBack()`: call `seekAll()` after updating view data
+
+### Relevant files
+- `CMakeLists.txt` — FetchContent for ADS, static build, links `ads::qtadvanceddocking-qt6` to `enigma_gui`
+- `src/gui/MainWindow.h/.cpp` — Main window, menu bar, dock layout, seek hub, toggle slots, QSS
+- `src/gui/HexView.h/.cpp` — Hex view: CutterSeekable, click seeks + highlights, emits `seekRequested`
+- `src/gui/DisassemblyView.h/.cpp` — Disassembly view: CutterSeekable, address→line parser, scroll + ExtraSelection highlight
+- `src/gui/DecompilerView.h/.cpp` — Decompiler view: CutterSeekable, `// 0xADDR` annotation parser, scroll + highlight
+- `src/gui/FunctionExplorer.h/.cpp` — Explorer tree: sorting, monospace, bold categories, tooltips, clear button
+- `src/include/gui/CutterSeekable.h` — Pure virtual seek interface (no QObject base)
+- `src/gui/ConsoleWidget.h/.cpp` — Console widget
+- `build-cmake/_deps/qtadvanceddocking-src/src/DockOverlay.cpp` — patched `cursorLocation()` (full-window proportional zones)
+- `build-cmake/_deps/qtadvanceddocking-src/src/DockManager.cpp` — patched `startDragDistance()` (4× multiplier)

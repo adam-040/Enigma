@@ -304,11 +304,13 @@ bool OperandReferenceAnalyzer::added(Program* program, const AddressSetView& set
     }
 
     int count = 0;
+    int nextLogCount = 50000;
     long initialCount = set.getNumAddresses();
     if (monitor) {
         monitor->initialize(initialCount);
         monitor->setMessage("Analyze Operand References " + set.getMinAddress().toString());
     }
+    log.append("OperandReferenceAnalyzer: starting analysis of " + std::to_string(initialCount) + " addresses");
 
     AddressSet leftSet(set);
     AddressSet ignoreNewPointers;
@@ -317,11 +319,19 @@ bool OperandReferenceAnalyzer::added(Program* program, const AddressSetView& set
     AddressSet foundCodeBookmarkLocations;
     AddressSet doneSubTest;
 
+    // PHASE 6: safety counters
+    int stackRefIterations_ = 0;
+    int stackRefAnomalies_ = 0;
+    int mainLoopIterations_ = 0;
+    int disTargetsIterations_ = 0;
+    int disTargetsAnomalies_ = 0;
+
     // Create stack references from scalar operands referencing function stack frames
     {
         auto instrs = listing->getInstructions(set);
         for (Instruction* instr : instrs) {
             if (monitor && monitor->isCancelled()) break;
+            ++stackRefIterations_;
 
             Function* func = funcMgr->getFunctionContaining(instr->getMinAddress());
             if (!func) continue;
@@ -338,7 +348,10 @@ bool OperandReferenceAnalyzer::added(Program* program, const AddressSetView& set
                     long val = static_cast<long>(scalar->getSignedValue());
                     if (val >= 0) continue;
                     int stackOff = static_cast<int>(val);
-                    if (stackOff < -stackSize || stackOff >= 0) continue;
+                    if (stackOff < -stackSize || stackOff >= 0) {
+                        ++stackRefAnomalies_;
+                        continue;
+                    }
                     if (!instr->getOperandReferences(opIdx).empty()) continue;
 
                     refMgr->addStackReference(instr->getMinAddress(), opIdx, stackOff,
@@ -346,21 +359,40 @@ bool OperandReferenceAnalyzer::added(Program* program, const AddressSetView& set
                 }
             }
         }
+        if (stackRefAnomalies_ > 0) {
+            std::cerr << "[WARN] OperandReferenceAnalyzer: stack ref anomalies=" << stackRefAnomalies_
+                      << " iterations=" << stackRefIterations_ << std::endl;
+        }
     }
 
     auto addrIter = refMgr->getReferenceSourceIterator(set, true);
+    int mainLoopHardLimit_ = 50000;  // will test 100K/200K/300K/500K
+    std::cerr << "[INFO] OperandReferenceAnalyzer: starting main loop" << std::endl;
     while (addrIter->hasNext()) {
         if (monitor && monitor->isCancelled()) break;
+        ++mainLoopIterations_;
+        if (mainLoopIterations_ > mainLoopHardLimit_) {
+            std::cerr << "[WARN] OperandReferenceAnalyzer: main loop exceeded "
+                      << mainLoopHardLimit_ << " iterations, breaking" << std::endl;
+            break;
+        }
+        if (mainLoopIterations_ % 1000 == 0) {
+            std::cerr << "[INFO] OperandReferenceAnalyzer: main loop iter=" << mainLoopIterations_ << std::endl;
+        }
 
         Address addr = addrIter->next();
 
         count++;
         if (count >= NOTIFICATION_INTERVAL) {
             leftSet.deleteRange(leftSet.getMinAddress(), addr);
+            int processed = static_cast<int>(initialCount - leftSet.getNumAddresses());
             if (monitor) {
-                monitor->setProgress(static_cast<int>(
-                    initialCount - leftSet.getNumAddresses()));
+                monitor->setProgress(processed);
                 monitor->setMessage("Analyze OpRefs : " + addr.toString());
+            }
+            if (processed >= nextLogCount) {
+                std::cerr << "[INFO] OperandReferenceAnalyzer: processed " << processed << " addresses" << std::endl;
+                nextLogCount += 50000;
             }
             count = 0;
         }
@@ -621,9 +653,18 @@ bool OperandReferenceAnalyzer::added(Program* program, const AddressSetView& set
     AddressSet doneDisSet;
     auto disIter = disTargets.getAddressRanges(true);
     while (disIter->hasNext()) {
+        if (monitor && monitor->isCancelled()) break;
         const AddressRange& range = disIter->next();
         Address rAddr = range.getMinAddress();
         while (rAddr <= range.getMaxAddress()) {
+            ++disTargetsIterations_;
+            // PHASE 6: anomaly detection — bail out if iterations explode
+            if (disTargetsIterations_ > 100000) {
+                ++disTargetsAnomalies_;
+                std::cerr << "[WARN] OperandReferenceAnalyzer: disTargets iterations exceeded 100K at "
+                          << rAddr.toString() << std::endl;
+                break;
+            }
             Data* d = listing->getDataContaining(rAddr);
             if (d) {
                 if (d->isDefined()) throwOutSet.add(rAddr);
@@ -642,6 +683,7 @@ bool OperandReferenceAnalyzer::added(Program* program, const AddressSetView& set
     if (!doDisTargets.isEmpty()) {
         auto funcIter = doDisTargets.getAddressRanges(true);
         while (funcIter->hasNext()) {
+            if (monitor && monitor->isCancelled()) break;
             const AddressRange& range = funcIter->next();
             Address rAddr = range.getMinAddress();
             while (rAddr <= range.getMaxAddress()) {
@@ -658,6 +700,7 @@ bool OperandReferenceAnalyzer::added(Program* program, const AddressSetView& set
         foundCodeBookmarkLocations = foundCodeBookmarkLocations.subtract(throwOutSet);
         auto foundIter = foundCodeBookmarkLocations.getAddressRanges(true);
         while (foundIter->hasNext()) {
+            if (monitor && monitor->isCancelled()) break;
             const AddressRange& range = foundIter->next();
             Address rAddr = range.getMinAddress();
             while (rAddr <= range.getMaxAddress()) {
@@ -667,6 +710,12 @@ bool OperandReferenceAnalyzer::added(Program* program, const AddressSetView& set
                 rAddr = rAddr.next();
             }
         }
+    }
+
+    if (mainLoopIterations_ > 0) {
+        std::cerr << "[INFO] OperandReferenceAnalyzer: mainLoop=" << mainLoopIterations_
+                  << " disTargetsIter=" << disTargetsIterations_
+                  << " disTargetsAnomalies=" << disTargetsAnomalies_ << std::endl;
     }
 
     return true;
