@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QPlainTextEdit>
+#include <QElapsedTimer>
 #include <cstdint>
 
 class AsmHighlighter;
@@ -23,5 +24,6 @@ protected:
 
 private:
     AsmHighlighter* highlighter_;
+    QElapsedTimer navTimer_;
     int scrollLine_ = 0;
 };

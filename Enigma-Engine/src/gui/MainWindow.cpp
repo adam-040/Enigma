@@ -26,6 +26,9 @@
 #include <ghidra/MessageLog.h>
 #include <ghidra/SymbolTable.h>
 #include <ghidra/ExternalManager.h>
+#include <ghidra/Disassembler.h>
+#include <sstream>
+#include <iomanip>
 
 
 MainWindow::MainWindow(QWidget* parent)
@@ -760,9 +763,73 @@ void MainWindow::navigateTo(uint64_t addr, const QString& name) {
         }
     }
 
+    QString asmText;
+    try {
+        if (currentFunction_ && program_->getMemory()) {
+            const auto& body = currentFunction_->getBody();
+            if (!body.isEmpty()) {
+                std::string langStr = program_->getLanguageID().getIdAsString();
+                std::string arch = "x86";
+                int bitness = 64;
+                bool bigEndian = false;
+                if (langStr.find("x86") != std::string::npos) {
+                    arch = "x86";
+                    bitness = (langStr.find("64") != std::string::npos) ? 64 : 32;
+                } else if (langStr.find("ARM") != std::string::npos || langStr.find("arm") != std::string::npos) {
+                    arch = "arm";
+                    bitness = (langStr.find("64") != std::string::npos) ? 64 : 32;
+                } else if (langStr.find("MIPS") != std::string::npos || langStr.find("mips") != std::string::npos) {
+                    arch = "mips";
+                    bitness = (langStr.find("64") != std::string::npos) ? 64 : 32;
+                } else if (langStr.find("PowerPC") != std::string::npos || langStr.find("ppc") != std::string::npos) {
+                    arch = "ppc";
+                    bitness = (langStr.find("64") != std::string::npos) ? 64 : 32;
+                }
+                if (langStr.find("BE") != std::string::npos || langStr.find("be") != std::string::npos)
+                    bigEndian = true;
+
+                auto disasm = ghidra::createDisassembler(arch, bitness, bigEndian);
+                if (disasm) {
+                    std::ostringstream out;
+                    auto rit = body.ranges();
+                    while (rit.hasNext()) {
+                        const auto* range = rit.next();
+                        if (!range) continue;
+                        uint64_t startOff = range->getMinAddress().getOffset();
+                        uint64_t endOff = range->getMaxAddress().getOffset();
+                        size_t byteCount = static_cast<size_t>(endOff - startOff + 1);
+                        std::vector<uint8_t> rawBytes(byteCount);
+                        ghidra::Address rangeAddr = program_->getAddressFactory()->oldGetAddressFromLong(startOff);
+                        int got = program_->getMemory()->getBytes(rangeAddr, rawBytes.data(), static_cast<int>(byteCount));
+                        if (got > 0) {
+                            rawBytes.resize(got);
+                            auto results = disasm->disassembleRange(rawBytes, startOff, got, 9999);
+                            for (const auto& instr : results) {
+                                out << "0x" << std::hex << std::setw(8) << std::setfill('0')
+                                    << instr.address.getOffset() << ":  " << instr.mnemonic;
+                                if (!instr.operands.empty()) {
+                                    out << "  ";
+                                    for (size_t i = 0; i < instr.operands.size(); ++i) {
+                                        if (i > 0) out << ", ";
+                                        out << instr.operands[i];
+                                    }
+                                }
+                                out << "\n";
+                            }
+                        }
+                    }
+                    asmText = QString::fromStdString(out.str());
+                }
+            }
+        }
+    } catch (...) {
+        DBG("[navigateTo] Capstone disassembly threw, falling back\n");
+    }
     DBG("[navigateTo] disassembleAt(0x%llx, %d)\n", (unsigned long long)addr, instrCount);
-    QString asmText = QString::fromStdString(
-        decompInterface_->disassembleAt(address, instrCount));
+    if (asmText.isEmpty()) {
+        asmText = QString::fromStdString(
+            decompInterface_->disassembleAt(address, instrCount));
+    }
     disasmView_->showDisassembly(asmText);
     DBG("[navigateTo] disassembly done\n");
 

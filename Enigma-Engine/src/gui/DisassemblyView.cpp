@@ -15,6 +15,7 @@ DisassemblyView::DisassemblyView(QWidget* parent)
 }
 
 void DisassemblyView::showDisassembly(const QString& text) {
+    navTimer_.start();
     int oldPos = verticalScrollBar()->value();
     clear();
     setPlainText(text);
