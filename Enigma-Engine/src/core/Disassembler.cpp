@@ -163,6 +163,8 @@ public:
                 result.bytes[i] = insn->bytes[i];
             }
 
+            result.address = Address(program_ ? program_->getAddressMap()->getDefaultAddressSpace() : nullptr, insn->address);
+
             if (insn->op_str[0] != '\0') {
                 std::string ops = insn->op_str;
                 size_t pos = 0;
@@ -194,8 +196,11 @@ public:
         cs_insn* insn = nullptr;
         size_t count = cs_disasm(handle_, bytes.data(), size, startAddress, maxInstructions, &insn);
 
+        AddressSpace* defaultSpace = program_ ? program_->getAddressMap()->getDefaultAddressSpace() : nullptr;
+
         for (size_t i = 0; i < count; ++i) {
             DisassembledInstruction di;
+            di.address = Address(defaultSpace, insn[i].address);
             di.mnemonic = insn[i].mnemonic;
             di.length = static_cast<int>(insn[i].size);
             di.byteCount = static_cast<int>(insn[i].size);
@@ -269,6 +274,10 @@ private:
     int alignment_;
     int bitness_;
 };
+
+void Disassembler::setProgram(ProgramDB* program) {
+    program_ = program;
+}
 
 std::unique_ptr<Disassembler> createDisassembler(const std::string& architecture, int bitness, bool bigEndian) {
     auto disassembler = std::make_unique<CapstoneDisassembler>();

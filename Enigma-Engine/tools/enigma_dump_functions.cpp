@@ -29,6 +29,7 @@
 #include <ghidra/MainRecognitionAnalyzer.h>
 #include <ghidra/FragmentMergeAnalyzer.h>
 #include <ghidra/FidAnalyzer.h>
+#include <ghidra/FunctionBodyFinalizer.h>
 #include <ghidra/ExternalEntryFunctionAnalyzer.h>
 #include <ghidra/FunctionDiscoveryAnalyzer.h>
 #include <ghidra/DataRefFunctionAnalyzer.h>
@@ -134,6 +135,7 @@ int main(int argc, char* argv[]) {
     analysisMgr->registerAnalyzer(std::make_unique<ImportThunkAnalyzer>());
     analysisMgr->registerAnalyzer(std::make_unique<MainRecognitionAnalyzer>());
     analysisMgr->registerAnalyzer(std::make_unique<FidAnalyzer>());
+    analysisMgr->registerAnalyzer(std::make_unique<FunctionBodyFinalizer>());
 
     analysisMgr->analyze(&ghidra::getDummyMonitor());
 

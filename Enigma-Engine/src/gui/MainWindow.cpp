@@ -1,6 +1,6 @@
 #include "MainWindow.h"
 #include "FunctionExplorer.h"
-#include "DisassemblyView.h"
+#include "DisassemblyFieldView.h"
 #include "DecompilerView.h"
 #include "HexView.h"
 #include "ConsoleWidget.h"
@@ -38,8 +38,8 @@ MainWindow::MainWindow(QWidget* parent)
                    QMainWindow::AllowTabbedDocks |
                    QMainWindow::GroupedDragging);
 
-    createMenuBar();
     createDockWidgets();
+    createMenuBar();
     createStatusBar();
 
     setCentralWidget(new QWidget(this));
@@ -73,9 +73,30 @@ void MainWindow::createMenuBar() {
     edit->addAction(tr("&Redo"));
 
     auto* view = menuBar()->addMenu(tr("&View"));
-    view->addAction(tr("&Disassembly"));
-    view->addAction(tr("&Decompiler"));
-    view->addAction(tr("&Hex"));
+
+    auto* disasmAct = view->addAction(tr("&Disassembly"));
+    disasmAct->setCheckable(true);
+    disasmAct->setChecked(true);
+    connect(disasmAct, &QAction::toggled, disasmDock_, &QDockWidget::setVisible);
+    connect(disasmDock_, &QDockWidget::visibilityChanged, disasmAct, &QAction::setChecked);
+
+    auto* decompAct = view->addAction(tr("&Decompiler"));
+    decompAct->setCheckable(true);
+    decompAct->setChecked(true);
+    connect(decompAct, &QAction::toggled, decompDock_, &QDockWidget::setVisible);
+    connect(decompDock_, &QDockWidget::visibilityChanged, decompAct, &QAction::setChecked);
+
+    auto* hexAct = view->addAction(tr("&Hex"));
+    hexAct->setCheckable(true);
+    hexAct->setChecked(true);
+    connect(hexAct, &QAction::toggled, hexDock_, &QDockWidget::setVisible);
+    connect(hexDock_, &QDockWidget::visibilityChanged, hexAct, &QAction::setChecked);
+
+    view->addSeparator();
+    showBytesAction_ = view->addAction(tr("Show &Bytes"));
+    showBytesAction_->setCheckable(true);
+    showBytesAction_->setChecked(true);
+    connect(showBytesAction_, &QAction::toggled, this, &MainWindow::onToggleShowBytes);
 
     auto* navigate = menuBar()->addMenu(tr("&Navigate"));
     auto* back = navigate->addAction(tr("&Back"));
@@ -98,7 +119,8 @@ void MainWindow::createMenuBar() {
 }
 
 void MainWindow::createDockWidgets() {
-    disasmView_ = new DisassemblyView(this);
+    disasmView_ = new DisassemblyFieldView(this);
+    disasmView_->setShowBytes(true);
     decompView_ = new DecompilerView(this);
     hexView_ = new HexView(this);
     console_ = new ConsoleWidget(this);
@@ -129,7 +151,7 @@ void MainWindow::createDockWidgets() {
 
     connect(explorer_, &FunctionExplorer::functionSelected,
             this, &MainWindow::onFunctionSelected);
-    connect(disasmView_, &DisassemblyView::addressDoubleClicked,
+    connect(disasmView_, &DisassemblyFieldView::seekRequested,
             this, &MainWindow::onDisasmAddressDoubleClicked);
     connect(decompView_, &DecompilerView::addressDoubleClicked,
             this, &MainWindow::onDecompAddressDoubleClicked);
@@ -422,6 +444,8 @@ void MainWindow::loadBinary(const QString& path) {
         return;
     }
     DBG("[loadBinary] openProgram succeeded\n");
+    disasmView_->setProgram(program_.get());
+    disasmView_->setDecompInterface(decompInterface_.get());
 
     // VERIFY: ProgramDB pointer identity checkpoint B
     DBG("[loadBinary] PTR-CHECK-B: program_ = %p (same as prog = %p)\n", (void*)program_.get(), (void*)prog);
@@ -676,8 +700,10 @@ void MainWindow::onAnalysisFinished() {
 
     if (currentFunction_) {
         DBG("[onAnalysisFinished] navigating to current function\n");
-        navigateTo(currentFunction_->getEntryPoint().getOffset(),
-                   QString::fromStdString(currentFunction_->getName()));
+        // Save address before stale pointer (FunctionBodyFinalizer may have recreated)
+        uint64_t savedEntry = currentFunction_->getEntryPoint().getOffset();
+        std::string savedName = currentFunction_->getName();
+        navigateTo(savedEntry, QString::fromStdString(savedName));
     } else if (program_) {
         DBG("[onAnalysisFinished] getting functions list...\n");
         auto funcs = decompInterface_->getFunctions();
@@ -741,95 +767,8 @@ void MainWindow::navigateTo(uint64_t addr, const QString& name) {
     statusFunc_->setText(name);
     statusAddr_->setText(QString("0x%1").arg(addr, 0, 16));
 
-    int instrCount = 30;
-    if (currentFunction_) {
-        const auto& body = currentFunction_->getBody();
-        if (!body.isEmpty())
-            instrCount = static_cast<int>(body.getNumAddresses());
-    }
-    DBG("[navigateTo] address.space='%s' offset=0x%llx\n",
-        address.getAddressSpace() ? address.getAddressSpace()->getName().c_str() : "(null)",
-        (unsigned long long)address.getOffset());
-    // Check if this address is in any memory block
-    {
-        auto* memCheck = program_->getMemory();
-        if (memCheck) {
-            try {
-                auto* block = memCheck->getBlock(address);
-                DBG("[navigateTo]   mem->getBlock = %s\n", block ? block->getName().c_str() : "NULL");
-            } catch (...) {
-                DBG("[navigateTo]   mem->getBlock threw\n");
-            }
-        }
-    }
-
-    QString asmText;
-    try {
-        if (currentFunction_ && program_->getMemory()) {
-            const auto& body = currentFunction_->getBody();
-            if (!body.isEmpty()) {
-                std::string langStr = program_->getLanguageID().getIdAsString();
-                std::string arch = "x86";
-                int bitness = 64;
-                bool bigEndian = false;
-                if (langStr.find("x86") != std::string::npos) {
-                    arch = "x86";
-                    bitness = (langStr.find("64") != std::string::npos) ? 64 : 32;
-                } else if (langStr.find("ARM") != std::string::npos || langStr.find("arm") != std::string::npos) {
-                    arch = "arm";
-                    bitness = (langStr.find("64") != std::string::npos) ? 64 : 32;
-                } else if (langStr.find("MIPS") != std::string::npos || langStr.find("mips") != std::string::npos) {
-                    arch = "mips";
-                    bitness = (langStr.find("64") != std::string::npos) ? 64 : 32;
-                } else if (langStr.find("PowerPC") != std::string::npos || langStr.find("ppc") != std::string::npos) {
-                    arch = "ppc";
-                    bitness = (langStr.find("64") != std::string::npos) ? 64 : 32;
-                }
-                if (langStr.find("BE") != std::string::npos || langStr.find("be") != std::string::npos)
-                    bigEndian = true;
-
-                auto disasm = ghidra::createDisassembler(arch, bitness, bigEndian);
-                if (disasm) {
-                    std::ostringstream out;
-                    auto rit = body.ranges();
-                    while (rit.hasNext()) {
-                        const auto* range = rit.next();
-                        if (!range) continue;
-                        uint64_t startOff = range->getMinAddress().getOffset();
-                        uint64_t endOff = range->getMaxAddress().getOffset();
-                        size_t byteCount = static_cast<size_t>(endOff - startOff + 1);
-                        std::vector<uint8_t> rawBytes(byteCount);
-                        ghidra::Address rangeAddr = program_->getAddressFactory()->oldGetAddressFromLong(startOff);
-                        int got = program_->getMemory()->getBytes(rangeAddr, rawBytes.data(), static_cast<int>(byteCount));
-                        if (got > 0) {
-                            rawBytes.resize(got);
-                            auto results = disasm->disassembleRange(rawBytes, startOff, got, 9999);
-                            for (const auto& instr : results) {
-                                out << "0x" << std::hex << std::setw(8) << std::setfill('0')
-                                    << instr.address.getOffset() << ":  " << instr.mnemonic;
-                                if (!instr.operands.empty()) {
-                                    out << "  ";
-                                    for (size_t i = 0; i < instr.operands.size(); ++i) {
-                                        if (i > 0) out << ", ";
-                                        out << instr.operands[i];
-                                    }
-                                }
-                                out << "\n";
-                            }
-                        }
-                    }
-                    asmText = QString::fromStdString(out.str());
-                }
-            }
-        }
-    } catch (...) {
-        DBG("[navigateTo] Capstone disassembly threw, falling back\n");
-    }
-    DBG("[navigateTo] disassembleAt(0x%llx, %d)\n", (unsigned long long)addr, instrCount);
-    if (asmText.isEmpty()) {
-        asmText = QString::fromStdString(
-            decompInterface_->disassembleAt(address, instrCount));
-    }
+    QString asmText = QString::fromStdString(
+        decompInterface_->disassembleAt(address, 50));
     disasmView_->showDisassembly(asmText);
     DBG("[navigateTo] disassembly done\n");
 
@@ -889,14 +828,8 @@ void MainWindow::onNavigateBack() {
     statusAddr_->setText(QString("0x%1").arg(addr, 0, 16));
     disasmDock_->raise();
 
-    int instrCount = 30;
-    if (currentFunction_) {
-        const auto& body = currentFunction_->getBody();
-        if (!body.isEmpty())
-            instrCount = static_cast<int>(body.getNumAddresses());
-    }
     QString asmText = QString::fromStdString(
-        decompInterface_->disassembleAt(address, instrCount));
+        decompInterface_->disassembleAt(address, 50));
     disasmView_->showDisassembly(asmText);
 
     auto it = decompCache_.find(addr);
@@ -949,6 +882,11 @@ void MainWindow::onDisasmAddressDoubleClicked(uint64_t addr) {
 
 void MainWindow::onDecompAddressDoubleClicked(uint64_t addr) {
     onDisasmAddressDoubleClicked(addr);
+}
+
+void MainWindow::onToggleShowBytes(bool show) {
+    if (disasmView_)
+        disasmView_->setShowBytes(show);
 }
 
 void MainWindow::logOnce(const QString& msg) {

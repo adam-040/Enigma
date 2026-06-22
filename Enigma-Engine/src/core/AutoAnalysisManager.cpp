@@ -142,6 +142,7 @@
 #include <ghidra/Memory.h>
 #include <ghidra/AnalysisScheduler.h>
 #include <ghidra/AggressiveRecoveryAnalyzer.h>
+#include <ghidra/FunctionBodyFinalizer.h>
 #include <algorithm>
 #include <map>
 
@@ -367,6 +368,7 @@ void AutoAnalysisManager::initializeDefaultAnalyzers() {
     // PHASE B: Aggressive recovery — disabled by default. Enable manually for
     // heuristic function recovery from orphan islands, gap CALL targets, and tiny helpers.
     // Confidence scoring and bookmark creation included. NEVER enable in production.
+    registerAnalyzer(std::make_unique<FunctionBodyFinalizer>());
     registerAnalyzer(std::make_unique<AggressiveRecoveryAnalyzer>());
 }
 

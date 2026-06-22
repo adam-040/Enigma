@@ -43,6 +43,7 @@
 #include <ghidra/RelocationTable.h>
 #include <ghidra/ReferenceManager.h>
 #include <ghidra/AggressiveRecoveryAnalyzer.h>
+#include <ghidra/FunctionBodyFinalizer.h>
 #include <ghidra/AddressSet.h>
 
 #include <iostream>
@@ -561,6 +562,7 @@ int main(int argc, char* argv[]) {
     registerAnalyzer("MainRecognitionAnalyzer", []() -> std::unique_ptr<Analyzer> { return std::make_unique<MainRecognitionAnalyzer>(); });
     registerAnalyzer("FidAnalyzer", []() -> std::unique_ptr<Analyzer> { return std::make_unique<FidAnalyzer>(); });
     // Phase B: Aggressive recovery — disabled by default
+    registerAnalyzer("FunctionBodyFinalizer", []() -> std::unique_ptr<Analyzer> { return std::make_unique<FunctionBodyFinalizer>(); });
     registerAnalyzer("AggressiveRecoveryAnalyzer", []() -> std::unique_ptr<Analyzer> { return std::make_unique<AggressiveRecoveryAnalyzer>(); });
 
     std::vector<Analyzer*> allAnalyzers = analysisMgr->getAnalyzers();

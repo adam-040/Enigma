@@ -23,7 +23,7 @@ class AutoAnalysisManager;
 }
 
 class FunctionExplorer;
-class DisassemblyView;
+class DisassemblyFieldView;
 class DecompilerView;
 class HexView;
 class ConsoleWidget;
@@ -47,6 +47,7 @@ private slots:
     void onAnalysisFinished();
     void onDisasmAddressDoubleClicked(uint64_t addr);
     void onDecompAddressDoubleClicked(uint64_t addr);
+    void onToggleShowBytes(bool show);
 
 private:
     void createMenuBar();
@@ -70,7 +71,7 @@ private:
     QString lastConsoleMsg_;
 
     FunctionExplorer* explorer_;
-    DisassemblyView* disasmView_;
+    DisassemblyFieldView* disasmView_;
     DecompilerView* decompView_;
     HexView* hexView_;
     ConsoleWidget* console_;
@@ -82,4 +83,5 @@ private:
     QLabel* statusFunc_;
     QLabel* statusAddr_;
     QLabel* statusCount_;
+    QAction* showBytesAction_;
 };
