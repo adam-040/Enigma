@@ -5,7 +5,7 @@ FunctionExplorer::FunctionExplorer(QWidget* parent)
     : QWidget(parent)
 {
     auto* layout = new QVBoxLayout(this);
-    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setContentsMargins(0, 0, 0, 4);
 
     tree_ = new QTreeWidget(this);
     tree_->setHeaderLabels({tr("Name"), tr("Address")});
@@ -17,6 +17,7 @@ FunctionExplorer::FunctionExplorer(QWidget* parent)
 
     filter_ = new QLineEdit(this);
     filter_->setPlaceholderText(tr("Filter..."));
+    filter_->setContentsMargins(4, 0, 4, 0);
     layout->addWidget(filter_);
 
     connect(tree_, &QTreeWidget::itemDoubleClicked,
