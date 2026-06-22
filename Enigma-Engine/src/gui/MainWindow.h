@@ -6,7 +6,7 @@
 #include <QPlainTextEdit>
 #include <QLabel>
 #include <QStatusBar>
-#include <QDockWidget>
+#include <DockManager.h>
 #include <QMenuBar>
 #include <QAction>
 #include <QStack>
@@ -75,11 +75,12 @@ private:
     DecompilerView* decompView_;
     HexView* hexView_;
     ConsoleWidget* console_;
-    QDockWidget* explorerDock_;
-    QDockWidget* disasmDock_;
-    QDockWidget* decompDock_;
-    QDockWidget* hexDock_;
-    QDockWidget* consoleDock_;
+    ads::CDockWidget* explorerDock_;
+    ads::CDockWidget* disasmDock_;
+    ads::CDockWidget* decompDock_;
+    ads::CDockWidget* hexDock_;
+    ads::CDockWidget* consoleDock_;
+    ads::CDockManager* dockManager_;
     QLabel* statusFunc_;
     QLabel* statusAddr_;
     QLabel* statusCount_;

@@ -34,16 +34,20 @@
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
 {
-    setDockOptions(QMainWindow::AllowNestedDocks |
-                   QMainWindow::AllowTabbedDocks |
-                   QMainWindow::GroupedDragging);
+    ads::CDockManager::setConfigFlags(
+        ads::CDockManager::OpaqueSplitterResize |
+        ads::CDockManager::DragPreviewShowsContentPixmap |
+        ads::CDockManager::FloatingContainerHasWidgetTitle |
+        ads::CDockManager::DoubleClickUndocksWidget |
+        ads::CDockManager::AlwaysShowTabs |
+        ads::CDockManager::XmlCompressionEnabled);
+
+    dockManager_ = new ads::CDockManager(this);
+    setCentralWidget(dockManager_);
 
     createDockWidgets();
     createMenuBar();
     createStatusBar();
-
-    setCentralWidget(new QWidget(this));
-    centralWidget()->hide();
 
     decompInterface_ = std::make_unique<ghidra::DecompInterface>();
 }
@@ -74,23 +78,17 @@ void MainWindow::createMenuBar() {
 
     auto* view = menuBar()->addMenu(tr("&View"));
 
-    auto* disasmAct = view->addAction(tr("&Disassembly"));
-    disasmAct->setCheckable(true);
-    disasmAct->setChecked(true);
-    connect(disasmAct, &QAction::toggled, disasmDock_, &QDockWidget::setVisible);
-    connect(disasmDock_, &QDockWidget::visibilityChanged, disasmAct, &QAction::setChecked);
+    auto* disasmAct = disasmDock_->toggleViewAction();
+    disasmAct->setText(tr("&Disassembly"));
+    view->addAction(disasmAct);
 
-    auto* decompAct = view->addAction(tr("&Decompiler"));
-    decompAct->setCheckable(true);
-    decompAct->setChecked(true);
-    connect(decompAct, &QAction::toggled, decompDock_, &QDockWidget::setVisible);
-    connect(decompDock_, &QDockWidget::visibilityChanged, decompAct, &QAction::setChecked);
+    auto* decompAct = decompDock_->toggleViewAction();
+    decompAct->setText(tr("&Decompiler"));
+    view->addAction(decompAct);
 
-    auto* hexAct = view->addAction(tr("&Hex"));
-    hexAct->setCheckable(true);
-    hexAct->setChecked(true);
-    connect(hexAct, &QAction::toggled, hexDock_, &QDockWidget::setVisible);
-    connect(hexDock_, &QDockWidget::visibilityChanged, hexAct, &QAction::setChecked);
+    auto* hexAct = hexDock_->toggleViewAction();
+    hexAct->setText(tr("&Hex"));
+    view->addAction(hexAct);
 
     view->addSeparator();
     showBytesAction_ = view->addAction(tr("Show &Bytes"));
@@ -126,14 +124,13 @@ void MainWindow::createDockWidgets() {
     console_ = new ConsoleWidget(this);
     explorer_ = new FunctionExplorer(this);
 
-    auto createDock = [&](const QString& title, QWidget* widget) -> QDockWidget* {
-        auto* dock = new QDockWidget(title, this);
+    auto createDock = [&](const QString& title, QWidget* widget) -> ads::CDockWidget* {
+        auto* dock = new ads::CDockWidget(dockManager_, title, this);
         dock->setObjectName(title);
-        dock->setWidget(widget);
-        dock->setFeatures(QDockWidget::DockWidgetMovable |
-                          QDockWidget::DockWidgetClosable |
-                          QDockWidget::DockWidgetFloatable);
-        dock->setAllowedAreas(Qt::AllDockWidgetAreas);
+        dock->setWidget(widget, ads::CDockWidget::ForceNoScrollArea);
+        dock->setFeatures(ads::CDockWidget::DockWidgetMovable |
+                          ads::CDockWidget::DockWidgetClosable |
+                          ads::CDockWidget::DockWidgetFloatable);
         return dock;
     };
 
@@ -143,11 +140,15 @@ void MainWindow::createDockWidgets() {
     hexDock_      = createDock("HEX", hexView_);
     consoleDock_  = createDock("CONSOLE", console_);
 
-    addDockWidget(Qt::LeftDockWidgetArea, explorerDock_);
-    addDockWidget(Qt::RightDockWidgetArea, disasmDock_);
-    splitDockWidget(disasmDock_, decompDock_, Qt::Vertical);
-    splitDockWidget(decompDock_, hexDock_, Qt::Vertical);
-    addDockWidget(Qt::BottomDockWidgetArea, consoleDock_);
+    // Console's internal QTabWidget already shows Console, Output, etc.
+    consoleDock_->setFeature(ads::CDockWidget::NoTab, true);
+
+    // Identical split hierarchy to the original QDockWidget layout
+    dockManager_->addDockWidget(ads::LeftDockWidgetArea, explorerDock_);
+    auto* disasmArea = dockManager_->addDockWidget(ads::RightDockWidgetArea, disasmDock_);
+    auto* decompArea = dockManager_->addDockWidget(ads::BottomDockWidgetArea, decompDock_, disasmArea);
+    dockManager_->addDockWidget(ads::BottomDockWidgetArea, hexDock_, decompArea);
+    dockManager_->addDockWidget(ads::BottomDockWidgetArea, consoleDock_);
 
     connect(explorer_, &FunctionExplorer::functionSelected,
             this, &MainWindow::onFunctionSelected);
