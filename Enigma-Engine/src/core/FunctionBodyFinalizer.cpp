@@ -97,6 +97,11 @@ bool FunctionBodyFinalizer::added(Program* program, const AddressSetView& set,
         Address entryAddr = af->oldGetAddressFromLong(entry);
         Instruction* inst = listing->getInstructionAt(entryAddr);
         if (!inst) {
+            if (bodySize <= 2) {
+                Msg::debug(getName(), "Small body func (no instr): 0x" + std::to_string(entry) +
+                           " size=" + std::to_string(bodySize) +
+                           " name=" + func->getName());
+            }
             noInstr++;
             continue;
         }
@@ -105,6 +110,13 @@ bool FunctionBodyFinalizer::added(Program* program, const AddressSetView& set,
         auto nextIt = std::upper_bound(funcEntries.begin(), funcEntries.end(), entry);
         if (nextIt != funcEntries.end() && *nextIt > entry && *nextIt - 1 < maxAddr)
             maxAddr = *nextIt - 1;
+
+        if (bodySize <= 2) {
+            Msg::debug(getName(), "Small body func (extending): 0x" + std::to_string(entry) +
+                       " size=" + std::to_string(bodySize) +
+                       " name=" + func->getName() +
+                       " maxAddr=0x" + std::to_string(maxAddr));
+        }
 
         Instruction* lastInst = inst;
         uint64_t lastAddr = entry;

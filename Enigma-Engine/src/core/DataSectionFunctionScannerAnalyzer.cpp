@@ -152,7 +152,13 @@ static std::vector<uint64_t> collect4ByteRVAs(Memory* memory, TaskMonitor* monit
 // or E9/EB (jmp tail call). These are unambiguous function boundaries.
 // 0x90 (nop) and 0x00 (zero) are NOT reliable — they appear mid-function
 // in alignment padding and instruction immediates.
-static bool isAtFunctionBoundary(Memory* memory, const Address& addr) {
+//
+// When is64Bit is true, also rejects addresses where the previous byte
+// is an x86-64 instruction prefix (REX 0x40-0x4F, VEX 0xC5, segment
+// overrides, LOCK 0xF0). These can ONLY appear immediately before the
+// opcode byte, so the candidate would be a ModRM/displacement/immediate
+// byte (mid-instruction), not a valid function start.
+static bool isAtFunctionBoundary(Memory* memory, const Address& addr, bool is64Bit = false) {
     MemoryBlock* targetBlock = memory->getBlock(addr);
     if (!targetBlock) return false;
     if (addr == targetBlock->getStart()) return true;
@@ -169,6 +175,23 @@ static bool isAtFunctionBoundary(Memory* memory, const Address& addr) {
         if (got < 1) return false;
     } catch (...) {
         return false;
+    }
+
+    if (is64Bit) {
+        // In x86-64 mode, 0x40-0x4F are REX prefixes (never standalone opcodes).
+        // If the preceding byte is a REX prefix, the candidate is the ModRM /
+        // displacement / immediate byte (mid-instruction), not a function start.
+        if (prevByte >= 0x40 && prevByte <= 0x4F) return false;
+
+        // 2-byte VEX prefix (0xC5 + 1-byte payload → addr is opcode/ModRM)
+        if (prevByte == 0xC5) return false;
+
+        // 3-byte VEX prefix (0xC4 + 2-byte payload → addr is opcode/ModRM)
+        if (prevByte == 0xC4) return false;
+
+        // Segment overrides and LOCK prefix — only valid before the opcode byte.
+        if (prevByte == 0x26 || prevByte == 0x2E || prevByte == 0x36 || prevByte == 0x3E ||
+            prevByte == 0x64 || prevByte == 0x65 || prevByte == 0xF0) return false;
     }
 
     return prevByte == 0xCC || prevByte == 0xC3 || prevByte == 0xE9 || prevByte == 0xEB;
@@ -209,6 +232,50 @@ bool DataSectionFunctionScannerAnalyzer::added(Program* program, const AddressSe
     uint64_t imageBase = static_cast<uint64_t>(program->getImageBase().getOffset());
     AddressSpace* defaultSpace = const_cast<AddressSpace*>(program->getAddressFactory()->getDefaultAddressSpace());
 
+    // Determine if we're in 64-bit mode for x86 prefix-based rejection.
+    std::string langId = program->getLanguageID().getIdAsString();
+    std::string langLower = langId;
+    std::transform(langLower.begin(), langLower.end(), langLower.begin(), ::tolower);
+    bool is64Bit = (langLower.find("64") != std::string::npos) &&
+                   (langLower.find("x86") != std::string::npos || langLower.find("i386") != std::string::npos);
+
+    // Precompute .pdata ranges to reject candidates inside guaranteed function
+    // boundaries from the PE exception handler table. This prevents creating
+    // func_data entries at mid-function addresses that would confuse the decompiler.
+    struct PdataRange { uint64_t begin; uint64_t end; };
+    std::vector<PdataRange> pdataRanges;
+    {
+        MemoryBlock* pdataBlock = memory->getBlock(".pdata");
+        if (pdataBlock && pdataBlock->isInitialized()) {
+            Address pstart = pdataBlock->getStart();
+            Address pend = pdataBlock->getEnd();
+            if (pstart.isValid() && pend.isValid()) {
+                uint64_t psize = pend.getOffset() - pstart.getOffset() + 1;
+                if (psize >= 12 && psize <= 1024 * 1024) {
+                    std::vector<uint8_t> pbuf(static_cast<size_t>(psize));
+                    int pread = pdataBlock->getBytes(pstart, pbuf.data(), static_cast<int>(pbuf.size()));
+                    if (pread >= 12) {
+                        for (uint64_t off = 0; off <= static_cast<uint64_t>(pread) - 12; off += 12) {
+                            uint32_t beginRva = *reinterpret_cast<const uint32_t*>(pbuf.data() + off);
+                            uint32_t endRva = *reinterpret_cast<const uint32_t*>(pbuf.data() + off + 4);
+                            if (beginRva != 0 && endRva > beginRva) {
+                                uint64_t beginAddr = imageBase + beginRva;
+                                uint64_t endAddr = imageBase + endRva;
+                                pdataRanges.push_back({beginAddr, endAddr});
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        std::sort(pdataRanges.begin(), pdataRanges.end(),
+                  [](const PdataRange& a, const PdataRange& b) { return a.begin < b.begin; });
+        if (!pdataRanges.empty()) {
+            Msg::debug(getName(), "Loaded " + std::to_string(pdataRanges.size()) +
+                       " .pdata ranges for overlap filtering");
+        }
+    }
+
     // Lambda: filter candidates and create functions for unique .text targets.
     // If limit > 0, stops after that many new functions; if limit == 0, unlimited.
     auto scanCandidates = [&](std::vector<uint64_t> cand, int limit) -> int {
@@ -224,6 +291,18 @@ bool DataSectionFunctionScannerAnalyzer::added(Program* program, const AddressSe
             const ExecBlockRange* eb = findExecBlock(execBlocks, tgt);
             if (!eb) continue;
 
+            // Reject candidates inside .pdata function ranges.
+            if (!pdataRanges.empty()) {
+                auto prIt = std::lower_bound(pdataRanges.begin(), pdataRanges.end(), tgt,
+                    [](const PdataRange& r, uint64_t v) { return r.end <= v; });
+                if (prIt != pdataRanges.end() && prIt->begin <= tgt && tgt < prIt->end) {
+                    Msg::debug(getName(), "Rejected 0x" + std::to_string(tgt) +
+                               ": inside pdata [0x" + std::to_string(prIt->begin) +
+                               "-0x" + std::to_string(prIt->end) + ")");
+                    continue;
+                }
+            }
+
             Address targetAddr(defaultSpace, static_cast<int64_t>(tgt));
             if (funcMgr->getFunctionAt(targetAddr)) continue;
             if (funcMgr->getFunctionContaining(targetAddr)) continue;
@@ -238,14 +317,31 @@ bool DataSectionFunctionScannerAnalyzer::added(Program* program, const AddressSe
                 if (fb[0] == 0x0F && fb[1] == 0x1F) continue;
             } catch (...) { continue; }
 
-            if (!isAtFunctionBoundary(memory, targetAddr)) continue;
+            if (!isAtFunctionBoundary(memory, targetAddr, is64Bit)) {
+                uint8_t pb = 0;
+                try { memory->getBytes(targetAddr.subtract(1), &pb, 1); } catch (...) {}
+                Msg::debug(getName(), "Rejected 0x" + std::to_string(tgt) +
+                           ": prev=0x" + std::to_string(pb) +
+                           " not a function boundary (0xCC,0xC3,0xE9,0xEB)");
+                continue;
+            }
 
             try {
                 AddressSet body(targetAddr, targetAddr);
+                uint8_t prologue[4] = {0,0,0,0};
+                try { memory->getBytes(targetAddr, prologue, 4); } catch (...) {}
                 funcMgr->createFunction("func_data_0x" + std::to_string(tgt),
                                         targetAddr, body, SourceType::ANALYSIS);
+                Msg::debug(getName(), "Created func_data_0x" + std::to_string(tgt) +
+                           " at 0x" + std::to_string(tgt) +
+                           " prologue: " + std::to_string(prologue[0]) + " " +
+                           std::to_string(prologue[1]) + " " +
+                           std::to_string(prologue[2]) + " " +
+                           std::to_string(prologue[3]));
                 ++created;
-            } catch (const std::exception&) {}
+            } catch (const std::exception&) {
+                Msg::debug(getName(), "Failed to create func at 0x" + std::to_string(tgt));
+            }
         }
         return created;
     };

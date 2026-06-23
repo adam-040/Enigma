@@ -253,27 +253,36 @@ struct DecompInterface::Impl {
         if (monitor)
             monitor->setMessage("Decompiling function at 0x" + std::to_string(entryOff));
 
-        ghidra_decompiler::Funcdata* fd =
-            arch->symboltab->getGlobalScope()->queryFunction(decAddr);
-        if (!fd) {
-            // Check Program's FunctionManager for a name first
-            std::string funcName = "FUN_ENTRY";
-            FunctionManager* fm = program ? program->getFunctionManager() : nullptr;
-            if (fm) {
-                Address progAddr = entryPoint;
-                Function* progFunc = fm->getFunctionAt(progAddr);
-                if (progFunc) {
-                    std::string n = progFunc->getName();
-                    if (!n.empty()) funcName = n;
+        ghidra_decompiler::Funcdata* fd = nullptr;
+        try {
+            fd = arch->symboltab->getGlobalScope()->queryFunction(decAddr);
+            if (!fd) {
+                std::string funcName = "FUN_ENTRY";
+                FunctionManager* fm = program ? program->getFunctionManager() : nullptr;
+                if (fm) {
+                    Address progAddr = entryPoint;
+                    Function* progFunc = fm->getFunctionAt(progAddr);
+                    if (progFunc) {
+                        std::string n = progFunc->getName();
+                        if (!n.empty()) funcName = n;
+                    }
                 }
-            }
 
-            auto* fsym = arch->symboltab->getGlobalScope()->addFunction(decAddr, funcName);
-            if (!fsym) {
-                results.decompiled = false;
-                return results;
+                auto* fsym = arch->symboltab->getGlobalScope()->addFunction(decAddr, funcName);
+                if (!fsym) {
+                    results.decompiled = false;
+                    return results;
+                }
+                fd = fsym->getFunction();
             }
-            fd = fsym->getFunction();
+        } catch (const ghidra_decompiler::LowlevelError& le) {
+            if (monitor) monitor->setMessage("Function lookup error: " + le.explain);
+            results.decompiled = false;
+            return results;
+        } catch (const std::exception& e) {
+            if (monitor) monitor->setMessage("Function lookup error: " + std::string(e.what()));
+            results.decompiled = false;
+            return results;
         }
         if (!fd) {
             results.decompiled = false;
@@ -290,6 +299,10 @@ struct DecompInterface::Impl {
             return results;
         } catch (const std::exception& e) {
             if (monitor) monitor->setMessage("Decompile error: " + std::string(e.what()));
+            results.decompiled = false;
+            return results;
+        } catch (...) {
+            if (monitor) monitor->setMessage("Decompile error: unknown exception");
             results.decompiled = false;
             return results;
         }
@@ -422,7 +435,16 @@ std::string DecompInterface::disassembleAt(const Address& addr, int numInstructi
     uint64_t offset = addr.getOffset();
     for (int i = 0; i < numInstructions; i++) {
         ghidra_decompiler::Address decAddr(space, static_cast<ghidra_decompiler::int8>(offset));
-        ghidra_decompiler::int4 len = trans->printAssembly(emit, decAddr);
+        ghidra_decompiler::int4 len = 0;
+        try {
+            len = trans->printAssembly(emit, decAddr);
+        } catch (const ghidra_decompiler::LowlevelError& le) {
+            out << "; Disasm error at 0x" << std::hex << offset << ": " << le.explain << "\n";
+            break;
+        } catch (const std::exception& e) {
+            out << "; Disasm exception at 0x" << std::hex << offset << ": " << e.what() << "\n";
+            break;
+        }
         if (len <= 0) break;
         offset += len;
     }

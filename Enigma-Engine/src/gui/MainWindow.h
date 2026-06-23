@@ -37,6 +37,17 @@ public:
 public:
     void loadBinary(const QString& path);
 
+    // Isolation: set via NAV_SKIP env var (bitmask)
+    enum NavSkipFlag {
+        NavSkip_None           = 0,
+        NavSkip_Disasm         = 1 << 0,
+        NavSkip_Decompile      = 1 << 1,
+        NavSkip_Hex            = 1 << 2,
+        NavSkip_FunctionLookup = 1 << 3,
+    };
+    int navSkipFlags_ = NavSkip_None;
+    void setNavSkip(int flags) { navSkipFlags_ = flags; }
+
 private slots:
     void onOpenBinary();
     void onSaveProject();

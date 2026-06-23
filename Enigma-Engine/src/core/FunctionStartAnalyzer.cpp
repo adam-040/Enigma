@@ -628,7 +628,18 @@ static int findFunctionsFromPdata(Program* program, TaskMonitor* monitor, int ma
         MemoryBlock* execBlock = memory->getBlock(targetAddr);
         if (!execBlock || !execBlock->isExecute()) continue;
 
+        // Use the full .pdata range [beginRva, endRva) for the function body.
+        // EndAddress in .pdata is exclusive (points past the last instruction).
+        // This makes getFunctionContaining() work correctly for addresses
+        // inside the function's code range, preventing other scanners from
+        // creating overlapping heuristic entries.
+        uint32_t endRva = *reinterpret_cast<const uint32_t*>(buf.data() + off + 4);
+        uint64_t endAddrVal = imageBase + endRva;
         AddressSet body(targetAddr, targetAddr);
+        if (endRva > beginRva) {
+            Address lastAddr(defaultSpace, static_cast<int64_t>(endAddrVal - 1));
+            body = AddressSet(targetAddr, lastAddr);
+        }
         std::ostringstream funcName;
         funcName << "func_pdata_0x" << std::hex << std::nouppercase << targetAddrVal;
 
@@ -643,8 +654,15 @@ static int findFunctionsFromPdata(Program* program, TaskMonitor* monitor, int ma
             funcMgr->removeFunction(containingEntry);
             try {
                 funcMgr->createFunction(funcName.str(), targetAddr, body, SourceType::ANALYSIS);
-                AddressSet contBody(containingEntry, targetAddr.subtract(1));
-                funcMgr->createFunction(containingName, containingEntry, contBody, SourceType::ANALYSIS);
+                // Only re-create the containing function if its entry is
+                // before the pdata target (valid split range).
+                // If entry > target, the containing body was bogus (e.g., a
+                // loader symbol covering the entire .text section). Don't re-create.
+                if (containingEntry.getOffset() < targetAddrVal) {
+                    AddressSet contBody(containingEntry, targetAddr.subtract(1));
+                    funcMgr->createFunction(containingName, containingEntry, contBody,
+                                            SourceType::ANALYSIS);
+                }
                 createdCandidates.push_back(targetAddr);
                 ++found;
             } catch (const std::exception&) {
