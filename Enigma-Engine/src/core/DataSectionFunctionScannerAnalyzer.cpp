@@ -149,7 +149,9 @@ static std::vector<uint64_t> collect4ByteRVAs(Memory* memory, TaskMonitor* monit
 
 // Check if the given address looks like a plausible function boundary.
 // The byte before the candidate should be CC (int3 padding), C3 (ret),
-// E9 (jmp), or the address should be the start of the executable block.
+// or E9/EB (jmp tail call). These are unambiguous function boundaries.
+// 0x90 (nop) and 0x00 (zero) are NOT reliable — they appear mid-function
+// in alignment padding and instruction immediates.
 static bool isAtFunctionBoundary(Memory* memory, const Address& addr) {
     MemoryBlock* targetBlock = memory->getBlock(addr);
     if (!targetBlock) return false;
@@ -169,8 +171,18 @@ static bool isAtFunctionBoundary(Memory* memory, const Address& addr) {
         return false;
     }
 
-    return prevByte == 0xCC || prevByte == 0xC3 || prevByte == 0xE9 || prevByte == 0xEB ||
-           prevByte == 0x90 || prevByte == 0x00;
+    return prevByte == 0xCC || prevByte == 0xC3 || prevByte == 0xE9 || prevByte == 0xEB;
+}
+
+// Checks if the first byte at an address looks like a plausible function
+// entry point. Filters out bytes that are never valid instruction starts
+// in x86-64 mode, or that strongly indicate non-code (0x00 0xFF padding).
+static bool isPlausibleFunctionPrologue(const uint8_t fb) {
+    // Explicitly reject non-instruction bytes
+    if (fb == 0x00 || fb == 0xFF) return false;
+    // int3 padding
+    if (fb == 0xCC) return false;
+    return true;
 }
 
 bool DataSectionFunctionScannerAnalyzer::added(Program* program, const AddressSetView& set,
@@ -218,10 +230,15 @@ bool DataSectionFunctionScannerAnalyzer::added(Program* program, const AddressSe
             if (!listing->isUndefined(targetAddr)) continue;
 
             try {
-                uint8_t fb = 0;
-                memory->getBytes(targetAddr, &fb, 1);
-                if (fb == 0xCC) continue;
+                uint8_t fb[3] = {0, 0, 0};
+                memory->getBytes(targetAddr, fb, 3);
+                if (!isPlausibleFunctionPrologue(fb[0])) continue;
+                // Reject multi-byte NOP alignment padding (0F 1F ...)
+                // which is the standard x86-64 alignment NOP sequence
+                if (fb[0] == 0x0F && fb[1] == 0x1F) continue;
             } catch (...) { continue; }
+
+            if (!isAtFunctionBoundary(memory, targetAddr)) continue;
 
             try {
                 AddressSet body(targetAddr, targetAddr);
@@ -249,8 +266,8 @@ bool DataSectionFunctionScannerAnalyzer::added(Program* program, const AddressSe
     }
 
     // PHASE 2: scan .rdata specifically for 8-byte pointer targets in .text.
-    // These are COM/C++ vtable entries — strong deterministic evidence.
-    // No cap: even single-entry vtable pointers are valid function references.
+    // Many are COM/C++ vtable entries — strong evidence, but .rdata also
+    // contains string tables, import data, etc., so cap candidates.
     int rdataFound = 0;
     {
         std::vector<uint64_t> rdataCandidates;
@@ -282,7 +299,7 @@ bool DataSectionFunctionScannerAnalyzer::added(Program* program, const AddressSe
             }
         }
 
-        rdataFound = scanCandidates(std::move(rdataCandidates), 0);
+        rdataFound = scanCandidates(std::move(rdataCandidates), MAX_FOUND);
     }
 
     int totalFound = genericFound + rdataFound;

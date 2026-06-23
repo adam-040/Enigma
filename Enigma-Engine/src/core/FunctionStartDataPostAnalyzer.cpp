@@ -70,6 +70,30 @@ bool FunctionStartDataPostAnalyzer::added(Program* program, const AddressSetView
             }
 
             if (hasDataRef && listing->isUndefined(addr)) {
+                // Validate: check first byte is a plausible instruction start
+                try {
+                    uint8_t fb[3] = {0, 0, 0};
+                    memory->getBytes(addr, fb, 3);
+                    if (fb[0] == 0xCC || fb[0] == 0x00 || fb[0] == 0xFF) continue;
+                    // Reject multi-byte NOP alignment padding (0F 1F ...)
+                    if (fb[0] == 0x0F && fb[1] == 0x1F) continue;
+                } catch (...) { continue; }
+
+                // Validate: check we're at a function boundary
+                MemoryBlock* block = memory->getBlock(addr);
+                if (block && addr != block->getStart()) {
+                    Address prev = addr.subtract(1);
+                    if (prev.isValid()) {
+                        uint8_t prevByte = 0;
+                        try {
+                            memory->getBytes(prev, &prevByte, 1);
+                            if (prevByte != 0xCC && prevByte != 0xC3 &&
+                                prevByte != 0xE9 && prevByte != 0xEB)
+                                continue;
+                        } catch (...) { continue; }
+                    }
+                }
+
                 AddressSet body(addr, addr);
                 funcMgr->createFunction("func_data_" + std::to_string(addr.getOffset()),
                                         addr, body, SourceType::ANALYSIS);

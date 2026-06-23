@@ -34,6 +34,35 @@ Build a production-grade reverse engineering IDE with:
 
 ## Done
 
+### Stress-Test Pipeline & .pdata Fixes
+- **All 10 stress files** (kernel32, ntdll, user32, gdi32, advapi32, shell32, ole32, comctl32, ws2_32, mshtml) pipeline-audited with function/instruction counts, timing, peak memory (max 2.2 GB of 7.8 GB)
+- **CSV dumps** all verified — counts match audits
+- **Ghidra comparison** baseline established (kernel32, ntdll, user32)
+- **4 .pdata fixes** in `FunctionStartAnalyzer.cpp` — fixed ordering/splitting oversize .pdata bodies
+- **3 genuine missing functions captured** (kernel32 `0x180017448`, ntdll 1, user32 1)
+
+### Noise-Reduction Phase (Phases 4-5)
+- **3 noise sources identified and fixed**:
+  - `DataSectionFunctionScannerAnalyzer.cpp`: `isAtFunctionBoundary()` accepts only `0xCC`/`0xC3`/`0xE9`/`0xEB` (removed `0x90`/`0x00`); added `isPlausibleFunctionPrologue()` rejecting `0x00`/`0xFF`/`0xCC`; capped Phase 2 .rdata scan
+  - `FunctionStartDataPostAnalyzer.cpp`: first-byte validation + boundary check
+  - `FunctionStartAnalyzer.cpp`: multi-byte NOP (`0F 1F`) and REX-prefix XOR-zero (`45 33 C0/C9/D2/DB`) rejection in pattern/trigger matching
+- `AggressiveRecoveryAnalyzer.cpp` inspected — `.pdata` scoring is a hint-only constant, no action needed
+
+### Noise-Reduction Results
+| Binary | Before (extras) | After (extras) | func_data before | func_data after |
+|--------|----------------|----------------|-----------------|----------------|
+| kernel32 | ~993 | **495** | ~504 | **3 (0.6%)** |
+| user32 | ~725 | **697** | ~5 | **5 (0.7%)** |
+| ntdll | ~2,143 | **1,614** | ~493 | **22 (1.4%)** |
+
+- Remaining extras dominated by `func_pdata` (legitimate .pdata entries Ghidra doesn't split)
+- Phase 4 sampling validated 72% of extras are genuine functions with Capstone vs Ghidra cross-reference
+
+### Tooling Created
+- `tools/classify_extras.py`, `tools/investigate_missing.py`, `tools/compare_function_lists.py`, `tools/check_pdata.py`
+- `tools/phase4_sampling.py`, `tools/phase5_funcstart.py`, `tools/phase5c_preceding.py`
+- `test_binaries/phase4_report.html`, `test_binaries/phase4_summary.md`
+
 ### TypeDatabase Infrastructure
 - `TypeDatabase.h` (abstract base), `WindowsTypeDatabase.cpp` (~376 + `#include wintype_siggen.inc`), `LinuxTypeDatabase`/`MacOSTypeDatabase` stubs
 - `TypeDatabaseFactory.cpp` with `detectPlatform()` + `createTypeDatabaseForPlatform()`

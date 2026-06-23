@@ -454,7 +454,8 @@ dispatching tasks.
     `TypeDatabaseFactory` with platform detection, `AnalysisBridge::bridgeImportSignatures()`
     bridge on scope iteration, `applyTypeDatabaseToCallSpecs()` post-decompilation hook.
     notepad: 53 types applied (was 0), shell32: 298 types applied (was 0). All 48/48 suites pass.
-43. **Phase 3b: Qt GUI Workspace** — ADS refactoring (CDockManager replaces QDockWidget/QSplitter),
+43. **W150 Stress-test pipeline audit**: Ran Enigma pipeline on 10 largest Windows system binaries (function counts 3,583–67,669). Found & fixed 4 .pdata bugs in `FunctionStartAnalyzer.cpp`: reorder, filter removal, isUndefined→getInstructionAt, function body splitting for oversized symbol bodies. All 3 genuine missing-functions now match Ghidra. Created `tools/classify_extras.py`, `investigate_missing.py`, `compare_function_lists.py`, `check_pdata.py`. See `PLAN/PROGRESS.md` W150 for full table.
+44. **Phase 3b: Qt GUI Workspace** — ADS refactoring (CDockManager replaces QDockWidget/QSplitter),
     CutterSeekable interface + impl in Hex/Disasm/Decompiler views, MainWindow seek hub
     (`seekAll`/`onAddressSeeked`/`navigateTo`/`onNavigateBack`), View menu checkmarks,
     Console title bar hidden, Explorer improvements (sort/monospace/bold/tooltips/clear),

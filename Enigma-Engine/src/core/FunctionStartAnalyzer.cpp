@@ -1,3 +1,4 @@
+#include <iostream>
 #include <ghidra/FunctionStartAnalyzer.h>
 #include <ghidra/Program.h>
 #include <ghidra/Memory.h>
@@ -281,6 +282,17 @@ static int findPatternStarts(Program* program, TaskMonitor* monitor, int maxPerP
             for (const auto& pattern : patterns) {
                 if (static_cast<int>(pattern.size()) > remaining) continue;
                 if (std::memcmp(buf.data() + off, pattern.data(), pattern.size()) != 0) continue;
+                // 2-byte XOR-zero (33 C0/C9/D2/DB) may be the tail of a wider XOR
+                // with a REX prefix (45 33 C0 = XOR R8D,R8D). Check preceding byte.
+                if (pattern.size() == 2 && pattern[0] == 0x33 && off > 0) {
+                    uint8_t prev = buf[off - 1];
+                    // REX prefixes (0x40-0x4F), segment overrides (0x64/0x65),
+                    // operand-size (0x66), rep prefixes (0xF2/0xF3)
+                    if ((prev & 0xF0) == 0x40 || prev == 0x64 || prev == 0x65 ||
+                        prev == 0x66 || prev == 0xF2 || prev == 0xF3) {
+                        continue;
+                    }
+                }
                 if (isInFunctionRanges(funcRanges, static_cast<uint64_t>(addr.getOffset()))) continue;
                 if (funcMgr->getFunctionAt(addr)) continue;
                 if (!isAtFunctionBoundary(memory, addr) &&
@@ -512,6 +524,18 @@ static int findMultiInstructionPatterns(Program* program, TaskMonitor* monitor, 
                 if (std::memcmp(p, tr.bytes, tr.len) != 0) continue;
                 if (tr.totalMin > remaining) continue;
 
+                // 2-byte triggers may match the tail of a wider REX-prefixed
+                // instruction (e.g., 45 33 C9 = XOR R9D,R9D matched as 33 C9).
+                if (tr.len == 2 && off > 0) {
+                    uint8_t prev = buf[off - 1];
+                    uint8_t firstTrig = tr.bytes[0];
+                    // REX prefixes on XOR (0x33, 0x31) or LEA (0x8D) triggers
+                    if ((prev & 0xF0) == 0x40 || prev == 0x64 || prev == 0x65 ||
+                        prev == 0x66 || prev == 0xF2 || prev == 0xF3) {
+                        continue;
+                    }
+                }
+
                 // Use the disassembler to check that from this address onward,
                 // the bytes form exactly a 2-instruction sequence ending in JMP.
                 int consumed = 0;
@@ -598,25 +622,42 @@ static int findFunctionsFromPdata(Program* program, TaskMonitor* monitor, int ma
         Address targetAddr(defaultSpace, static_cast<int64_t>(targetAddrVal));
 
         if (funcMgr->getFunctionAt(targetAddr)) continue;
-        if (!listing->isUndefined(targetAddr)) continue;
+        if (listing->getInstructionAt(targetAddr) != nullptr) continue;
+        if (listing->getDataAt(targetAddr) != nullptr) continue;
 
         MemoryBlock* execBlock = memory->getBlock(targetAddr);
         if (!execBlock || !execBlock->isExecute()) continue;
 
-        try {
-            uint8_t fb = 0;
-            memory->getBytes(targetAddr, &fb, 1);
-            if (fb == 0xCC || fb == 0x00) continue;
-        } catch (...) { continue; }
+        AddressSet body(targetAddr, targetAddr);
+        std::ostringstream funcName;
+        funcName << "func_pdata_0x" << std::hex << std::nouppercase << targetAddrVal;
 
-        try {
-            AddressSet body(targetAddr, targetAddr);
-            std::ostringstream funcName;
-            funcName << "func_pdata_0x" << std::hex << std::nouppercase << targetAddrVal;
-            funcMgr->createFunction(funcName.str(), targetAddr, body, SourceType::ANALYSIS);
-            createdCandidates.push_back(targetAddr);
-            ++found;
-        } catch (const std::exception&) {}
+        // Check if the target address is inside an existing function's body.
+        // This happens when the COFF/PE loader created functions with oversized
+        // symbol bodies (e.g., the PE entry point covering the whole .text).
+        // We split the containing function to insert this guaranteed .pdata entry.
+        Function* containingFunc = funcMgr->getFunctionContaining(targetAddr);
+        if (containingFunc) {
+            Address containingEntry = containingFunc->getEntryPoint();
+            std::string containingName = containingFunc->getName();
+            funcMgr->removeFunction(containingEntry);
+            try {
+                funcMgr->createFunction(funcName.str(), targetAddr, body, SourceType::ANALYSIS);
+                AddressSet contBody(containingEntry, targetAddr.subtract(1));
+                funcMgr->createFunction(containingName, containingEntry, contBody, SourceType::ANALYSIS);
+                createdCandidates.push_back(targetAddr);
+                ++found;
+            } catch (const std::exception&) {
+                // Split failed — both functions may be gone or pdata was created.
+                // Either way, nothing more to do.
+            }
+        } else {
+            try {
+                funcMgr->createFunction(funcName.str(), targetAddr, body, SourceType::ANALYSIS);
+                createdCandidates.push_back(targetAddr);
+                ++found;
+            } catch (const std::exception&) {}
+        }
     }
     return found;
 }
@@ -805,6 +846,10 @@ bool FunctionStartAnalyzer::added(Program* program, const AddressSetView& set,
     std::vector<Address> createdCandidates;
     int total = 0;
 
+    monitor->setMessage("Searching for .pdata function entries...");
+    int pdataCount = findFunctionsFromPdata(program, monitor, 10000, createdCandidates);
+    total += pdataCount;
+
     monitor->setMessage("Searching for function starts by byte pattern...");
     int patternCount = findPatternStarts(program, monitor, 10000, createdCandidates);
     total += patternCount;
@@ -824,10 +869,6 @@ bool FunctionStartAnalyzer::added(Program* program, const AddressSetView& set,
     monitor->setMessage("Searching for zero-prologue call targets...");
     int zeroCount = findZeroPrologueFunctions(program, monitor, 5000, createdCandidates);
     total += zeroCount;
-
-    monitor->setMessage("Searching for .pdata function entries...");
-    int pdataCount = findFunctionsFromPdata(program, monitor, 10000, createdCandidates);
-    total += pdataCount;
 
     monitor->setMessage("Searching for tail-call wrappers...");
     int wrapperCount = findTailCallWrappers(program, monitor, 5000, createdCandidates);
