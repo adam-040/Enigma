@@ -698,12 +698,9 @@ void MainWindow::onAnalysisFinished() {
         throw;
     }
 
-    if (currentFunction_) {
-        DBG("[onAnalysisFinished] navigating to current function\n");
-        // Save address before stale pointer (FunctionBodyFinalizer may have recreated)
-        uint64_t savedEntry = currentFunction_->getEntryPoint().getOffset();
-        std::string savedName = currentFunction_->getName();
-        navigateTo(savedEntry, QString::fromStdString(savedName));
+    if (currentAddr_ != 0) {
+        DBG("[onAnalysisFinished] navigating to current addr 0x%llx\n", currentAddr_);
+        navigateTo(currentAddr_, QString());
     } else if (program_) {
         DBG("[onAnalysisFinished] getting functions list...\n");
         auto funcs = decompInterface_->getFunctions();
