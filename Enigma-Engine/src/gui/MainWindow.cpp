@@ -31,6 +31,7 @@
 #include <iomanip>
 #include <windows.h>   // GetCurrentThreadId
 #include <chrono>       // timestamps
+#include <DockOverlay.h>
 
 
 MainWindow::MainWindow(QWidget* parent)
@@ -45,6 +46,22 @@ MainWindow::MainWindow(QWidget* parent)
 
     dockManager_ = new ads::CDockManager(this);
     setCentralWidget(dockManager_);
+
+    // Hide the blue ADS drop-zone indicator icons: make them fully transparent
+    // so the entire dock area acts as the drop target without visual clutter.
+    QByteArray overlayCss(
+        "ads--CDockOverlayCross {"
+        "  qproperty-iconColors: \"Frame=#00000000 Background=#00000000"
+        "  Overlay=#00000000 Arrow=#00000000 Shadow=#00000000\";"
+        "}");
+    dockManager_->setStyleSheet(overlayCss);
+    for (auto* ol : dockManager_->findChildren<ads::CDockOverlay*>()) {
+        for (auto* cross : ol->findChildren<ads::CDockOverlayCross*>()) {
+            cross->setIconColors(
+                "Frame=#00000000 Background=#00000000"
+                " Overlay=#00000000 Arrow=#00000000 Shadow=#00000000");
+        }
+    }
 
     createDockWidgets();
     createMenuBar();
@@ -139,10 +156,7 @@ void MainWindow::createDockWidgets() {
     disasmDock_   = createDock("DISASSEMBLY", disasmView_);
     decompDock_   = createDock("DECOMPILER", decompView_);
     hexDock_      = createDock("HEX", hexView_);
-    consoleDock_  = createDock("CONSOLE", console_);
-
-    // Console's internal QTabWidget already shows Console, Output, etc.
-    consoleDock_->setFeature(ads::CDockWidget::NoTab, true);
+    consoleDock_  = createDock("", console_);
 
     // Identical split hierarchy to the original QDockWidget layout
     dockManager_->addDockWidget(ads::LeftDockWidgetArea, explorerDock_);
