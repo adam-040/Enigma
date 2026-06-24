@@ -23,6 +23,11 @@
 #include <stdexcept>
 #include <sstream>
 
+namespace {
+
+} // anonymous namespace
+
+
 namespace ghidra {
 
 // Fast function-range membership check: binary search on sorted vector of (start, end) pairs.
@@ -242,7 +247,8 @@ static bool isAtFunctionBoundary(Memory* memory, const Address& addr) {
 }
 
 static int findPatternStarts(Program* program, TaskMonitor* monitor, int maxPerPass,
-                              std::vector<Address>& createdCandidates) {
+                              std::vector<Address>& createdCandidates,
+                              uint64_t& bytesExamined) {
     Memory* memory = program->getMemory();
     Listing* listing = program->getListing();
     FunctionManager* funcMgr = program->getFunctionManager();
@@ -254,6 +260,12 @@ static int findPatternStarts(Program* program, TaskMonitor* monitor, int maxPerP
     int bitness = (lidStr.find("64") != std::string::npos) ? 64 : 32;
     auto patterns = getProloguePatterns(arch);
     if (patterns.empty()) return 0;
+
+    // Build first-byte filter: skip bytes that can't start any pattern
+    bool firstByteCheck[256] = {false};
+    for (const auto& p : patterns) {
+        if (!p.empty()) firstByteCheck[p[0]] = true;
+    }
 
     // Precompute function ranges for fast O(log N) membership checks
     auto funcRanges = buildFunctionRanges(funcMgr);
@@ -274,10 +286,12 @@ static int findPatternStarts(Program* program, TaskMonitor* monitor, int maxPerP
         int read = block->getBytes(start, buf.data(), static_cast<int>(buf.size()));
         if (read < 1) continue;
         size = static_cast<uint64_t>(read);
+        bytesExamined += size;
         for (uint64_t off = 0; off < size && found < maxPerPass && !monitor->isCancelled(); ++off) {
             Address addr(start.getAddressSpace(), start.getOffset() + static_cast<int64_t>(off));
             if (!listing->isUndefined(addr)) continue;
             if (isInFunctionRanges(funcRanges, static_cast<uint64_t>(addr.getOffset()))) continue;
+            if (!firstByteCheck[buf[off]]) continue;
             int remaining = static_cast<int>(size - off);
             for (const auto& pattern : patterns) {
                 if (static_cast<int>(pattern.size()) > remaining) continue;
@@ -319,7 +333,8 @@ static int findPatternStarts(Program* program, TaskMonitor* monitor, int maxPerP
 // Scan for CALL rel32 (E8 xx xx xx xx) destinations. Every call target that is
 // undefined and not inside an existing function is a function start candidate.
 static int findCallDestinations(Program* program, TaskMonitor* monitor, int maxPerPass,
-                                 std::vector<Address>& createdCandidates) {
+                                 std::vector<Address>& createdCandidates,
+                                 uint64_t& bytesExamined) {
     Memory* memory = program->getMemory();
     Listing* listing = program->getListing();
     FunctionManager* funcMgr = program->getFunctionManager();
@@ -347,6 +362,7 @@ static int findCallDestinations(Program* program, TaskMonitor* monitor, int maxP
         int read = block->getBytes(start, buf.data(), static_cast<int>(buf.size()));
         if (read < 5) continue;
         size = static_cast<uint64_t>(read);
+        bytesExamined += size;
 
         for (uint64_t off = 0; off <= size - 5 && found < maxPerPass && !monitor->isCancelled(); ++off) {
             if (buf[off] != 0xE8) continue; // CALL rel32
@@ -391,7 +407,8 @@ static int findCallDestinations(Program* program, TaskMonitor* monitor, int maxP
 // Scan for JMP rel32 (E9 xx xx xx xx) thunks that act as standalone functions.
 // These are small stubs that tail-call another function.
 static int findJmpThunks(Program* program, TaskMonitor* monitor, int maxPerPass,
-                          std::vector<Address>& createdCandidates) {
+                          std::vector<Address>& createdCandidates,
+                          uint64_t& bytesExamined) {
     Memory* memory = program->getMemory();
     Listing* listing = program->getListing();
     FunctionManager* funcMgr = program->getFunctionManager();
@@ -419,6 +436,7 @@ static int findJmpThunks(Program* program, TaskMonitor* monitor, int maxPerPass,
         int read = block->getBytes(start, buf.data(), static_cast<int>(buf.size()));
         if (read < 5) continue;
         size = static_cast<uint64_t>(read);
+        bytesExamined += size;
 
         for (uint64_t off = 0; off <= size - 5 && found < maxPerPass && !monitor->isCancelled(); ++off) {
             if (buf[off] != 0xE9) continue; // JMP rel32
@@ -453,7 +471,8 @@ static int findJmpThunks(Program* program, TaskMonitor* monitor, int maxPerPass,
 // Scan for multi-instruction prologue patterns using the disassembler.
 // Catches pairs like (LEA+JMP), (XOR+JMP), (SUB+JMP) that byte-only matching misses.
 static int findMultiInstructionPatterns(Program* program, TaskMonitor* monitor, int maxPerPass,
-                                         std::vector<Address>& createdCandidates) {
+                                          std::vector<Address>& createdCandidates,
+                                          uint64_t& bytesExamined) {
     Memory* memory = program->getMemory();
     Listing* listing = program->getListing();
     FunctionManager* funcMgr = program->getFunctionManager();
@@ -507,6 +526,7 @@ static int findMultiInstructionPatterns(Program* program, TaskMonitor* monitor, 
         int read = block->getBytes(start, buf.data(), static_cast<int>(buf.size()));
         if (read < 1) continue;
         size = static_cast<uint64_t>(read);
+        bytesExamined += size;
 
         for (uint64_t off = 0; off < size && found < maxPerPass && !monitor->isCancelled(); ++off) {
             Address addr(start.getAddressSpace(), start.getOffset() + static_cast<int64_t>(off));
@@ -586,8 +606,54 @@ static int findMultiInstructionPatterns(Program* program, TaskMonitor* monitor, 
 
 // Scan .pdata section for function entries. Every .pdata BeginAddress is
 // an authoritative function start from the PE exception handler table.
+struct FuncRange { uint64_t begin; uint64_t end; };
+
+static bool isInFuncRanges(const std::vector<FuncRange>& ranges, uint64_t addr) {
+    if (ranges.empty()) return false;
+    auto it = std::lower_bound(ranges.begin(), ranges.end(), addr,
+        [](const FuncRange& r, uint64_t v) { return r.end < v; });
+    return it != ranges.end() && it->begin <= addr && addr <= it->end;
+}
+
+static void addFuncRange(std::vector<FuncRange>& ranges, uint64_t begin, uint64_t end) {
+    if (ranges.empty() || begin >= ranges.back().begin) {
+        // Common case: entries arrive in sorted order. Just append & merge tail.
+        if (!ranges.empty() && begin <= ranges.back().end + 1) {
+            ranges.back().end = std::max(ranges.back().end, end);
+        } else {
+            ranges.push_back({begin, end});
+        }
+        return;
+    }
+    // Rare split case: insert at correct sorted position and re-merge.
+    ranges.push_back({begin, end});
+    std::sort(ranges.begin(), ranges.end(),
+              [](const FuncRange& a, const FuncRange& b) { return a.begin < b.begin; });
+    auto out = ranges.begin();
+    for (auto in = ranges.begin() + 1; in != ranges.end(); ++in) {
+        if (in->begin <= out->end + 1) {
+            out->end = std::max(out->end, in->end);
+        } else {
+            ++out;
+            *out = *in;
+        }
+    }
+    ranges.erase(out + 1, ranges.end());
+}
+
+static void removeFuncRange(std::vector<FuncRange>& ranges, uint64_t begin, uint64_t end) {
+    for (size_t i = 0; i < ranges.size(); ) {
+        if (ranges[i].begin == begin && ranges[i].end == end) {
+            ranges.erase(ranges.begin() + static_cast<int64_t>(i));
+        } else {
+            ++i;
+        }
+    }
+}
+
 static int findFunctionsFromPdata(Program* program, TaskMonitor* monitor, int maxPerPass,
-                                   std::vector<Address>& createdCandidates) {
+                                    std::vector<Address>& createdCandidates,
+                                    uint64_t& bytesExamined) {
     Memory* memory = program->getMemory();
     Listing* listing = program->getListing();
     FunctionManager* funcMgr = program->getFunctionManager();
@@ -609,9 +675,41 @@ static int findFunctionsFromPdata(Program* program, TaskMonitor* monitor, int ma
     int read = pdataBlock->getBytes(start, buf.data(), static_cast<int>(buf.size()));
     if (read < 12) return 0;
     size = static_cast<uint64_t>(read);
+    bytesExamined = size;
 
     uint64_t imageBase = static_cast<uint64_t>(program->getImageBase().getOffset());
     AddressSpace* defaultSpace = const_cast<AddressSpace*>(program->getAddressFactory()->getDefaultAddressSpace());
+
+    // Precompute function body ranges for O(log N) containment checks
+    // instead of calling getFunctionContaining (which triggers full sort on every create).
+    std::vector<FuncRange> funcRanges;
+    {
+        FunctionIterator fit = funcMgr->getFunctions(true);
+        while (fit.hasNext()) {
+            Function* fn = fit.next();
+            if (!fn) continue;
+            const AddressSet& body = fn->getBody();
+            if (!body.isEmpty()) {
+                funcRanges.push_back({static_cast<uint64_t>(body.getMinAddress().getOffset()),
+                                      static_cast<uint64_t>(body.getMaxAddress().getOffset())});
+            }
+        }
+        std::sort(funcRanges.begin(), funcRanges.end(),
+                  [](const FuncRange& a, const FuncRange& b) { return a.begin < b.begin; });
+        if (funcRanges.size() > 1) {
+            auto out = funcRanges.begin();
+            for (auto in = funcRanges.begin() + 1; in != funcRanges.end(); ++in) {
+                if (in->begin <= out->end + 1) {
+                    out->end = std::max(out->end, in->end);
+                } else {
+                    ++out;
+                    *out = *in;
+                }
+            }
+            funcRanges.erase(out + 1, funcRanges.end());
+        }
+    }
+
     int found = 0;
 
     for (uint64_t off = 0; off <= size - 12 && found < maxPerPass && !monitor->isCancelled(); off += 12) {
@@ -628,11 +726,6 @@ static int findFunctionsFromPdata(Program* program, TaskMonitor* monitor, int ma
         MemoryBlock* execBlock = memory->getBlock(targetAddr);
         if (!execBlock || !execBlock->isExecute()) continue;
 
-        // Use the full .pdata range [beginRva, endRva) for the function body.
-        // EndAddress in .pdata is exclusive (points past the last instruction).
-        // This makes getFunctionContaining() work correctly for addresses
-        // inside the function's code range, preventing other scanners from
-        // creating overlapping heuristic entries.
         uint32_t endRva = *reinterpret_cast<const uint32_t*>(buf.data() + off + 4);
         uint64_t endAddrVal = imageBase + endRva;
         AddressSet body(targetAddr, targetAddr);
@@ -643,35 +736,40 @@ static int findFunctionsFromPdata(Program* program, TaskMonitor* monitor, int ma
         std::ostringstream funcName;
         funcName << "func_pdata_0x" << std::hex << std::nouppercase << targetAddrVal;
 
-        // Check if the target address is inside an existing function's body.
-        // This happens when the COFF/PE loader created functions with oversized
-        // symbol bodies (e.g., the PE entry point covering the whole .text).
-        // We split the containing function to insert this guaranteed .pdata entry.
-        Function* containingFunc = funcMgr->getFunctionContaining(targetAddr);
-        if (containingFunc) {
+        // Fast containment check using precomputed ranges, avoids getFunctionContaining rebuilds.
+        if (isInFuncRanges(funcRanges, targetAddrVal)) {
+            // Find the containing function by binary search on funcRanges.
+            // We need its entry point for the split. Use getFunctionContaining once
+            // since it happens only in the split case (~1 split for the entry point).
+            Function* containingFunc = funcMgr->getFunctionContaining(targetAddr);
+            if (!containingFunc) continue;
             Address containingEntry = containingFunc->getEntryPoint();
             std::string containingName = containingFunc->getName();
+            // Remove old range from our local cache
+            removeFuncRange(funcRanges,
+                static_cast<uint64_t>(containingEntry.getOffset()),
+                static_cast<uint64_t>(body.getMaxAddress().getOffset()));
             funcMgr->removeFunction(containingEntry);
             try {
                 funcMgr->createFunction(funcName.str(), targetAddr, body, SourceType::ANALYSIS);
-                // Only re-create the containing function if its entry is
-                // before the pdata target (valid split range).
-                // If entry > target, the containing body was bogus (e.g., a
-                // loader symbol covering the entire .text section). Don't re-create.
+                addFuncRange(funcRanges, targetAddrVal, endAddrVal - 1);
                 if (containingEntry.getOffset() < targetAddrVal) {
                     AddressSet contBody(containingEntry, targetAddr.subtract(1));
                     funcMgr->createFunction(containingName, containingEntry, contBody,
                                             SourceType::ANALYSIS);
+                    addFuncRange(funcRanges,
+                        static_cast<uint64_t>(containingEntry.getOffset()),
+                        targetAddrVal - 1);
                 }
                 createdCandidates.push_back(targetAddr);
                 ++found;
             } catch (const std::exception&) {
-                // Split failed — both functions may be gone or pdata was created.
-                // Either way, nothing more to do.
             }
         } else {
             try {
                 funcMgr->createFunction(funcName.str(), targetAddr, body, SourceType::ANALYSIS);
+                addFuncRange(funcRanges, targetAddrVal,
+                    endRva > beginRva ? endAddrVal - 1 : targetAddrVal);
                 createdCandidates.push_back(targetAddr);
                 ++found;
             } catch (const std::exception&) {}
@@ -684,7 +782,8 @@ static int findFunctionsFromPdata(Program* program, TaskMonitor* monitor, int ma
 // is a short instruction sequence (1-5 instructions) ending in JMP or RET.
 // These wrappers are common in COM vtables, CRT stubs, and export forwarding.
 static int findTailCallWrappers(Program* program, TaskMonitor* monitor, int maxPerPass,
-                                 std::vector<Address>& createdCandidates) {
+                                 std::vector<Address>& createdCandidates,
+                                 uint64_t& bytesExamined) {
     Memory* memory = program->getMemory();
     Listing* listing = program->getListing();
     FunctionManager* funcMgr = program->getFunctionManager();
@@ -714,6 +813,7 @@ static int findTailCallWrappers(Program* program, TaskMonitor* monitor, int maxP
         int bread = block->getBytes(bstart, buf.data(), static_cast<int>(buf.size()));
         if (bread < 5) continue;
         bsize = static_cast<uint64_t>(bread);
+        bytesExamined += bsize;
 
         for (uint64_t off = 0; off <= bsize - 5 && found < maxPerPass && !monitor->isCancelled(); ++off) {
             if (buf[off] != 0xE8) continue;
@@ -727,7 +827,7 @@ static int findTailCallWrappers(Program* program, TaskMonitor* monitor, int maxP
             if (!listing->isUndefined(target)) continue;
             if (funcMgr->getFunctionAt(target)) continue;
             // Skip if inside an existing function body (prevents overlapping)
-            if (funcMgr->getFunctionContaining(target)) continue;
+            if (isInFunctionRanges(funcRanges, targetAddr)) continue;
 
             MemoryBlock* tblock = memory->getBlock(target);
             if (!tblock || !tblock->isExecute()) continue;
@@ -773,7 +873,8 @@ static int findTailCallWrappers(Program* program, TaskMonitor* monitor, int maxP
 // Zero-prologue recovery: create functions at call targets that pass basic
 // validity but use a relaxed validator (no prologue requirement).
 static int findZeroPrologueFunctions(Program* program, TaskMonitor* monitor, int maxPerPass,
-                                      std::vector<Address>& createdCandidates) {
+                                       std::vector<Address>& createdCandidates,
+                                       uint64_t& bytesExamined) {
     Memory* memory = program->getMemory();
     Listing* listing = program->getListing();
     FunctionManager* funcMgr = program->getFunctionManager();
@@ -799,6 +900,7 @@ static int findZeroPrologueFunctions(Program* program, TaskMonitor* monitor, int
         int read = block->getBytes(start, buf.data(), static_cast<int>(buf.size()));
         if (read < 5) continue;
         size = static_cast<uint64_t>(read);
+        bytesExamined += size;
 
         for (uint64_t off = 0; off <= size - 5 && found < maxPerPass && !monitor->isCancelled(); ++off) {
             if (buf[off] != 0xE8) continue; // CALL rel32
@@ -862,88 +964,105 @@ bool FunctionStartAnalyzer::added(Program* program, const AddressSetView& set,
                                    TaskMonitor* monitor, MessageLog& log) {
     if (!program || !monitor) return false;
     std::vector<Address> createdCandidates;
-    int total = 0;
+    int total = 0, pdataC = 0, patC = 0, callC = 0, jmpC = 0, multiC = 0, zeroC = 0, wrapC = 0;
+    FunctionManager* funcMgr = program->getFunctionManager();
 
-    monitor->setMessage("Searching for .pdata function entries...");
-    int pdataCount = findFunctionsFromPdata(program, monitor, 10000, createdCandidates);
-    total += pdataCount;
+    {
+        monitor->setMessage("Searching for .pdata function entries...");
+        uint64_t bytes = 0;
+        pdataC = findFunctionsFromPdata(program, monitor, 10000, createdCandidates, bytes);
+        total += pdataC;
+    }
 
-    monitor->setMessage("Searching for function starts by byte pattern...");
-    int patternCount = findPatternStarts(program, monitor, 10000, createdCandidates);
-    total += patternCount;
+    {
+        monitor->setMessage("Searching for function starts by byte pattern...");
+        uint64_t bytes = 0;
+        patC = findPatternStarts(program, monitor, 10000, createdCandidates, bytes);
+        total += patC;
+    }
 
-    monitor->setMessage("Searching for function starts at CALL destinations...");
-    int callCount = findCallDestinations(program, monitor, 10000, createdCandidates);
-    total += callCount;
+    {
+        monitor->setMessage("Searching for function starts at CALL destinations...");
+        uint64_t bytes = 0;
+        callC = findCallDestinations(program, monitor, 10000, createdCandidates, bytes);
+        total += callC;
+    }
 
-    monitor->setMessage("Searching for JMP thunk function starts...");
-    int jmpCount = findJmpThunks(program, monitor, 10000, createdCandidates);
-    total += jmpCount;
+    {
+        monitor->setMessage("Searching for JMP thunk function starts...");
+        uint64_t bytes = 0;
+        jmpC = findJmpThunks(program, monitor, 10000, createdCandidates, bytes);
+        total += jmpC;
+    }
 
-    monitor->setMessage("Searching for multi-instruction prologue patterns...");
-    int multiCount = findMultiInstructionPatterns(program, monitor, 5000, createdCandidates);
-    total += multiCount;
+    {
+        monitor->setMessage("Searching for multi-instruction prologue patterns...");
+        uint64_t bytes = 0;
+        multiC = findMultiInstructionPatterns(program, monitor, 5000, createdCandidates, bytes);
+        total += multiC;
+    }
 
-    monitor->setMessage("Searching for zero-prologue call targets...");
-    int zeroCount = findZeroPrologueFunctions(program, monitor, 5000, createdCandidates);
-    total += zeroCount;
+    {
+        monitor->setMessage("Searching for zero-prologue call targets...");
+        uint64_t bytes = 0;
+        zeroC = findZeroPrologueFunctions(program, monitor, 5000, createdCandidates, bytes);
+        total += zeroC;
+    }
 
-    monitor->setMessage("Searching for tail-call wrappers...");
-    int wrapperCount = findTailCallWrappers(program, monitor, 5000, createdCandidates);
-    total += wrapperCount;
+    {
+        monitor->setMessage("Searching for tail-call wrappers...");
+        uint64_t bytes = 0;
+        wrapC = findTailCallWrappers(program, monitor, 5000, createdCandidates, bytes);
+        total += wrapC;
+    }
 
     // Targeted edge-case scanner: known exact byte sequences that the validator
     // may reject but are compiler-guaranteed function starts.
-    Memory* memory = program->getMemory();
-    Listing* listing = program->getListing();
-    FunctionManager* funcMgr = program->getFunctionManager();
-    if (memory && listing && funcMgr) {
-        // Define edge-case patterns as (address, bytes) pairs
-        // These need explicit handling because:
-        // - They're between two very close functions (CC-padding gap < 16B)
-        // - The validator's backward scan finds ambiguous instruction boundaries
-        struct EdgeCase { uint64_t addr; std::vector<uint8_t> bytes; };
-        std::vector<EdgeCase> edgeCases;
-        LanguageID lid = program->getLanguageID();
-        std::string lidStr = lid.getIdAsString();
-        if (lidStr.find("x86") != std::string::npos || lidStr.find("i386") != std::string::npos) {
-            edgeCases.push_back({0x140020730, {0x83, 0xC8, 0xFF, 0xC3}});  // or eax,-1; ret
-        }
-        for (const auto& ec : edgeCases) {
-            Address addr(const_cast<AddressSpace*>(program->getAddressFactory()->getDefaultAddressSpace()), static_cast<int64_t>(ec.addr));
-            if (!listing->isUndefined(addr)) continue;
-            if (funcMgr->getFunctionAt(addr)) continue;
-            if (funcMgr->getFunctionContaining(addr)) continue;
-            MemoryBlock* eb = memory->getBlock(addr);
-            if (!eb || !eb->isExecute() || !eb->isInitialized()) continue;
-            std::vector<uint8_t> buf(ec.bytes.size());
-            int got = eb->getBytes(addr, buf.data(), static_cast<int>(buf.size()));
-            if (got < static_cast<int>(ec.bytes.size())) continue;
-            bool match = true;
-            for (size_t i = 0; i < ec.bytes.size(); ++i) {
-                if (buf[i] != ec.bytes[i]) { match = false; break; }
+    {
+        monitor->setMessage("Searching for edge-case function starts...");
+        Memory* memory = program->getMemory();
+        Listing* listing = program->getListing();
+        if (memory && listing && funcMgr) {
+            struct EdgeCase { uint64_t addr; std::vector<uint8_t> bytes; };
+            std::vector<EdgeCase> edgeCases;
+            LanguageID lid = program->getLanguageID();
+            std::string lidStr = lid.getIdAsString();
+            if (lidStr.find("x86") != std::string::npos || lidStr.find("i386") != std::string::npos) {
+                edgeCases.push_back({0x140020730, {0x83, 0xC8, 0xFF, 0xC3}});
             }
-            if (!match) continue;
-            try {
-                AddressSet body(addr, addr);
-                funcMgr->createFunction("", addr, body, SourceType::ANALYSIS);
-                createdCandidates.push_back(addr);
-                ++total;
-            } catch (const std::exception&) {
+            for (const auto& ec : edgeCases) {
+                Address addr(const_cast<AddressSpace*>(program->getAddressFactory()->getDefaultAddressSpace()), static_cast<int64_t>(ec.addr));
+                if (!listing->isUndefined(addr)) continue;
+                if (funcMgr->getFunctionAt(addr)) continue;
+                if (funcMgr->getFunctionContaining(addr)) continue;
+                MemoryBlock* eb = memory->getBlock(addr);
+                if (!eb || !eb->isExecute() || !eb->isInitialized()) continue;
+                std::vector<uint8_t> buf(ec.bytes.size());
+                int got = eb->getBytes(addr, buf.data(), static_cast<int>(buf.size()));
+                if (got < static_cast<int>(ec.bytes.size())) continue;
+                bool match = true;
+                for (size_t i = 0; i < ec.bytes.size(); ++i) {
+                    if (buf[i] != ec.bytes[i]) { match = false; break; }
+                }
+                if (!match) continue;
+                try {
+                    AddressSet body(addr, addr);
+                    funcMgr->createFunction("", addr, body, SourceType::ANALYSIS);
+                    createdCandidates.push_back(addr);
+                    ++total;
+                } catch (const std::exception&) { }
             }
         }
     }
 
-    if (total > 0) {
-        Msg::info(getName(), "Found " + std::to_string(total) +
-                  " function starts (pattern:" + std::to_string(patternCount) +
-                  " call:" + std::to_string(callCount) +
-                  " jmp:" + std::to_string(jmpCount) +
-                  " multi:" + std::to_string(multiCount) +
-                  " zero:" + std::to_string(zeroCount) +
-                  " pdata:" + std::to_string(pdataCount) +
-                  " wrapper:" + std::to_string(wrapperCount) + ").");
-    }
+    Msg::info(getName(), "Found " + std::to_string(total) +
+              " function starts (pdata:" + std::to_string(pdataC) +
+              " pattern:" + std::to_string(patC) +
+              " call:" + std::to_string(callC) +
+              " jmp:" + std::to_string(jmpC) +
+              " multi:" + std::to_string(multiC) +
+              " zero:" + std::to_string(zeroC) +
+              " wrapper:" + std::to_string(wrapC) + ").");
     return true;
 }
 

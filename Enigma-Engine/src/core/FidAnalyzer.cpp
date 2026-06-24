@@ -61,50 +61,52 @@ bool FidAnalyzer::added(Program* program, const AddressSetView& set,
     Listing* listing = program->getListing();
     ReferenceManager* refMgr = program->getReferenceManager();
     Memory* memory = program->getMemory();
+    AddressSpace* defaultSpace = const_cast<AddressSpace*>(
+        program->getAddressFactory()->getDefaultAddressSpace());
     if (!funcMgr || !symTable || !listing || !refMgr) return true;
 
-    // Rename helper — only renames auto-named functions (FUN_, sub_, func_start_)
-    // Preserves "entry", "main", and any user-defined or imported symbol names.
+    // Cache all functions in sorted order once, reuse across all steps.
+    FunctionIterator fitAll = funcMgr->getFunctions(true);
+    std::vector<Function*> allFunctions;
+    while (fitAll.hasNext()) {
+        Function* f = fitAll.next();
+        if (f) allFunctions.push_back(f);
+    }
+    if (allFunctions.empty()) return true;
+
     int identified = 0;
+
+    // Rename helper — O(1) lookup via getFunctionAt instead of linear scan.
     auto tryRename = [&](uint64_t off, const std::string& newName) -> bool {
         if (off == 0) return false;
-        FunctionIterator itf = funcMgr->getFunctions(true);
-        while (itf.hasNext()) {
-            Function* func = itf.next();
-            if (!func || func->getEntryPoint().getOffset() != off) continue;
+        Address addr(defaultSpace, static_cast<int64_t>(off));
+        Function* func = funcMgr->getFunctionAt(addr);
+        if (!func) return false;
 
-            std::string cur = func->getName();
-            // Only rename if current name is auto-generated
-            if (!cur.empty() && !isAutoGenName(cur)) {
-                if (cur != "entry" && cur != "main") return false;
-            }
-            Address addr = func->getEntryPoint();
-            if (!symTable->hasSymbol(addr) ||
-                symTable->getPrimarySymbol(addr) == nullptr) {
-                symTable->createLabel(addr, newName, SourceType::ANALYSIS);
-            } else {
-                Symbol* ps = symTable->getPrimarySymbol(addr);
-                std::string pn = ps->getName();
-                if (isAutoGenName(pn)) {
-                    symTable->createLabel(addr, newName, SourceType::ANALYSIS);
-                }
-            }
-            if (cur != "entry" && cur != "main") {
-                func->setName(newName);
-            }
-            return true;
+        std::string cur = func->getName();
+        if (!cur.empty() && !isAutoGenName(cur)) {
+            if (cur != "entry" && cur != "main") return false;
         }
-        return false;
+        if (!symTable->hasSymbol(addr) ||
+            symTable->getPrimarySymbol(addr) == nullptr) {
+            symTable->createLabel(addr, newName, SourceType::ANALYSIS);
+        } else {
+            Symbol* ps = symTable->getPrimarySymbol(addr);
+            if (isAutoGenName(ps->getName())) {
+                symTable->createLabel(addr, newName, SourceType::ANALYSIS);
+            }
+        }
+        if (cur != "entry" && cur != "main") {
+            func->setName(newName);
+        }
+        return true;
     };
 
     // Step 0: Hash-based function identification (FLIRT-like byte pattern matching)
     {
         FidHasher hasher;
         KnownFunctionHashes knownHashes;
-        FunctionIterator fit0 = funcMgr->getFunctions(true);
-        while (fit0.hasNext()) {
-            Function* f = fit0.next();
-            if (!f) continue;
+        for (Function* f : allFunctions) {
             std::string cn = f->getName();
             if (!isAutoGenName(cn)) continue;
 
@@ -119,35 +121,56 @@ bool FidAnalyzer::added(Program* program, const AddressSetView& set,
         }
     }
 
-    // Step 1: Build call graph
+    // Step 1: Build call + reverse call graph from references
     std::unordered_map<uint64_t, std::vector<uint64_t>> callGraph;
+    std::unordered_map<uint64_t, std::vector<uint64_t>> reverseCallGraph;
     std::set<uint64_t> entryPoints;
 
-    FunctionIterator fit = funcMgr->getFunctions(true);
-    while (fit.hasNext()) {
-        Function* f = fit.next();
-        if (f) entryPoints.insert(f->getEntryPoint().getOffset());
+    for (Function* f : allFunctions) {
+        entryPoints.insert(f->getEntryPoint().getOffset());
     }
-    if (entryPoints.empty()) return true;
 
-    std::vector<Instruction*> instructions = listing->getAllInstructions();
-    for (Instruction* inst : instructions) {
-        if (!inst) continue;
-        uint64_t offset = inst->getAddress().getOffset();
-        auto it = entryPoints.upper_bound(offset);
+    // Iterate all references instead of all instructions + per-instr ref lookup.
+    // Eliminates 1.27M getAllInstructions copy + 1.27M getReferencesFrom(toString()) calls.
+    std::vector<Reference*> allRefs = refMgr->getAllReferences();
+    for (Reference* ref : allRefs) {
+        if (!ref) continue;
+        const RefType* rt = ref->getReferenceType();
+        if (!rt || !rt->isCall()) continue;
+
+        uint64_t callee = ref->getToAddress().getOffset();
+        if (callee == 0) continue;
+
+        uint64_t fromAddr = ref->getFromAddress().getOffset();
+        auto it = entryPoints.upper_bound(fromAddr);
         if (it == entryPoints.begin()) continue;
         --it;
         uint64_t caller = *it;
 
-        for (Reference* ref : refMgr->getReferencesFrom(inst->getAddress())) {
-            if (!ref) continue;
-            const RefType* rt = ref->getReferenceType();
-            if (rt && rt->isCall()) {
-                uint64_t callee = ref->getToAddress().getOffset();
-                if (callee > 0) callGraph[caller].push_back(callee);
-            }
-        }
+        callGraph[caller].push_back(callee);
+        reverseCallGraph[callee].push_back(caller);
     }
+
+    // Helper lambdas using reverse call graph
+    auto callsTarget = [&](uint64_t addr, uint64_t target) -> bool {
+        auto it = callGraph.find(addr);
+        if (it == callGraph.end()) return false;
+        for (uint64_t c : it->second) if (c == target) return true;
+        return false;
+    };
+    auto callsAny = [&](uint64_t addr, const std::set<uint64_t>& targets) -> bool {
+        auto it = callGraph.find(addr);
+        if (it == callGraph.end()) return false;
+        for (uint64_t c : it->second) if (targets.count(c)) return true;
+        return false;
+    };
+    auto countCalls = [&](uint64_t addr, const std::set<uint64_t>& targets) -> int {
+        auto it = callGraph.find(addr);
+        if (it == callGraph.end()) return 0;
+        int cnt = 0;
+        for (uint64_t c : it->second) if (targets.count(c)) ++cnt;
+        return cnt;
+    };
 
     // Step 2: Find known addresses from symbol table + function names
     uint64_t entryAddr = 0;
@@ -186,11 +209,8 @@ bool FidAnalyzer::added(Program* program, const AddressSetView& set,
             securityTimeThunks.insert(a);
     }
 
-    // Also scan function names for thunks
-    FunctionIterator fit2 = funcMgr->getFunctions(true);
-    while (fit2.hasNext()) {
-        Function* f = fit2.next();
-        if (!f) continue;
+    // Also scan function names for thunks (uses cached allFunctions)
+    for (Function* f : allFunctions) {
         std::string n = f->getName();
         uint64_t a = f->getEntryPoint().getOffset();
         if (a == 0) continue;
@@ -202,43 +222,10 @@ bool FidAnalyzer::added(Program* program, const AddressSetView& set,
             setAppTypeThunks.insert(a);
     }
 
-    // Helper lambdas
-    auto callsTarget = [&](uint64_t addr, uint64_t target) -> bool {
-        auto it = callGraph.find(addr);
-        if (it == callGraph.end()) return false;
-        for (uint64_t c : it->second) if (c == target) return true;
-        return false;
-    };
-    auto callsAny = [&](uint64_t addr, const std::set<uint64_t>& targets) -> bool {
-        auto it = callGraph.find(addr);
-        if (it == callGraph.end()) return false;
-        for (uint64_t c : it->second) if (targets.count(c)) return true;
-        return false;
-    };
-    auto countCalls = [&](uint64_t addr, const std::set<uint64_t>& targets) -> int {
-        auto it = callGraph.find(addr);
-        if (it == callGraph.end()) return 0;
-        int cnt = 0;
-        for (uint64_t c : it->second) if (targets.count(c)) ++cnt;
-        return cnt;
-    };
-    auto countCallers = [&](uint64_t addr) -> int {
-        int cnt = 0;
-        for (auto& kv : callGraph)
-            for (uint64_t c : kv.second)
-                if (c == addr) ++cnt;
-        return cnt;
-    };
-
-    // Rename helper — only renames auto-named functions (FUN_, sub_, func_start_)
-    // Preserves "entry", "main", and any user-defined or imported symbol names.
-    // Step 3: Name the entry function — keep "entry" as primary name (matches Ghidra CSV).
-    // Additional CRT-specific name is added if the name was auto-generated.
+    // Step 3: Name the entry function
     if (entryAddr > 0) {
-        FunctionIterator fitEntry = funcMgr->getFunctions(true);
-        while (fitEntry.hasNext()) {
-            Function* f = fitEntry.next();
-            if (!f || f->getEntryPoint().getOffset() != entryAddr) continue;
+        for (Function* f : allFunctions) {
+            if (f->getEntryPoint().getOffset() != entryAddr) continue;
             std::string cn = f->getName();
             if (cn.rfind("FUN_", 0) == 0 || cn.rfind("sub_", 0) == 0 ||
                 cn.rfind("func_start_", 0) == 0) {
@@ -250,18 +237,14 @@ bool FidAnalyzer::added(Program* program, const AddressSetView& set,
 
     uint64_t sehAddr = 0;
 
-    // Step 4: Find __scrt_common_main_seh — any function that calls CRT init thunks
+    // Step 4: Find __scrt_common_main_seh
     {
-        FunctionIterator fi4 = funcMgr->getFunctions(true);
-        while (fi4.hasNext()) {
-            Function* f = fi4.next();
-            if (!f) continue;
+        for (Function* f : allFunctions) {
             uint64_t a = f->getEntryPoint().getOffset();
             if (a == entryAddr || a == mainAddr) continue;
             std::string cn = f->getName();
             if (!isAutoGenName(cn)) continue;
 
-            // Check if this function calls initterm OR set_app_type thunks
             bool callsInit = countCalls(a, inittermThunks) >= 1;
             bool callsApp = countCalls(a, setAppTypeThunks) >= 1;
             if (callsInit || callsApp) {
@@ -287,16 +270,12 @@ bool FidAnalyzer::added(Program* program, const AddressSetView& set,
                     }
                 }
             }
-            // Alternative: scan all functions for ones that call main
             if (invAddr == 0 && mainAddr > 0) {
-                FunctionIterator fi5 = funcMgr->getFunctions(true);
-                while (fi5.hasNext()) {
-                    Function* f = fi5.next();
-                    if (!f) continue;
+                for (Function* f : allFunctions) {
                     uint64_t a = f->getEntryPoint().getOffset();
                     if (a == entryAddr || a == mainAddr) continue;
-            std::string cn = f->getName();
-            if (!isAutoGenName(cn)) continue;
+                    std::string cn = f->getName();
+                    if (!isAutoGenName(cn)) continue;
                     if (callsTarget(a, mainAddr)) {
                         if (tryRename(a, "invoke_main")) {
                             ++identified; break;
@@ -307,12 +286,9 @@ bool FidAnalyzer::added(Program* program, const AddressSetView& set,
         }
     }
 
-    // Step 5: If invoke_main not found, search all functions that call main
+    // Step 5 (duplicate): Search all functions that call main
     if (mainAddr > 0) {
-        FunctionIterator fim = funcMgr->getFunctions(true);
-        while (fim.hasNext()) {
-            Function* f = fim.next();
-            if (!f) continue;
+        for (Function* f : allFunctions) {
             uint64_t a = f->getEntryPoint().getOffset();
             if (a == entryAddr || a == mainAddr) continue;
             if (callsTarget(a, mainAddr)) {
@@ -324,12 +300,9 @@ bool FidAnalyzer::added(Program* program, const AddressSetView& set,
         }
     }
 
-    // Step 6: __security_init_cookie — calls security timer functions
+    // Step 6: __security_init_cookie
     if (!securityTimeThunks.empty()) {
-        FunctionIterator fis = funcMgr->getFunctions(true);
-        while (fis.hasNext()) {
-            Function* f = fis.next();
-            if (!f) continue;
+        for (Function* f : allFunctions) {
             uint64_t a = f->getEntryPoint().getOffset();
             if (a == entryAddr || a == mainAddr) continue;
             if (callsAny(a, securityTimeThunks)) {
@@ -341,15 +314,12 @@ bool FidAnalyzer::added(Program* program, const AddressSetView& set,
         }
     }
 
-    // Step 7: __security_check_cookie — called by many functions, has security cookie XOR pattern
+    // Step 7: __security_check_cookie
     {
-        FunctionIterator fic = funcMgr->getFunctions(true);
-        while (fic.hasNext()) {
-            Function* f = fic.next();
-            if (!f) continue;
+        for (Function* f : allFunctions) {
             uint64_t a = f->getEntryPoint().getOffset();
             if (a == entryAddr || a == mainAddr) continue;
-            int nCallers = countCallers(a);
+            uint64_t nCallers = static_cast<uint64_t>(reverseCallGraph[a].size());
             if (nCallers < 5) continue;
 
             std::string cn = f->getName();
@@ -373,12 +343,9 @@ bool FidAnalyzer::added(Program* program, const AddressSetView& set,
         }
     }
 
-    // Step 8: _guard_check_icall and _guard_dispatch_icall — CFG guard stubs
+    // Step 8: _guard_check_icall and _guard_dispatch_icall
     {
-        FunctionIterator fig = funcMgr->getFunctions(true);
-        while (fig.hasNext()) {
-            Function* f = fig.next();
-            if (!f) continue;
+        for (Function* f : allFunctions) {
             uint64_t a = f->getEntryPoint().getOffset();
             std::string cn = f->getName();
             if (!isAutoGenName(cn)) continue;
@@ -390,13 +357,11 @@ bool FidAnalyzer::added(Program* program, const AddressSetView& set,
             int r = block->getBytes(f->getEntryPoint(), buf, 8);
             if (r < 3) continue;
 
-            // _guard_check_icall: ret 0 (c2 00 00) followed by int3 padding
             if (r >= 3 && buf[0] == 0xC2 && buf[1] == 0x00 && buf[2] == 0x00) {
                 if (tryRename(a, "_guard_check_icall")) ++identified;
                 continue;
             }
 
-            // _guard_dispatch_icall: jmp rax (ff e0) followed by int3 padding
             if (r >= 2 && buf[0] == 0xFF && buf[1] == 0xE0) {
                 if (tryRename(a, "_guard_dispatch_icall")) ++identified;
                 continue;

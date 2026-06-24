@@ -11,11 +11,14 @@
 #include <ghidra/Disassembler.h>
 #include <ghidra/Memory.h>
 #include <ghidra/Listing.h>
+#include <algorithm>
 #include <cstdint>
 #include <vector>
 #include <utility>
 #include <unordered_set>
 #include <sstream>
+#include <chrono>
+#include <iostream>
 
 namespace ghidra {
 
@@ -38,6 +41,8 @@ bool FragmentMergeAnalyzer::added(Program* program, const AddressSetView& set,
     if (!program || !monitor) return true;
     monitor->setMessage("Merging func_start_ fragments into parent functions...");
 
+    auto t0 = std::chrono::high_resolution_clock::now();
+
     FunctionManager* funcMgr = program->getFunctionManager();
     if (!funcMgr) return true;
 
@@ -54,9 +59,6 @@ bool FragmentMergeAnalyzer::added(Program* program, const AddressSetView& set,
     if (funcs.empty()) return true;
 
     // Only merge func_start_ entries that are within 16 bytes of another func_start_ entry.
-    // Both are fragments of the same parent function. This is safe because:
-    // - Real standalone functions (even small ones) are never this close together
-    // - The audit confirmed 0 matching-function loss with this approach
     std::unordered_set<uint64_t> toRemove;
     uint64_t prevAddr = funcs[0].first;
     std::string prevName = funcs[0].second;
@@ -75,8 +77,9 @@ bool FragmentMergeAnalyzer::added(Program* program, const AddressSetView& set,
         }
     }
 
+    auto t1 = std::chrono::high_resolution_clock::now();
+
     if (!toRemove.empty()) {
-        // Remove collected fragment functions
         AddressFactory* addrFactory = program->getAddressFactory();
         if (!addrFactory) return true;
         const AddressSpace* defaultSpace = addrFactory->getDefaultAddressSpace();
@@ -86,16 +89,11 @@ bool FragmentMergeAnalyzer::added(Program* program, const AddressSetView& set,
             Address funcAddr(const_cast<AddressSpace*>(defaultSpace), static_cast<int64_t>(addr));
             funcMgr->removeFunction(funcAddr);
         }
-
-        monitor->setMessage("Fragment merge complete: removed " +
-                            std::to_string(toRemove.size()) + " fragments");
     }
 
+    auto t2 = std::chrono::high_resolution_clock::now();
+
     // --- Step 2: Gap bridging (reference-required) ---
-    // Scan gaps between function bodies for CALL targets that land in the gap.
-    // Only creates functions at addresses that are both CALL targets AND suitable
-    // function start candidates, avoiding the speculative approach that produced
-    // a 99.996% false positive rate.
     LanguageID lid = program->getLanguageID();
     std::string lidStr = lid.getIdAsString();
     std::string arch;
@@ -110,7 +108,6 @@ bool FragmentMergeAnalyzer::added(Program* program, const AddressSetView& set,
             Memory* memory = program->getMemory();
             Listing* listing = program->getListing();
 
-            // Collect all functions with their body bounds
             std::vector<std::pair<uint64_t, uint64_t>> funcRanges;
             FunctionIterator fit2 = funcMgr->getFunctions(true);
             while (fit2.hasNext()) {
@@ -128,16 +125,20 @@ bool FragmentMergeAnalyzer::added(Program* program, const AddressSetView& set,
                 }
             }
 
+            auto t3 = std::chrono::high_resolution_clock::now();
+
             int gapFunctions = 0;
-            uint64_t imageBase = static_cast<uint64_t>(program->getImageBase().getOffset());
             AddressSpace* defSpace = const_cast<AddressSpace*>(program->getAddressFactory()->getDefaultAddressSpace());
             auto blocks2 = memory->getBlocks();
+
+            uint64_t totalBytesScanned = 0;
+            uint64_t totalCallsFound = 0;
+
             for (auto* block : blocks2) {
                 if (!block || !block->isExecute() || !block->isInitialized()) continue;
                 uint64_t blockStart = block->getStart().getOffset();
                 uint64_t blockEnd = block->getEnd().getOffset();
 
-                // Read the entire executable block to scan for CALL rel32
                 uint64_t bufSize = (blockEnd - blockStart + 1);
                 if (bufSize > 8 * 1024 * 1024) bufSize = 8 * 1024 * 1024;
                 if (bufSize < 5) continue;
@@ -146,60 +147,78 @@ bool FragmentMergeAnalyzer::added(Program* program, const AddressSetView& set,
                 int got = block->getBytes(blockStartAddr, blockBuf.data(), static_cast<int>(blockBuf.size()));
                 if (got < 5) continue;
                 bufSize = static_cast<uint64_t>(got);
+                totalBytesScanned += bufSize;
 
-                for (size_t i = 1; i < funcRanges.size(); i++) {
-                    uint64_t prevEnd = funcRanges[i - 1].second;
-                    uint64_t currStart = funcRanges[i].first;
+                std::vector<uint64_t> funcStarts;
+                funcStarts.reserve(funcRanges.size());
+                for (const auto& fr : funcRanges) {
+                    funcStarts.push_back(fr.first);
+                }
+
+                for (uint64_t callOff = 0; callOff + 5 <= bufSize; callOff++) {
+                    if (blockBuf[callOff] != 0xE8) continue;
+                    totalCallsFound++;
+
+                    int32_t rel = *reinterpret_cast<const int32_t*>(blockBuf.data() + callOff + 1);
+                    uint64_t callSrc = blockStart + callOff;
+                    uint64_t callTgt = callSrc + 5 + static_cast<uint64_t>(static_cast<int64_t>(rel));
+
+                    if (callTgt < blockStart || callTgt > blockEnd) continue;
+
+                    auto it = std::upper_bound(funcStarts.begin(), funcStarts.end(), callTgt);
+                    if (it == funcStarts.begin() || it == funcStarts.end()) continue;
+                    size_t idx = static_cast<size_t>(std::distance(funcStarts.begin(), it));
+
+                    uint64_t prevEnd = funcRanges[idx - 1].second;
+                    uint64_t currStart = funcRanges[idx].first;
 
                     if (prevEnd < blockStart || currStart > blockEnd) continue;
+                    if (callTgt <= prevEnd) continue;
+
                     uint64_t gapStart = std::max(prevEnd + 1, blockStart);
                     uint64_t gapEnd = std::min(currStart > 0 ? currStart - 1 : 0, blockEnd);
-                    if (gapStart >= gapEnd) continue;
+                    if (callTgt < gapStart || callTgt > gapEnd) continue;
 
                     uint64_t gapSize = gapEnd - gapStart + 1;
                     if (gapSize > 128) continue;
 
-                    // Scan the EXECUTABLE block for CALL rel32 instructions
-                    // whose targets land within this gap
-                    uint64_t minOff = static_cast<uint64_t>(static_cast<int64_t>(gapStart - blockStart));
-                    for (uint64_t callOff = 0; callOff + 5 <= bufSize; callOff++) {
-                        if (blockBuf[callOff] != 0xE8) continue;
+                    Address tgtAddr(defSpace, static_cast<int64_t>(callTgt));
+                    if (funcMgr->getFunctionAt(tgtAddr)) continue;
+                    if (funcMgr->getFunctionContaining(tgtAddr)) continue;
+                    if (!listing->isUndefined(tgtAddr)) continue;
 
-                        int32_t rel = *reinterpret_cast<const int32_t*>(blockBuf.data() + callOff + 1);
-                        uint64_t callSrc = blockStart + callOff;
-                        uint64_t callTgt = callSrc + 5 + static_cast<uint64_t>(static_cast<int64_t>(rel));
+                    try {
+                        uint8_t fb = 0;
+                        memory->getBytes(tgtAddr, &fb, 1);
+                        if (fb == 0xCC || fb == 0x00) continue;
+                    } catch (...) { continue; }
 
-                        // Target must land in the gap
-                        if (callTgt < gapStart || callTgt > gapEnd) continue;
-
-                        Address tgtAddr(defSpace, static_cast<int64_t>(callTgt));
-                        if (funcMgr->getFunctionAt(tgtAddr)) continue;
-                        if (funcMgr->getFunctionContaining(tgtAddr)) continue;
-                        if (!listing->isUndefined(tgtAddr)) continue;
-
-                        // Must be plausible first byte
-                        try {
-                            uint8_t fb = 0;
-                            memory->getBytes(tgtAddr, &fb, 1);
-                            if (fb == 0xCC || fb == 0x00) continue;
-                        } catch (...) { continue; }
-
-                        // Create function
-                        try {
-                            AddressSet body(tgtAddr, tgtAddr);
-                            std::ostringstream funcName;
-                            funcName << "func_gap_0x" << std::hex << std::nouppercase << callTgt;
-                            funcMgr->createFunction(funcName.str(), tgtAddr, body, SourceType::ANALYSIS);
-                            gapFunctions++;
-                        } catch (const std::exception&) {}
-                    }
+                    try {
+                        AddressSet body(tgtAddr, tgtAddr);
+                        std::ostringstream funcName;
+                        funcName << "func_gap_0x" << std::hex << std::nouppercase << callTgt;
+                        funcMgr->createFunction(funcName.str(), tgtAddr, body, SourceType::ANALYSIS);
+                        gapFunctions++;
+                    } catch (const std::exception&) {}
                 }
             }
 
-            if (gapFunctions > 0) {
-                monitor->setMessage("Gap bridging complete: created " +
-                                    std::to_string(gapFunctions) + " functions in gaps");
-            }
+            auto t4 = std::chrono::high_resolution_clock::now();
+
+            auto ms0 = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count();
+            auto ms1 = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+            auto ms2 = std::chrono::duration_cast<std::chrono::milliseconds>(t3 - t2).count();
+            auto ms3 = std::chrono::duration_cast<std::chrono::milliseconds>(t4 - t3).count();
+
+            std::cerr << "[FRAGMENT-MERGE-PROFILE] t_identify=" << ms0 << "ms"
+                      << " t_remove=" << ms1 << "ms"
+                      << " t_funcRanges=" << ms2 << "ms"
+                      << " t_scanBlocks=" << ms3 << "ms"
+                      << " removed=" << toRemove.size()
+                      << " gapFuncs=" << gapFunctions
+                      << " bytesScanned=" << totalBytesScanned
+                      << " callsFound=" << totalCallsFound
+                      << std::endl;
         }
     }
     return true;

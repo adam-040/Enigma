@@ -14,6 +14,7 @@
 
 #include <ghidra/Address.h>
 #include <ghidra/AddressSetView.h>
+#include <ghidra/AddressHash.h>
 #include <ghidra/Instruction.h>
 #include <ghidra/Data.h>
 #include <vector>
@@ -69,8 +70,8 @@ public:
 
 private:
     Program* program_ = nullptr;
-    std::unordered_map<std::string, Instruction*> instructions_;
-    std::unordered_map<std::string, Data*> data_;
+    std::unordered_map<uint64_t, Instruction*, AddressHash> instructions_;
+    std::unordered_map<uint64_t, Data*, AddressHash> data_;
 
     void rebuildSortedInstructions() const;
     void rebuildSortedData() const;

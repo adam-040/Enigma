@@ -131,6 +131,8 @@ void ModuleManager::addRelationship(long parentID, long childID, int orderIdx) {
     } else {
         relationships_.insert(relationships_.begin() + childIndices[orderIdx], {parentID, childID});
     }
+    parentToChildren_[parentID].push_back(childID);
+    childToParents_[childID].push_back(parentID);
 }
 
 void ModuleManager::removeRelationship(long parentID, long childID) {
@@ -139,26 +141,26 @@ void ModuleManager::removeRelationship(long parentID, long childID) {
             return rel.first == parentID && rel.second == childID;
         });
     relationships_.erase(it, relationships_.end());
+    auto& children = parentToChildren_[parentID];
+    children.erase(std::remove(children.begin(), children.end(), childID), children.end());
+    auto& parents = childToParents_[childID];
+    parents.erase(std::remove(parents.begin(), parents.end(), parentID), parents.end());
 }
 
 std::vector<long> ModuleManager::getChildrenIDs(long parentID) const {
-    std::vector<long> children;
-    for (const auto& rel : relationships_) {
-        if (rel.first == parentID) {
-            children.push_back(rel.second);
-        }
+    auto it = parentToChildren_.find(parentID);
+    if (it != parentToChildren_.end()) {
+        return it->second;
     }
-    return children;
+    return {};
 }
 
 std::vector<long> ModuleManager::getParentIDs(long childID) const {
-    std::vector<long> parents;
-    for (const auto& rel : relationships_) {
-        if (rel.second == childID) {
-            parents.push_back(rel.first);
-        }
+    auto it = childToParents_.find(childID);
+    if (it != childToParents_.end()) {
+        return it->second;
     }
-    return parents;
+    return {};
 }
 
 void ModuleManager::setChildOrder(long parentID, long childID, int newIdx) {
@@ -197,6 +199,17 @@ void ModuleManager::setChildOrder(long parentID, long childID, int newIdx) {
         relationships_.push_back(rel);
     } else {
         relationships_.insert(relationships_.begin() + childIndices[newIdx], rel);
+    }
+    // Update cache
+    auto& children = parentToChildren_[parentID];
+    auto cit = std::find(children.begin(), children.end(), childID);
+    if (cit != children.end()) {
+        children.erase(cit);
+    }
+    if (newIdx >= static_cast<int>(children.size())) {
+        children.push_back(childID);
+    } else {
+        children.insert(children.begin() + newIdx, childID);
     }
 }
 
@@ -254,6 +267,16 @@ void ModuleManager::deleteGroup(long key) {
                 return rel.second == key;
             });
         relationships_.erase(relIt, relationships_.end());
+        parentToChildren_.erase(key);
+        childToParents_.erase(key);
+        for (auto& pair : parentToChildren_) {
+            auto& children = pair.second;
+            children.erase(std::remove(children.begin(), children.end(), key), children.end());
+        }
+        for (auto& pair : childToParents_) {
+            auto& parents = pair.second;
+            parents.erase(std::remove(parents.begin(), parents.end(), key), parents.end());
+        }
     } else {
         auto it = modules_.find(key);
         if (it != modules_.end()) {
@@ -264,6 +287,16 @@ void ModuleManager::deleteGroup(long key) {
                     return rel.first == key || rel.second == key;
                 });
             relationships_.erase(relIt, relationships_.end());
+            parentToChildren_.erase(key);
+            childToParents_.erase(key);
+            for (auto& pair : parentToChildren_) {
+                auto& children = pair.second;
+                children.erase(std::remove(children.begin(), children.end(), key), children.end());
+            }
+            for (auto& pair : childToParents_) {
+                auto& parents = pair.second;
+                parents.erase(std::remove(parents.begin(), parents.end(), key), parents.end());
+            }
             
             for (long cid : childIDs) {
                 if (getParentIDs(cid).empty()) {

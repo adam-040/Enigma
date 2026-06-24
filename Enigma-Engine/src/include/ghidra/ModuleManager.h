@@ -86,6 +86,10 @@ private:
     // Parent-child relationships: pair represents (parentID, childID)
     std::vector<std::pair<long, long>> relationships_;
 
+    // Reverse-index caches for O(1) tree queries instead of O(R) scans.
+    std::unordered_map<long, std::vector<long>> parentToChildren_;
+    std::unordered_map<long, std::vector<long>> childToParents_;
+
     void createRootModule();
 };
 

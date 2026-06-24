@@ -26,7 +26,7 @@ Program* Listing::getProgram() const {
 
 Instruction* Listing::getInstructionAt(Address addr) const {
     getPerfCounters().getInstructionAt_calls++;
-    auto it = instructions_.find(addr.toString());
+    auto it = instructions_.find(static_cast<uint64_t>(addr.getOffset()));
     return (it != instructions_.end()) ? it->second : nullptr;
 }
 
@@ -138,33 +138,33 @@ CodeUnit* Listing::getCodeUnitContaining(Address addr) const {
 
 Data* Listing::getDataAt(Address addr) const {
     getPerfCounters().getDataAt_calls++;
-    auto it = data_.find(addr.toString());
+    auto it = data_.find(static_cast<uint64_t>(addr.getOffset()));
     return (it != data_.end()) ? it->second : nullptr;
 }
 
 void Listing::addInstruction(Instruction* inst) {
     getPerfCounters().addInstruction_calls++;
-    instructions_[inst->getAddress().toString()] = inst;
+    instructions_[static_cast<uint64_t>(inst->getAddress().getOffset())] = inst;
     instructionsDirty_ = true;
 }
 
 void Listing::addData(Data* data) {
-    data_[data->getAddress().toString()] = data;
+    data_[static_cast<uint64_t>(data->getAddress().getOffset())] = data;
     dataDirty_ = true;
 }
 
 void Listing::removeInstruction(Address addr) {
-    instructions_.erase(addr.toString());
+    instructions_.erase(static_cast<uint64_t>(addr.getOffset()));
     instructionsDirty_ = true;
 }
 
 void Listing::removeData(Address addr) {
-    data_.erase(addr.toString());
+    data_.erase(static_cast<uint64_t>(addr.getOffset()));
     dataDirty_ = true;
 }
 
 bool Listing::isUndefined(Address addr) const {
-    return !instructions_.count(addr.toString()) && !data_.count(addr.toString());
+    return !getInstructionAt(addr) && !getDataAt(addr);
 }
 
 size_t Listing::getInstructionCount() const {

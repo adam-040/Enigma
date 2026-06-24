@@ -14,6 +14,7 @@
 
 #include <ghidra/Address.h>
 #include <ghidra/AddressSetView.h>
+#include <ghidra/AddressHash.h>
 #include <ghidra/Function.h>
 #include <ghidra/FunctionIterator.h>
 #include <ghidra/PrototypeModel.h>
@@ -93,7 +94,7 @@ public:
 
 private:
     Program* program_ = nullptr;
-    std::unordered_map<std::string, std::unique_ptr<Function>> functions_;
+    std::unordered_map<uint64_t, std::unique_ptr<Function>, AddressHash> functions_;
     std::unordered_map<std::string, std::unique_ptr<PrototypeModel>> callingConventions_;
     std::string defaultCallingConventionName_;
     std::unordered_map<std::string, void*> cache_;

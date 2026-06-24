@@ -239,6 +239,38 @@ bool DataSectionFunctionScannerAnalyzer::added(Program* program, const AddressSe
     bool is64Bit = (langLower.find("64") != std::string::npos) &&
                    (langLower.find("x86") != std::string::npos || langLower.find("i386") != std::string::npos);
 
+    // Precompute existing function body ranges for O(log N) containment checks.
+    // Avoids getFunctionContaining() which triggers a full sort on every createFunction.
+    struct FuncRange { uint64_t begin; uint64_t end; };
+    std::vector<FuncRange> funcRanges;
+    {
+        FunctionIterator fit = funcMgr->getFunctions(true);
+        while (fit.hasNext()) {
+            Function* fn = fit.next();
+            if (!fn) continue;
+            const AddressSet& body = fn->getBody();
+            if (!body.isEmpty()) {
+                funcRanges.push_back({static_cast<uint64_t>(body.getMinAddress().getOffset()),
+                                      static_cast<uint64_t>(body.getMaxAddress().getOffset())});
+            }
+        }
+        std::sort(funcRanges.begin(), funcRanges.end(),
+                  [](const FuncRange& a, const FuncRange& b) { return a.begin < b.begin; });
+        // Merge overlapping ranges
+        if (funcRanges.size() > 1) {
+            auto out = funcRanges.begin();
+            for (auto in = funcRanges.begin() + 1; in != funcRanges.end(); ++in) {
+                if (in->begin <= out->end + 1) {
+                    out->end = std::max(out->end, in->end);
+                } else {
+                    ++out;
+                    *out = *in;
+                }
+            }
+            funcRanges.erase(out + 1, funcRanges.end());
+        }
+    }
+
     // Precompute .pdata ranges to reject candidates inside guaranteed function
     // boundaries from the PE exception handler table. This prevents creating
     // func_data entries at mid-function addresses that would confuse the decompiler.
@@ -270,14 +302,23 @@ bool DataSectionFunctionScannerAnalyzer::added(Program* program, const AddressSe
         }
         std::sort(pdataRanges.begin(), pdataRanges.end(),
                   [](const PdataRange& a, const PdataRange& b) { return a.begin < b.begin; });
-        if (!pdataRanges.empty()) {
-            Msg::debug(getName(), "Loaded " + std::to_string(pdataRanges.size()) +
-                       " .pdata ranges for overlap filtering");
-        }
     }
 
     // Lambda: filter candidates and create functions for unique .text targets.
     // If limit > 0, stops after that many new functions; if limit == 0, unlimited.
+    auto inAnyFuncRange = [&](uint64_t addr) -> bool {
+        if (funcRanges.empty()) return false;
+        auto it = std::lower_bound(funcRanges.begin(), funcRanges.end(), addr,
+            [](const FuncRange& r, uint64_t v) { return r.end < v; });
+        return it != funcRanges.end() && it->begin <= addr && addr <= it->end;
+    };
+    auto inAnyPdataRange = [&](uint64_t addr) -> bool {
+        if (pdataRanges.empty()) return false;
+        auto it = std::lower_bound(pdataRanges.begin(), pdataRanges.end(), addr,
+            [](const PdataRange& r, uint64_t v) { return r.end <= v; });
+        return it != pdataRanges.end() && it->begin <= addr && addr < it->end;
+    };
+
     auto scanCandidates = [&](std::vector<uint64_t> cand, int limit) -> int {
         std::sort(cand.begin(), cand.end());
         cand.erase(std::unique(cand.begin(), cand.end()), cand.end());
@@ -291,57 +332,74 @@ bool DataSectionFunctionScannerAnalyzer::added(Program* program, const AddressSe
             const ExecBlockRange* eb = findExecBlock(execBlocks, tgt);
             if (!eb) continue;
 
-            // Reject candidates inside .pdata function ranges.
-            if (!pdataRanges.empty()) {
-                auto prIt = std::lower_bound(pdataRanges.begin(), pdataRanges.end(), tgt,
-                    [](const PdataRange& r, uint64_t v) { return r.end <= v; });
-                if (prIt != pdataRanges.end() && prIt->begin <= tgt && tgt < prIt->end) {
-                    Msg::debug(getName(), "Rejected 0x" + std::to_string(tgt) +
-                               ": inside pdata [0x" + std::to_string(prIt->begin) +
-                               "-0x" + std::to_string(prIt->end) + ")");
-                    continue;
-                }
-            }
+            // Reject candidates inside existing functions or .pdata ranges.
+            if (inAnyFuncRange(tgt)) continue;
+            if (inAnyPdataRange(tgt)) continue;
 
             Address targetAddr(defaultSpace, static_cast<int64_t>(tgt));
             if (funcMgr->getFunctionAt(targetAddr)) continue;
-            if (funcMgr->getFunctionContaining(targetAddr)) continue;
             if (!listing->isUndefined(targetAddr)) continue;
 
+            // Single combined read: fetch [prevByte, fb0..fb3] for boundary
+            // and prologue validation in one call instead of three.
             try {
-                uint8_t fb[3] = {0, 0, 0};
-                memory->getBytes(targetAddr, fb, 3);
-                if (!isPlausibleFunctionPrologue(fb[0])) continue;
-                // Reject multi-byte NOP alignment padding (0F 1F ...)
-                // which is the standard x86-64 alignment NOP sequence
-                if (fb[0] == 0x0F && fb[1] == 0x1F) continue;
+                uint8_t block[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+                int combinedLen = 0;
+                bool hasPrevByte = false;
+
+                MemoryBlock* tb = memory->getBlock(targetAddr);
+                if (!tb) continue;
+
+                if (targetAddr != tb->getStart()) {
+                    Address prevAddr = targetAddr.subtract(1);
+                    if (prevAddr.isValid()) {
+                        MemoryBlock* pb = memory->getBlock(prevAddr);
+                        if (pb == tb) {
+                            combinedLen = memory->getBytes(prevAddr, block, 8);
+                            hasPrevByte = (combinedLen >= 5);
+                        } else {
+                            combinedLen = memory->getBytes(targetAddr, block, 8);
+                        }
+                    } else {
+                        combinedLen = memory->getBytes(targetAddr, block, 8);
+                    }
+                } else {
+                    combinedLen = memory->getBytes(targetAddr, block, 8);
+                }
+
+                if (combinedLen < 4) continue;
+
+                // block[1] = fb[0], block[2] = fb[1], block[3] = fb[2], block[4] = fb[3]
+                if (!isPlausibleFunctionPrologue(block[1])) continue;
+                if (block[1] == 0x0F && block[2] == 0x1F) continue;
+
+                // Boundary check using cached prevByte (block[0]) — no separate getBytes
+                if (hasPrevByte) {
+                    bool badBoundary = false;
+                    if (is64Bit) {
+                        if ((block[0] >= 0x40 && block[0] <= 0x4F) ||
+                            block[0] == 0xC5 || block[0] == 0xC4 ||
+                            block[0] == 0x26 || block[0] == 0x2E ||
+                            block[0] == 0x36 || block[0] == 0x3E ||
+                            block[0] == 0x64 || block[0] == 0x65 ||
+                            block[0] == 0xF0) badBoundary = true;
+                    }
+                    if (!badBoundary && block[0] != 0xCC && block[0] != 0xC3 &&
+                        block[0] != 0xE9 && block[0] != 0xEB) badBoundary = true;
+
+                    if (badBoundary) {
+                        continue;
+                    }
+                }
+
+                try {
+                    AddressSet body(targetAddr, targetAddr);
+                    funcMgr->createFunction("func_data_0x" + std::to_string(tgt),
+                                            targetAddr, body, SourceType::ANALYSIS);
+                    ++created;
+                } catch (const std::exception&) {
+                }
             } catch (...) { continue; }
-
-            if (!isAtFunctionBoundary(memory, targetAddr, is64Bit)) {
-                uint8_t pb = 0;
-                try { memory->getBytes(targetAddr.subtract(1), &pb, 1); } catch (...) {}
-                Msg::debug(getName(), "Rejected 0x" + std::to_string(tgt) +
-                           ": prev=0x" + std::to_string(pb) +
-                           " not a function boundary (0xCC,0xC3,0xE9,0xEB)");
-                continue;
-            }
-
-            try {
-                AddressSet body(targetAddr, targetAddr);
-                uint8_t prologue[4] = {0,0,0,0};
-                try { memory->getBytes(targetAddr, prologue, 4); } catch (...) {}
-                funcMgr->createFunction("func_data_0x" + std::to_string(tgt),
-                                        targetAddr, body, SourceType::ANALYSIS);
-                Msg::debug(getName(), "Created func_data_0x" + std::to_string(tgt) +
-                           " at 0x" + std::to_string(tgt) +
-                           " prologue: " + std::to_string(prologue[0]) + " " +
-                           std::to_string(prologue[1]) + " " +
-                           std::to_string(prologue[2]) + " " +
-                           std::to_string(prologue[3]));
-                ++created;
-            } catch (const std::exception&) {
-                Msg::debug(getName(), "Failed to create func at 0x" + std::to_string(tgt));
-            }
         }
         return created;
     };

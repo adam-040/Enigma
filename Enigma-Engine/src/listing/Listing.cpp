@@ -16,7 +16,6 @@
 #include <ghidra/CodeUnit.h>
 #include <ghidra/AddressSetView.h>
 #include <algorithm>
-#include <sstream>
 
 namespace ghidra {
 
@@ -25,9 +24,7 @@ Listing::Listing(Program* program) : program_(program) {}
 Program* Listing::getProgram() const { return program_; }
 
 Instruction* Listing::getInstructionAt(Address addr) const {
-    std::ostringstream ss;
-    ss << addr.toString();
-    auto it = instructions_.find(ss.str());
+    auto it = instructions_.find(static_cast<uint64_t>(addr.getOffset()));
     return (it != instructions_.end()) ? it->second : nullptr;
 }
 
@@ -73,9 +70,7 @@ Instruction* Listing::getInstructionContaining(Address addr) const {
 }
 
 Data* Listing::getDataAt(Address addr) const {
-    std::ostringstream ss;
-    ss << addr.toString();
-    auto it = data_.find(ss.str());
+    auto it = data_.find(static_cast<uint64_t>(addr.getOffset()));
     return (it != data_.end()) ? it->second : nullptr;
 }
 
@@ -130,9 +125,7 @@ CodeUnit* Listing::getCodeUnitContaining(Address addr) const {
 
 void Listing::addInstruction(Instruction* inst) {
     if (!inst) return;
-    std::ostringstream ss;
-    ss << inst->getAddress().toString();
-    instructions_[ss.str()] = inst;
+    instructions_[static_cast<uint64_t>(inst->getAddress().getOffset())] = inst;
     instructionsDirty_ = true;
 }
 
@@ -148,23 +141,17 @@ Data* Listing::createData(Address addr, DataType* dataType, int length) {
 
 void Listing::addData(Data* data) {
     if (!data) return;
-    std::ostringstream ss;
-    ss << data->getAddress().toString();
-    data_[ss.str()] = data;
+    data_[static_cast<uint64_t>(data->getAddress().getOffset())] = data;
     dataDirty_ = true;
 }
 
 void Listing::removeInstruction(Address addr) {
-    std::ostringstream ss;
-    ss << addr.toString();
-    instructions_.erase(ss.str());
+    instructions_.erase(static_cast<uint64_t>(addr.getOffset()));
     instructionsDirty_ = true;
 }
 
 void Listing::removeData(Address addr) {
-    std::ostringstream ss;
-    ss << addr.toString();
-    data_.erase(ss.str());
+    data_.erase(static_cast<uint64_t>(addr.getOffset()));
     dataDirty_ = true;
 }
 

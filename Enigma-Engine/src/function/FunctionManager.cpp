@@ -72,7 +72,7 @@ Function* FunctionManager::createFunction(const std::string& name, Address entry
     func->setProgram(program_);
     func->setBody(body);
     Function* raw = func.get();
-    functions_[entryPoint.toString()] = std::move(func);
+    functions_[static_cast<uint64_t>(entryPoint.getOffset())] = std::move(func);
     functionsDirty_ = true;
     // PHASE 10: O(log N) insert into sorted body range set (no shift, no full rebuild)
     if (bodyMin.isValid() && bodyMax.isValid()) {
@@ -116,7 +116,7 @@ Function* FunctionManager::createFunction(const std::string& name, Namespace* na
     func->setProgram(program_);
     func->setBody(body);
     Function* raw = func.get();
-    functions_[entryPoint.toString()] = std::move(func);
+    functions_[static_cast<uint64_t>(entryPoint.getOffset())] = std::move(func);
     functionsDirty_ = true;
     // PHASE 10: O(log N) insert into sorted body range set
     if (bodyMin.isValid() && bodyMax.isValid()) {
@@ -127,7 +127,7 @@ Function* FunctionManager::createFunction(const std::string& name, Namespace* na
 }
 
 bool FunctionManager::removeFunction(Address entryPoint) {
-    auto it = functions_.find(entryPoint.toString());
+    auto it = functions_.find(static_cast<uint64_t>(entryPoint.getOffset()));
     if (it == functions_.end()) return false;
     AddressSet body = it->second->getBody();
     if (!body.isEmpty()) {
@@ -141,7 +141,7 @@ bool FunctionManager::removeFunction(Address entryPoint) {
 
 Function* FunctionManager::getFunctionAt(Address entryPoint) const {
     perfCounters_.getFunctionAt_calls++;
-    auto it = functions_.find(entryPoint.toString());
+    auto it = functions_.find(static_cast<uint64_t>(entryPoint.getOffset()));
     return (it != functions_.end()) ? it->second.get() : nullptr;
 }
 

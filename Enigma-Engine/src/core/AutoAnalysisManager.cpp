@@ -144,6 +144,7 @@
 #include <ghidra/AggressiveRecoveryAnalyzer.h>
 #include <ghidra/FunctionBodyFinalizer.h>
 #include <algorithm>
+#include <future>
 #include <map>
 
 namespace ghidra {
@@ -448,8 +449,6 @@ void AutoAnalysisManager::analyzeRange(const AddressSetView& set, TaskMonitor* m
                           << analyzer->getName() << "'" << std::endl;
                 scheduler->added(set);
                 scheduler->runAnalyzer(program_, monitor, log_);
-                std::cerr << "[INFO] AutoAnalysisManager: finished analyzer '"
-                          << analyzer->getName() << "'" << std::endl;
             }
         }
     }
