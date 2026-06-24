@@ -64,10 +64,21 @@ MainWindow::MainWindow(QWidget* parent)
         }
     }
 
-    // Remove pane borders and splitter gaps so windows appear joined
+    // Style dock widget tabs like browser tabs (no hardcoded colors)
     setStyleSheet(QStringLiteral(
-        "ads--CDockAreaWidget { border: none; }"
-        "ads--CDockSplitter::handle { background: transparent; }"
+        "ads--CDockAreaTitleBar {"
+        "  border-bottom: 1px solid palette(dark);"
+        "}"
+        "ads--CDockWidgetTab {"
+        "  border: none; padding: 2px 10px;"
+        "  background: palette(window);"
+        "}"
+        "ads--CDockWidgetTab[activeTab=\"true\"] {"
+        "  background: palette(base);"
+        "}"
+        "ads--CDockWidgetTab:hover:!active {"
+        "  background: palette(light);"
+        "}"
     ));
 
     createDockWidgets();
@@ -163,7 +174,7 @@ void MainWindow::createDockWidgets() {
     disasmDock_   = createDock("DISASSEMBLY", disasmView_);
     decompDock_   = createDock("DECOMPILER", decompView_);
     hexDock_      = createDock("HEX", hexView_);
-    consoleDock_  = createDock("", console_);
+    consoleDock_ = createDock("", console_);
     consoleDock_->setFeature(ads::CDockWidget::NoTab, true);
 
     // Identical split hierarchy to the original QDockWidget layout
