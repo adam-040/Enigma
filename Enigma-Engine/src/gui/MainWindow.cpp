@@ -39,6 +39,7 @@ MainWindow::MainWindow(QWidget* parent)
 {
     ads::CDockManager::setConfigFlags(
         ads::CDockManager::DragPreviewShowsContentPixmap |
+        ads::CDockManager::OpaqueSplitterResize |
         ads::CDockManager::FloatingContainerHasWidgetTitle |
         ads::CDockManager::DoubleClickUndocksWidget |
         ads::CDockManager::AlwaysShowTabs |
@@ -62,6 +63,12 @@ MainWindow::MainWindow(QWidget* parent)
                 " Overlay=#00000000 Arrow=#00000000 Shadow=#00000000");
         }
     }
+
+    // Remove pane borders and splitter gaps so windows appear joined
+    setStyleSheet(QStringLiteral(
+        "ads--CDockAreaWidget { border: none; }"
+        "ads--CDockSplitter::handle { background: transparent; }"
+    ));
 
     createDockWidgets();
     createMenuBar();
@@ -157,6 +164,7 @@ void MainWindow::createDockWidgets() {
     decompDock_   = createDock("DECOMPILER", decompView_);
     hexDock_      = createDock("HEX", hexView_);
     consoleDock_  = createDock("", console_);
+    consoleDock_->setFeature(ads::CDockWidget::NoTab, true);
 
     // Identical split hierarchy to the original QDockWidget layout
     dockManager_->addDockWidget(ads::LeftDockWidgetArea, explorerDock_);
