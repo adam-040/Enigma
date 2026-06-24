@@ -39,7 +39,6 @@ MainWindow::MainWindow(QWidget* parent)
 {
     ads::CDockManager::setConfigFlags(
         ads::CDockManager::DragPreviewShowsContentPixmap |
-        ads::CDockManager::OpaqueSplitterResize |
         ads::CDockManager::FloatingContainerHasWidgetTitle |
         ads::CDockManager::DoubleClickUndocksWidget |
         ads::CDockManager::AlwaysShowTabs |

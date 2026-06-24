@@ -92,18 +92,6 @@ function(enigma_apply_warning_policy target_name)
     endif()
 endfunction()
 
-# Qt-Advanced-Docking-System (FetchContent from GitHub)
-include(FetchContent)
-set(BUILD_STATIC ON CACHE BOOL "" FORCE)
-set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-FetchContent_Declare(
-    qtadvanceddocking
-    GIT_REPOSITORY https://github.com/githubuser0xFFFF/Qt-Advanced-Docking-System.git
-    GIT_TAG 4.5.0
-    GIT_SHALLOW TRUE
-)
-FetchContent_MakeAvailable(qtadvanceddocking)
-
 # QScintilla
 find_library(QSCINTILLA_LIBRARY NAMES qscintilla2_qt6 HINTS "$ENV{MSYSTEM_PREFIX}/lib" "${MSYS2_MINGW64_ROOT}/lib")
 find_path(QSCINTILLA_INCLUDE_DIR NAMES Qsci/qsciscintilla.h HINTS "$ENV{MSYSTEM_PREFIX}/include" "${MSYS2_MINGW64_ROOT}/include")
