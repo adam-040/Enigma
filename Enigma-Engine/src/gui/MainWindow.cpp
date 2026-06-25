@@ -10,7 +10,6 @@
 #include <QApplication>
 #include <QFileInfo>
 #include <QtConcurrent>
-#include <QProxyStyle>
 #include <ghidra/DecompInterface.h>
 #include <ghidra/ProgramDB.h>
 #include <ghidra/BinaryLoader.h>
@@ -34,24 +33,31 @@
 #include <chrono>       // timestamps
 
 
-class LazyResizeStyle : public QProxyStyle {
-public:
-    using QProxyStyle::QProxyStyle;
-
-    int styleHint(StyleHint hint, const QStyleOption* option = nullptr,
-                  const QWidget* widget = nullptr, QStyleHintReturn* returnData = nullptr) const override {
-        if (hint == QStyle::SH_Splitter_OpaqueResize) {
-            return 0; // Disable opaque resizing (lazy resize)
-        }
-        return QProxyStyle::styleHint(hint, option, widget, returnData);
-    }
-};
-
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
 {
-    setStyle(new LazyResizeStyle(style()));
+    setAnimated(false);
     setCentralWidget(new QWidget(this));
+
+    setStyleSheet(
+        "QMainWindow {"
+        "    background-color: #f0f0f0;"
+        "}"
+        "QMainWindow::separator {"
+        "    background-color: #d0d0d0;"
+        "    width: 1px;"
+        "    height: 1px;"
+        "    margin: 0px;"
+        "    padding: 0px;"
+        "}"
+        "QDockWidget {"
+        "    border: none;"
+        "    background-color: #ffffff;"
+        "}"
+        "QTreeView, QHeaderView, QAbstractScrollArea, QTabWidget::pane, QTabBar {"
+        "    border: none;"
+        "}"
+    );
 
     createDockWidgets();
     createMenuBar();
@@ -136,9 +142,7 @@ void MainWindow::createDockWidgets() {
         auto* dock = new QDockWidget(title, this);
         dock->setObjectName(title);
         dock->setWidget(widget);
-        dock->setFeatures(QDockWidget::DockWidgetMovable |
-                          QDockWidget::DockWidgetClosable |
-                          QDockWidget::DockWidgetFloatable);
+        dock->setFeatures(QDockWidget::DockWidgetMovable); // Hide close/float buttons for clean look
         return dock;
     };
 
