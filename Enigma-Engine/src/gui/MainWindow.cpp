@@ -673,9 +673,13 @@ void MainWindow::runAnalysisAsync() {
     });
 
     analysisWatcher_.setFuture(future);
+    // Disconnect any previous connection to prevent double-fire when loadBinary() is called
+    // multiple times within the same session.
+    disconnect(&analysisWatcher_, &QFutureWatcher<void>::finished,
+               this, &MainWindow::onAnalysisFinished);
     connect(&analysisWatcher_, &QFutureWatcher<void>::finished,
             this, &MainWindow::onAnalysisFinished);
-    NAVLOG("future set, connected onAnalysisFinished\n");
+    NAVLOG("future set, re-connected onAnalysisFinished (old disconnected)\n");
     GUARD_EXIT("runAnalysisAsync");
 }
 
@@ -685,6 +689,20 @@ void MainWindow::onAnalysisFinished() {
         (void*)program_.get(), currentAddr_, (void*)currentFunction_);
 
     console_->log("+ Analysis completed.");
+
+    // Safety: if currentFunction_ belongs to a previous program, null it out
+    if (currentFunction_ && program_) {
+        auto* fm = program_->getFunctionManager();
+        if (fm) {
+            ghidra::Function* check = fm->getFunctionAt(currentFunction_->getEntryPoint());
+            if (check != currentFunction_) {
+                DBG("[onAnalysisFinished] STALE currentFunction_=%p detected, clearing\n",
+                    (void*)currentFunction_);
+                currentFunction_ = nullptr;
+            }
+        }
+    }
+
     QApplication::processEvents();
 
     // VERIFY: program_ and function manager integrity
@@ -932,8 +950,12 @@ void MainWindow::navigateTo(uint64_t addr, const QString& name) {
                     entry.markupXml = QString::fromStdString(results.markupXml);
                     entry.opAddresses = results.opAddresses;
                     decompCache_[addr] = entry;
+                    NAVLOG("  calling showDecompiled cCode.size()=%d markup.size()=%d opAddrs.size()=%zu\n",
+                        cCode.size(), entry.markupXml.size(), entry.opAddresses.size());
                     decompView_->showDecompiled(cCode, addr,
                         entry.markupXml, entry.opAddresses);
+                    NAVLOG("  showDecompiled done, decompView visible=%d size=(%dx%d)\n",
+                        decompView_->isVisible(), decompView_->width(), decompView_->height());
                 } else {
                     NAVLOG("  decompile FAILED, clearing decompiler\n");
                     decompView_->clear();

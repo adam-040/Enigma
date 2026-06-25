@@ -24,6 +24,7 @@
 #include <ghidra/FunctionStartFuncAnalyzer.h>
 #include <ghidra/ApplyDataArchiveAnalyzer.h>
 #include <ghidra/FragmentMergeAnalyzer.h>
+#include <ghidra/FidAnalyzer.h>
 #include <ghidra/MainRecognitionAnalyzer.h>
 #include <ghidra/ExternalEntryFunctionAnalyzer.h>
 #include <ghidra/FunctionDiscoveryAnalyzer.h>
@@ -196,6 +197,7 @@ int main(int argc, char* argv[]) {
     analysisMgr->registerAnalyzer(std::make_unique<ghidra::PEExceptionAnalyzer>());
     analysisMgr->registerAnalyzer(std::make_unique<DataRefFunctionAnalyzer>());
     analysisMgr->registerAnalyzer(std::make_unique<FragmentMergeAnalyzer>());
+    analysisMgr->registerAnalyzer(std::make_unique<FidAnalyzer>());
     analysisMgr->registerAnalyzer(std::make_unique<MainRecognitionAnalyzer>());
     fprintf(stderr, "done register analyzers\n"); fflush(stderr);
 

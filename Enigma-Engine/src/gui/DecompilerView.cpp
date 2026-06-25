@@ -291,16 +291,17 @@ std::unique_ptr<Document> DecompilerView::documentFromMarkup(
             continue;
         }
 
-        const QString content = attrs.value(QStringLiteral("content")).toString();
+        const QString content = xml.readElementText();
         if (content.isEmpty())
             continue;
 
         if (content.trimmed().isEmpty()) {
+            int spaces = content.size();
             if (!line.tokens.isEmpty())
-                line.tokens.back().spaceAfter += content.size();
+                line.tokens.back().spaceAfter += spaces;
             else {
                 Token pad;
-                pad.spaceAfter = content.size();
+                pad.spaceAfter = spaces;
                 pad.addr = line.addr;
                 line.tokens.push_back(pad);
             }

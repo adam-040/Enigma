@@ -133,8 +133,8 @@ int main(int argc, char* argv[]) {
     // Late import thunk detection — catches thunks whose JMP references
     // were created by earlier function-start / reference analyzers.
     analysisMgr->registerAnalyzer(std::make_unique<ImportThunkAnalyzer>());
-    analysisMgr->registerAnalyzer(std::make_unique<MainRecognitionAnalyzer>());
     analysisMgr->registerAnalyzer(std::make_unique<FidAnalyzer>());
+    analysisMgr->registerAnalyzer(std::make_unique<MainRecognitionAnalyzer>());
     analysisMgr->registerAnalyzer(std::make_unique<FunctionBodyFinalizer>());
 
     analysisMgr->analyze(&ghidra::getDummyMonitor());

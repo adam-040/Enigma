@@ -28,6 +28,7 @@
 #include <ghidra/SourceType.h>
 #include <ghidra/TaskMonitor.h>
 #include <ghidra/MessageLog.h>
+#include <ghidra/Msg.h>
 #include <ghidra/AddressSet.h>
 #include <ghidra/AddressSpace.h>
 #include <ghidra/ReferenceManager.h>
@@ -61,6 +62,33 @@ static const std::unordered_set<std::string> kCrtStartupApis = {
     "__p___argc", "__p___argv", "__p___wargv", "__p___envp",
     "__p__acmdln", "__p__wcmdln",
     "__initenv", "get_initial_narrow_environment",
+    // Common C library import thunks
+    "strlen", "strncpy", "strncmp", "strcmp", "strcpy", "strcat",
+    "memcpy", "memmove", "memset", "memcmp",
+    "malloc", "calloc", "realloc", "free",
+    "fprintf", "printf", "sprintf", "snprintf", "vfprintf", "vprintf", "vsprintf",
+    "fopen", "fclose", "fread", "fwrite", "fgets", "fputs",
+    "abort", "exit", "_exit", "_Exit",
+    "signal", "raise",
+    "atoi", "atol", "atof", "strtol", "strtoul", "strtod",
+    "__iob_func", "_amsg_exit",
+    "_beginthreadex", "_endthreadex",
+    "InitializeCriticalSection", "EnterCriticalSection", "LeaveCriticalSection",
+    "GetLastError", "SetLastError",
+    "HeapAlloc", "HeapFree", "GetProcessHeap",
+    "VirtualAlloc", "VirtualFree",
+    "LoadLibraryA", "LoadLibraryW", "GetProcAddress", "FreeLibrary",
+    "GetModuleHandleA", "GetModuleHandleW",
+    "MultiByteToWideChar", "WideCharToMultiByte",
+    "GetVersionExA", "GetVersionExW", "GetVersion",
+    "InterlockedCompareExchange", "InterlockedExchange",
+    "QueryPerformanceCounter", "QueryPerformanceFrequency",
+    "GetSystemTimeAsFileTime", "GetCurrentProcessId", "GetCurrentThreadId",
+    "TerminateProcess", "GetCurrentProcess",
+    "UnhandledExceptionFilter", "SetUnhandledExceptionFilter",
+    "__set_fmode", "__p__fmode", "__p__commode",
+    "_configthreadlocale", "_set_printf_count_output",
+    "__stdio_common_vfprintf", "__acrt_iob_func",
 };
 
 // -----------------------------------------------------------------------
@@ -81,19 +109,40 @@ static void buildSymbolMaps(
         std::unordered_map<uint64_t, std::string>& addrToName,
         std::unordered_map<std::string, uint64_t>& nameToAddr) {
 
+    auto* funcMgr = program->getFunctionManager();
     auto* symTable = program->getSymbolTable();
-    if (!symTable) return;
 
-    SymbolIterator it = symTable->getAllProgramSymbols(true);
-    while (it.hasNext()) {
-        Symbol* sym = it.next();
-        if (!sym || sym->getName().empty()) continue;
-        uint64_t off = static_cast<uint64_t>(sym->getAddress().getOffset());
-        if (off == 0) continue;
-        if (addrToName.find(off) == addrToName.end())
-            addrToName[off] = sym->getName();
-        if (nameToAddr.find(sym->getName()) == nameToAddr.end())
-            nameToAddr[sym->getName()] = off;
+    // First: populate from function names (primary source for renamed functions)
+    if (funcMgr) {
+        FunctionIterator fit = funcMgr->getFunctions(true);
+        while (fit.hasNext()) {
+            Function* f = fit.next();
+            if (!f) continue;
+            uint64_t off = static_cast<uint64_t>(f->getEntryPoint().getOffset());
+            if (off == 0) continue;
+            std::string name = f->getName();
+            if (!name.empty()) {
+                if (addrToName.find(off) == addrToName.end())
+                    addrToName[off] = name;
+                if (nameToAddr.find(name) == nameToAddr.end())
+                    nameToAddr[name] = off;
+            }
+        }
+    }
+
+    // Then: overlay from symbol table (may have additional aliases)
+    if (symTable) {
+        SymbolIterator it = symTable->getAllProgramSymbols(true);
+        while (it.hasNext()) {
+            Symbol* sym = it.next();
+            if (!sym || sym->getName().empty()) continue;
+            uint64_t off = static_cast<uint64_t>(sym->getAddress().getOffset());
+            if (off == 0) continue;
+            if (addrToName.find(off) == addrToName.end())
+                addrToName[off] = sym->getName();
+            if (nameToAddr.find(sym->getName()) == nameToAddr.end())
+                nameToAddr[sym->getName()] = off;
+        }
     }
 }
 
@@ -269,13 +318,26 @@ bool MainRecognitionAnalyzer::added(Program* program,
     static const std::string kThunkPrefix = "thunk_";
 
     auto classifyByBehavior = [&](uint64_t addr) -> std::pair<bool, std::string> {
+        // First: check if this function's own name is a known CRT API
+        auto selfNit = addrToName.find(addr);
+        if (selfNit != addrToName.end()) {
+            const std::string& selfName = selfNit->second;
+            if (kCrtStartupApis.count(selfName))
+                return {true, selfName};
+            if (selfName.size() > kThunkPrefix.size() &&
+                selfName.rfind(kThunkPrefix, 0) == 0) {
+                std::string stripped = selfName.substr(kThunkPrefix.size());
+                if (kCrtStartupApis.count(stripped))
+                    return {true, stripped};
+            }
+        }
+        // Then: check callees
         auto it = callGraph.find(addr);
         if (it == callGraph.end()) return {false, ""};
         for (uint64_t callee : it->second) {
             auto nit = addrToName.find(callee);
             if (nit == addrToName.end()) continue;
             const std::string& rawName = nit->second;
-            // Check exact match first, then strip thunk_ prefix
             if (kCrtStartupApis.count(rawName))
                 return {true, rawName};
             if (rawName.size() > kThunkPrefix.size() &&
@@ -290,6 +352,8 @@ bool MainRecognitionAnalyzer::added(Program* program,
 
     // Phase 1: seed
     std::unordered_set<uint64_t> classifiedCrt;
+
+    // First: classify by behavior from call graph
     for (auto& kv : callGraph) {
         uint64_t addr = kv.first;
         auto [isCrt, reason] = classifyByBehavior(addr);
@@ -304,10 +368,28 @@ bool MainRecognitionAnalyzer::added(Program* program,
         }
     }
 
+    // Second: also classify ALL functions with CRT names (even if not in call graph)
+    for (auto& kv : addrToName) {
+        uint64_t addr = kv.first;
+        const std::string& name = kv.second;
+        if (classifiedCrt.count(addr)) continue;
+        if (kCrtStartupApis.count(name)) { classifiedCrt.insert(addr); continue; }
+        if (!name.empty() && name[0] == '_') { classifiedCrt.insert(addr); continue; }
+        if (matchesCrtPrefix(name))           { classifiedCrt.insert(addr); continue; }
+    }
+
     // Phase 2: propagate
     std::deque<uint64_t> propQueue(classifiedCrt.begin(), classifiedCrt.end());
     std::unordered_set<uint64_t> propVisited;
     std::map<uint64_t, float> mainCandidates;
+
+    // Build reverse call graph (callee → set of callers) for call-count heuristic
+    std::unordered_map<uint64_t, std::unordered_set<uint64_t>> reverseCallGraph;
+    for (auto& kv : callGraph) {
+        for (uint64_t callee : kv.second) {
+            reverseCallGraph[callee].insert(kv.first);
+        }
+    }
 
     while (!propQueue.empty()) {
         uint64_t addr = propQueue.front(); propQueue.pop_front();
@@ -331,12 +413,25 @@ bool MainRecognitionAnalyzer::added(Program* program,
                 // Bonus: callee does NOT itself call CRT (pure user code)
                 auto cit = callGraph.find(callee);
                 bool callsCrt = false;
+                size_t calleeCount = 0;
                 if (cit != callGraph.end()) {
+                    calleeCount = cit->second.size();
                     for (uint64_t gc : cit->second) {
                         if (classifiedCrt.count(gc)) { callsCrt = true; break; }
                     }
                 }
                 if (!callsCrt) conf += 0.10f;
+                // Call-count heuristic: main is called by very few callers
+                auto rcit = reverseCallGraph.find(callee);
+                size_t callerCount = (rcit != reverseCallGraph.end()) ? rcit->second.size() : 0;
+                if (callerCount <= 1) conf += 0.15f;
+                else if (callerCount <= 2) conf += 0.05f;
+                if (callerCount > 4) conf -= 0.10f;
+                // Callee count heuristic: main typically has 1-5 callees
+                // Penalize functions with 0 callees (likely import thunks/data)
+                if (calleeCount == 0) conf -= 0.15f;
+                // Penalize functions with too many callees (likely CRT helpers)
+                else if (calleeCount > 10) conf -= 0.10f;
                 auto existing = mainCandidates.find(callee);
                 if (existing == mainCandidates.end() || existing->second < conf)
                     mainCandidates[callee] = conf;
@@ -385,6 +480,11 @@ bool MainRecognitionAnalyzer::added(Program* program,
                         auto nit = addrToName.find(callee);
                         bool anon = (nit == addrToName.end() || isAutoName(nit->second));
                         if (anon) conf += 0.10f;
+                        auto rcit = reverseCallGraph.find(callee);
+                        size_t callerCount = (rcit != reverseCallGraph.end()) ? rcit->second.size() : 0;
+                        if (callerCount <= 1) conf += 0.15f;
+                        else if (callerCount <= 2) conf += 0.05f;
+                        if (callerCount > 4) conf -= 0.10f;
                         auto existing = mainCandidates.find(callee);
                         if (existing == mainCandidates.end() || existing->second < conf)
                             mainCandidates[callee] = conf;
@@ -398,6 +498,7 @@ bool MainRecognitionAnalyzer::added(Program* program,
     // 5. Select best candidate
     // ----------------------------------------------------------------
     if (mainCandidates.empty()) {
+        Msg::info("MainRecognition", "no main() candidate found");
         log.append("MainRecognitionAnalyzer: no main() candidate found");
         return true;
     }
@@ -457,6 +558,7 @@ bool MainRecognitionAnalyzer::added(Program* program,
     }
 
     if (bestAddr == 0) {
+        Msg::info("MainRecognition", "best candidate address is 0, skipping");
         log.append("MainRecognitionAnalyzer: best candidate address is 0, skipping");
         return true;
     }
@@ -478,9 +580,15 @@ bool MainRecognitionAnalyzer::added(Program* program,
             auto* sym = symTable->getPrimarySymbol(mainFunc->getEntryPoint());
             if (sym) sym->setName(newName);
         }
+        Msg::info("MainRecognition", "identified " + newName +
+                  " at 0x" + std::to_string(bestAddr) +
+                  " (old name: " + oldName + ")");
         log.append("MainRecognitionAnalyzer: identified " + newName +
-                   " at 0x" + std::to_string(bestAddr));
+                   " at 0x" + std::to_string(bestAddr) +
+                   " (old name: " + oldName + ")");
     } else {
+        Msg::info("MainRecognition", "candidate 0x" +
+                  std::to_string(bestAddr) + " not in FunctionManager");
         log.append("MainRecognitionAnalyzer: candidate 0x" +
                    std::to_string(bestAddr) + " not in FunctionManager");
     }

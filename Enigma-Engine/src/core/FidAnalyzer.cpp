@@ -77,6 +77,8 @@ bool FidAnalyzer::added(Program* program, const AddressSetView& set,
     int identified = 0;
 
     // Rename helper — O(1) lookup via getFunctionAt instead of linear scan.
+    // FID renames any function with an auto-generated name, or "entry"/"main".
+    // This allows FID to correctly label the entry point and main when a match exists.
     auto tryRename = [&](uint64_t off, const std::string& newName) -> bool {
         if (off == 0) return false;
         Address addr(defaultSpace, static_cast<int64_t>(off));
@@ -96,9 +98,11 @@ bool FidAnalyzer::added(Program* program, const AddressSetView& set,
                 symTable->createLabel(addr, newName, SourceType::ANALYSIS);
             }
         }
-        if (cur != "entry" && cur != "main") {
-            func->setName(newName);
-        }
+        func->setName(newName);
+        Msg::info("FidAnalyzer", "renamed 0x" + std::to_string(off) +
+                  " " + cur + " -> " + newName);
+        log.append("FidAnalyzer: renamed 0x" + std::to_string(off) +
+                   " " + cur + " -> " + newName);
         return true;
     };
 

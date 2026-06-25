@@ -559,8 +559,8 @@ int main(int argc, char* argv[]) {
     registerAnalyzer("StackVariableAnalyzer", []() -> std::unique_ptr<Analyzer> { return std::make_unique<StackVariableAnalyzer>(); });
     registerAnalyzer("FragmentMergeAnalyzer", []() -> std::unique_ptr<Analyzer> { return std::make_unique<FragmentMergeAnalyzer>(); });
     registerAnalyzer("ImportThunkAnalyzer", []() -> std::unique_ptr<Analyzer> { return std::make_unique<ImportThunkAnalyzer>(); });
-    registerAnalyzer("MainRecognitionAnalyzer", []() -> std::unique_ptr<Analyzer> { return std::make_unique<MainRecognitionAnalyzer>(); });
     registerAnalyzer("FidAnalyzer", []() -> std::unique_ptr<Analyzer> { return std::make_unique<FidAnalyzer>(); });
+    registerAnalyzer("MainRecognitionAnalyzer", []() -> std::unique_ptr<Analyzer> { return std::make_unique<MainRecognitionAnalyzer>(); });
     // Phase B: Aggressive recovery — disabled by default
     registerAnalyzer("FunctionBodyFinalizer", []() -> std::unique_ptr<Analyzer> { return std::make_unique<FunctionBodyFinalizer>(); });
     registerAnalyzer("AggressiveRecoveryAnalyzer", []() -> std::unique_ptr<Analyzer> { return std::make_unique<AggressiveRecoveryAnalyzer>(); });
