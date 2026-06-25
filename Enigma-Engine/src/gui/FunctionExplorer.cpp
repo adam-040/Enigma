@@ -22,6 +22,8 @@ FunctionExplorer::FunctionExplorer(QWidget* parent)
 
     connect(tree_, &QTreeWidget::itemDoubleClicked,
             this, &FunctionExplorer::onItemDoubleClicked);
+    connect(tree_, &QTreeWidget::itemClicked,
+            this, &FunctionExplorer::onItemClicked);
     connect(filter_, &QLineEdit::textChanged,
             this, &FunctionExplorer::onFilterChanged);
 }
@@ -71,4 +73,29 @@ void FunctionExplorer::onFilterChanged(const QString& text) {
         }
         top->setHidden(!topMatch && !childVisible);
     }
+}
+
+void FunctionExplorer::onItemClicked(QTreeWidgetItem* item, int) {
+    if (!item || item->childCount() > 0) return;
+    uint64_t addr = static_cast<uint64_t>(item->data(0, Qt::UserRole).toLongLong());
+    emit functionSelected(addr, item->text(0));
+}
+
+void FunctionExplorer::highlightAddress(uint64_t addr) {
+    // Walk all items and select the one matching addr, without emitting signals
+    tree_->blockSignals(true);
+    for (int i = 0; i < tree_->topLevelItemCount(); ++i) {
+        QTreeWidgetItem* top = tree_->topLevelItem(i);
+        for (int j = 0; j < top->childCount(); ++j) {
+            QTreeWidgetItem* child = top->child(j);
+            uint64_t itemAddr = static_cast<uint64_t>(child->data(0, Qt::UserRole).toLongLong());
+            if (itemAddr == addr) {
+                tree_->setCurrentItem(child);
+                tree_->scrollToItem(child);
+                tree_->blockSignals(false);
+                return;
+            }
+        }
+    }
+    tree_->blockSignals(false);
 }

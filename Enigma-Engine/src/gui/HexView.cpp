@@ -7,6 +7,8 @@ HexView::HexView(QWidget* parent)
 }
 
 void HexView::setData(uint64_t baseAddr, const std::vector<uint8_t>& data) {
+    baseAddr_ = baseAddr;
+    endAddr_ = baseAddr + data.size();
     auto doc = std::make_unique<Document>();
 
     for (size_t offset = 0; offset < data.size(); offset += 16) {
@@ -63,5 +65,11 @@ void HexView::setData(uint64_t baseAddr, const std::vector<uint8_t>& data) {
 }
 
 void HexView::clear() {
+    baseAddr_ = 0;
+    endAddr_ = 0;
     clearDocument();
+}
+
+bool HexView::containsAddress(uint64_t addr) const {
+    return baseAddr_ != endAddr_ && addr >= baseAddr_ && addr < endAddr_;
 }

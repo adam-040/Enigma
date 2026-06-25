@@ -14,6 +14,10 @@
 #include <unordered_map>
 #include <memory>
 #include <cstdint>
+#include <utility>
+#include <vector>
+
+class SelectionManager;
 
 namespace ghidra {
 class ProgramDB;
@@ -59,6 +63,7 @@ private slots:
     void onDisasmAddressDoubleClicked(uint64_t addr);
     void onDecompAddressDoubleClicked(uint64_t addr);
     void onToggleShowBytes(bool show);
+    void onAddressCursorSync(uint64_t addr);
 
 private:
     void createMenuBar();
@@ -77,7 +82,12 @@ private:
     uint64_t currentAddr_ = 0;
     QStack<uint64_t> backStack_;
     QStack<uint64_t> forwardStack_;
-    std::unordered_map<uint64_t, QString> decompCache_;
+    struct DecompCacheEntry {
+        QString cCode;
+        QString markupXml;
+        std::vector<std::pair<uint64_t, uint64_t>> opAddresses;
+    };
+    std::unordered_map<uint64_t, DecompCacheEntry> decompCache_;
     QFutureWatcher<void> analysisWatcher_;
     QString lastConsoleMsg_;
 
@@ -95,4 +105,5 @@ private:
     QLabel* statusAddr_;
     QLabel* statusCount_;
     QAction* showBytesAction_;
+    SelectionManager* selectionMgr_ = nullptr;
 };

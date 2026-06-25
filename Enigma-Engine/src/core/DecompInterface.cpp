@@ -337,6 +337,29 @@ struct DecompInterface::Impl {
         }
         results.callCount = static_cast<int>(results.calls.size());
 
+        const ghidra_decompiler::BlockGraph& blockGraph = fd->getBasicBlocks();
+        for (ghidra_decompiler::int4 i = 0; i < blockGraph.getSize(); ++i) {
+            ghidra_decompiler::FlowBlock* fb = blockGraph.getBlock(i);
+            ghidra_decompiler::BlockBasic* block = dynamic_cast<ghidra_decompiler::BlockBasic*>(fb);
+            if (!block) continue;
+            for (auto iter = block->beginOp(); iter != block->endOp(); ++iter) {
+                ghidra_decompiler::PcodeOp* op = *iter;
+                if (!op) continue;
+                uint64_t opref = static_cast<uint64_t>(op->getTime());
+                uint64_t opaddr = static_cast<uint64_t>(op->getSeqNum().getAddr().getOffset());
+                if (opref != 0 && opaddr != 0)
+                    results.opAddresses.push_back({opref, opaddr});
+            }
+        }
+
+        std::ostringstream xmlStream;
+        arch->print->setOutputStream(&xmlStream);
+        arch->print->setMarkup(true);
+        arch->print->setPackedOutput(false);
+        arch->print->docFunction(fd);
+        arch->print->setMarkup(false);
+        results.markupXml = xmlStream.str();
+
         std::ostringstream cStream;
         arch->print->setOutputStream(&cStream);
         arch->print->docFunction(fd);

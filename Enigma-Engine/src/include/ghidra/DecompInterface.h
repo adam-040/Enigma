@@ -7,6 +7,7 @@
 #include <string>
 #include <memory>
 #include <vector>
+#include <utility>
 
 namespace ghidra {
 
@@ -35,7 +36,9 @@ public:
     int stackPurgeSize;
     std::string conventionName;
     std::string cCode;
+    std::string markupXml;
     std::vector<uint64_t> lineAddresses;
+    std::vector<std::pair<uint64_t, uint64_t>> opAddresses;
     std::vector<DecompiledCall> calls;
     int callCount;
 

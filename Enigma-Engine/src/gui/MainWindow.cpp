@@ -4,6 +4,7 @@
 #include "DecompilerView.h"
 #include "HexView.h"
 #include "ConsoleWidget.h"
+#include "SelectionManager.h"
 
 #include <QFileDialog>
 #include <QMessageBox>
@@ -188,8 +189,21 @@ void MainWindow::createDockWidgets() {
             this, &MainWindow::onFunctionSelected);
     connect(disasmView_, &DisassemblyFieldView::seekRequested,
             this, &MainWindow::onDisasmAddressDoubleClicked);
-    connect(decompView_, &DecompilerView::addressDoubleClicked,
+    connect(decompView_, &DecompilerView::seekRequested,
             this, &MainWindow::onDecompAddressDoubleClicked);
+
+    // --- Sync navigation: cursor movement in any FieldView syncs the others ---
+    selectionMgr_ = new SelectionManager(this);
+    disasmView_->setSelectionManager(selectionMgr_);
+    decompView_->setSelectionManager(selectionMgr_);
+    hexView_->setSelectionManager(selectionMgr_);
+
+    connect(disasmView_, &DisassemblyFieldView::cursorAddressChanged,
+            this, &MainWindow::onAddressCursorSync);
+    connect(hexView_, &HexView::cursorAddressChanged,
+            this, &MainWindow::onAddressCursorSync);
+    connect(decompView_, &DecompilerView::cursorAddressChanged,
+            this, &MainWindow::onAddressCursorSync);
 }
 
 
@@ -835,6 +849,9 @@ void MainWindow::navigateTo(uint64_t addr, const QString& name) {
         NAVLOG("STEP3: SKIPPED (NavSkip_FunctionLookup)\n");
     }
 
+    // Sync explorer highlight to the navigated address
+    explorer_->highlightAddress(addr);
+
     // ── STEP 4: Status bar update ────────────────────────────────────────
     NAVLOG("STEP4: updating status bar\n");
     try {
@@ -900,8 +917,9 @@ void MainWindow::navigateTo(uint64_t addr, const QString& name) {
         try {
             auto it = decompCache_.find(addr);
             if (it != decompCache_.end()) {
-                NAVLOG("  cache HIT (size=%d)\n", it->second.size());
-                decompView_->showDecompiled(it->second);
+                NAVLOG("  cache HIT (size=%d)\n", it->second.cCode.size());
+                decompView_->showDecompiled(it->second.cCode, addr,
+                    it->second.markupXml, it->second.opAddresses);
             } else {
                 NAVLOG("  cache MISS, calling decompileFunction...\n");
                 auto results = decompInterface_->decompileFunction(address, nullptr);
@@ -909,8 +927,13 @@ void MainWindow::navigateTo(uint64_t addr, const QString& name) {
                     results.decompiled, (int)results.cCode.size(), results.functionName.c_str());
                 if (results.decompiled) {
                     QString cCode = QString::fromStdString(results.cCode);
-                    decompCache_[addr] = cCode;
-                    decompView_->showDecompiled(cCode);
+                    DecompCacheEntry entry;
+                    entry.cCode = cCode;
+                    entry.markupXml = QString::fromStdString(results.markupXml);
+                    entry.opAddresses = results.opAddresses;
+                    decompCache_[addr] = entry;
+                    decompView_->showDecompiled(cCode, addr,
+                        entry.markupXml, entry.opAddresses);
                 } else {
                     NAVLOG("  decompile FAILED, clearing decompiler\n");
                     decompView_->clear();
@@ -1004,13 +1027,19 @@ void MainWindow::onNavigateBack() {
     NAVLOG("decompile...\n");
     auto it = decompCache_.find(addr);
     if (it != decompCache_.end()) {
-        decompView_->showDecompiled(it->second);
+        decompView_->showDecompiled(it->second.cCode, addr,
+            it->second.markupXml, it->second.opAddresses);
     } else {
         auto results = decompInterface_->decompileFunction(address, nullptr);
         if (results.decompiled) {
             QString cCode = QString::fromStdString(results.cCode);
-            decompCache_[addr] = cCode;
-            decompView_->showDecompiled(cCode);
+            DecompCacheEntry entry;
+            entry.cCode = cCode;
+            entry.markupXml = QString::fromStdString(results.markupXml);
+            entry.opAddresses = results.opAddresses;
+            decompCache_[addr] = entry;
+            decompView_->showDecompiled(cCode, addr,
+                entry.markupXml, entry.opAddresses);
         } else {
             decompView_->clear();
         }
@@ -1083,5 +1112,40 @@ void MainWindow::logOnce(const QString& msg) {
     if (msg != lastConsoleMsg_) {
         console_->log(msg);
         lastConsoleMsg_ = msg;
+    }
+}
+
+void MainWindow::onAddressCursorSync(uint64_t addr) {
+    if (addr == 0 || !program_) return;
+
+    // Update status bar
+    statusAddr_->setText(QString("0x%1").arg(addr, 0, 16));
+
+    QObject* s = sender();
+
+    // Scroll disasm to the same address
+    if (s != disasmView_)
+        disasmView_->seek(addr);
+
+    // Scroll decompiler to the same address
+    if (s != decompView_)
+        decompView_->seek(addr);
+
+    if (s != hexView_) {
+        if (hexView_->containsAddress(addr)) {
+            hexView_->seek(addr);
+        } else {
+            auto* af = program_->getAddressFactory();
+            auto* mem = program_->getMemory();
+            if (af && mem) {
+                ghidra::Address a = af->oldGetAddressFromLong(addr);
+                std::vector<uint8_t> bytes(256);
+                int got = mem->getBytes(a, bytes.data(), 256);
+                if (got > 0) {
+                    bytes.resize(got);
+                    hexView_->setData(addr, bytes);
+                }
+            }
+        }
     }
 }

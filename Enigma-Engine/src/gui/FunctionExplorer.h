@@ -19,11 +19,15 @@ public:
 
     QTreeWidget* treeWidget() const { return tree_; }
 
+    // Highlight the tree item matching the given address (programmatic selection)
+    void highlightAddress(uint64_t addr);
+
 signals:
     void functionSelected(uint64_t addr, const QString& name);
 
 private slots:
     void onItemDoubleClicked(QTreeWidgetItem* item, int col);
+    void onItemClicked(QTreeWidgetItem* item, int col);
     void onFilterChanged(const QString& text);
 
 private:

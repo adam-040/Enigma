@@ -37,7 +37,7 @@ void Document::finalize() {
             l.text += QString(tok.spaceAfter, QLatin1Char(' '));
         }
         maxColumns_ = std::max(maxColumns_, col);
-        if (l.addr != 0)
+        if (l.addr != 0 && (addrIndex_.isEmpty() || addrIndex_.back().first != l.addr))
             addrIndex_.append({l.addr, i});
     }
 }
@@ -303,11 +303,27 @@ int FieldView::tokenIndexAt(int line, int col) const {
 void FieldView::selectTokenAt(int line, int col) {
     if (!doc_ || line < 0 || line >= doc_->lineCount())
         return;
+    const Line& l = doc_->line(line);
     const Token* tok = tokenAt(line, col);
     if (!tok) {
-        // Place caret on empty/whitespace without clearing local highlight.
+        // A click on whitespace still selects the containing instruction line.
         anchor_ = caret_ = {line, col};
         selectedToken_ = {};
+        highlightWord_.clear();
+        highlightKind_ = TokenKind::Plain;
+        currentLine_ = line;
+        currentAddr_ = l.addr;
+        if (l.addr != 0) {
+            auto range = doc_->instructionRangeForAddress(l.addr);
+            SelectionState sel;
+            sel.valid = true;
+            sel.address = range.first;
+            sel.endAddress = range.second;
+            sel.originView = this;
+            if (selectionMgr_)
+                selectionMgr_->select(sel, this);
+            emit cursorAddressChanged(l.addr);
+        }
         return;
     }
     selectedToken_ = {line, tok->startCol, tok->len};
@@ -315,8 +331,9 @@ void FieldView::selectTokenAt(int line, int col) {
     caret_ = {line, tok->startCol + tok->len};
     highlightWord_ = tok->text;
     highlightKind_ = tok->kind;
+    currentLine_ = line;
+    currentAddr_ = l.addr;
 
-    const Line& l = doc_->line(line);
     auto range = doc_->instructionRangeForAddress(l.addr);
     SelectionState sel;
     sel.valid = true;
@@ -527,21 +544,7 @@ void FieldView::mouseReleaseEvent(QMouseEvent* event) {
 
                 selectTokenAt(hit.line, hit.col);
             } else {
-                selectedToken_ = {};
-                highlightWord_.clear();
-                highlightKind_ = TokenKind::Plain;
-                anchor_ = caret_ = {hit.line, hit.col};
-                uint64_t lineAddr = doc_ ? doc_->line(hit.line).addr : 0;
-                if (lineAddr != 0) {
-                    SelectionState sel;
-                    sel.valid = true;
-                    sel.address = lineAddr;
-                    sel.endAddress = 0;
-                    sel.originView = this;
-                    if (selectionMgr_)
-                        selectionMgr_->select(sel, this);
-                    emit cursorAddressChanged(lineAddr);
-                }
+                selectTokenAt(hit.line, hit.col);
             }
         } else {
             // Drag selection finished: keep range, no token/occurrence highlight
