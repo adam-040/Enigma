@@ -143,9 +143,16 @@ void DisassemblyFieldView::showDisassembly(const QString& text) {
             if (showBytes_ && len > 0) {
                 l.bytes = fetchBytes(program_, rl.addr, len);
                 Token bytesTok;
-                bytesTok.text = formatBytes(l.bytes).leftJustified(20, QLatin1Char(' '));
+                // Use raw bytes text (no padding in text) and compute spaceAfter
+                // so mnemonic always starts at column (addrLen + bytesTargetCol),
+                // with a guaranteed minimum gap of 2 cells regardless of byte count.
+                bytesTok.text = formatBytes(l.bytes);
                 bytesTok.kind = TokenKind::Bytes;
                 bytesTok.addr = rl.addr;
+                // Target: align mnemonic to start 30 chars after bytes token begins.
+                // spaceAfter = max(2, 30 - actual_bytes_len)
+                int gap = 30 - static_cast<int>(bytesTok.text.size());
+                bytesTok.spaceAfter = (gap >= 2) ? gap : 2;
                 l.tokens.push_back(bytesTok);
             }
 
