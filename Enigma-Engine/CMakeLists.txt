@@ -107,7 +107,7 @@ if(Qt6_FOUND)
     file(GLOB_RECURSE GUI_HEADERS CONFIGURE_DEPENDS "src/gui/*.h")
     add_executable(enigma_gui ${GUI_SOURCES} ${GUI_HEADERS} src/gui/resources.qrc)
     target_include_directories(enigma_gui PRIVATE ${CMAKE_SOURCE_DIR}/src/include ${QSCINTILLA_INCLUDE_DIR})
-    target_link_libraries(enigma_gui PRIVATE enigma_engine Qt6::Widgets Qt6::Concurrent ads::qtadvanceddocking-qt6 ${QSCINTILLA_LIBRARY})
+    target_link_libraries(enigma_gui PRIVATE enigma_engine Qt6::Widgets Qt6::Concurrent ${QSCINTILLA_LIBRARY})
     target_compile_definitions(enigma_gui PRIVATE ENIGMA_SLEIGH_DIR="${ENIGMA_SLEIGH_DIR}")
 
     # Add the icons directory as a resource search path

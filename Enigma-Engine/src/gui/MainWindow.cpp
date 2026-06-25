@@ -10,6 +10,7 @@
 #include <QApplication>
 #include <QFileInfo>
 #include <QtConcurrent>
+#include <QProxyStyle>
 #include <ghidra/DecompInterface.h>
 #include <ghidra/ProgramDB.h>
 #include <ghidra/BinaryLoader.h>
@@ -31,54 +32,26 @@
 #include <iomanip>
 #include <windows.h>   // GetCurrentThreadId
 #include <chrono>       // timestamps
-#include <DockOverlay.h>
 
+
+class LazyResizeStyle : public QProxyStyle {
+public:
+    using QProxyStyle::QProxyStyle;
+
+    int styleHint(StyleHint hint, const QStyleOption* option = nullptr,
+                  const QWidget* widget = nullptr, QStyleHintReturn* returnData = nullptr) const override {
+        if (hint == QStyle::SH_Splitter_OpaqueResize) {
+            return 0; // Disable opaque resizing (lazy resize)
+        }
+        return QProxyStyle::styleHint(hint, option, widget, returnData);
+    }
+};
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
 {
-    ads::CDockManager::setConfigFlags(
-        ads::CDockManager::DragPreviewShowsContentPixmap |
-        ads::CDockManager::FloatingContainerHasWidgetTitle |
-        ads::CDockManager::DoubleClickUndocksWidget |
-        ads::CDockManager::AlwaysShowTabs |
-        ads::CDockManager::XmlCompressionEnabled);
-
-    dockManager_ = new ads::CDockManager(this);
-    setCentralWidget(dockManager_);
-
-    // Hide the blue ADS drop-zone indicator icons: make them fully transparent
-    // so the entire dock area acts as the drop target without visual clutter.
-    QByteArray overlayCss(
-        "ads--CDockOverlayCross {"
-        "  qproperty-iconColors: \"Frame=#00000000 Background=#00000000"
-        "  Overlay=#00000000 Arrow=#00000000 Shadow=#00000000\";"
-        "}");
-    dockManager_->setStyleSheet(overlayCss);
-    for (auto* ol : dockManager_->findChildren<ads::CDockOverlay*>()) {
-        for (auto* cross : ol->findChildren<ads::CDockOverlayCross*>()) {
-            cross->setIconColors(
-                "Frame=#00000000 Background=#00000000"
-                " Overlay=#00000000 Arrow=#00000000 Shadow=#00000000");
-        }
-    }
-
-    // Style dock widget tabs like browser tabs (no hardcoded colors)
-    setStyleSheet(QStringLiteral(
-        "ads--CDockAreaTitleBar {"
-        "  border-bottom: 1px solid palette(dark);"
-        "}"
-        "ads--CDockWidgetTab {"
-        "  border: none; padding: 2px 10px;"
-        "  background: palette(window);"
-        "}"
-        "ads--CDockWidgetTab[activeTab=\"true\"] {"
-        "  background: palette(base);"
-        "}"
-        "ads--CDockWidgetTab:hover:!active {"
-        "  background: palette(light);"
-        "}"
-    ));
+    setStyle(new LazyResizeStyle(style()));
+    setCentralWidget(new QWidget(this));
 
     createDockWidgets();
     createMenuBar();
@@ -159,13 +132,13 @@ void MainWindow::createDockWidgets() {
     console_ = new ConsoleWidget(this);
     explorer_ = new FunctionExplorer(this);
 
-    auto createDock = [&](const QString& title, QWidget* widget) -> ads::CDockWidget* {
-        auto* dock = new ads::CDockWidget(dockManager_, title, this);
+    auto createDock = [&](const QString& title, QWidget* widget) -> QDockWidget* {
+        auto* dock = new QDockWidget(title, this);
         dock->setObjectName(title);
-        dock->setWidget(widget, ads::CDockWidget::ForceNoScrollArea);
-        dock->setFeatures(ads::CDockWidget::DockWidgetMovable |
-                          ads::CDockWidget::DockWidgetClosable |
-                          ads::CDockWidget::DockWidgetFloatable);
+        dock->setWidget(widget);
+        dock->setFeatures(QDockWidget::DockWidgetMovable |
+                          QDockWidget::DockWidgetClosable |
+                          QDockWidget::DockWidgetFloatable);
         return dock;
     };
 
@@ -173,15 +146,19 @@ void MainWindow::createDockWidgets() {
     disasmDock_   = createDock("DISASSEMBLY", disasmView_);
     decompDock_   = createDock("DECOMPILER", decompView_);
     hexDock_      = createDock("HEX", hexView_);
-    consoleDock_ = createDock("", console_);
-    consoleDock_->setFeature(ads::CDockWidget::NoTab, true);
+    consoleDock_  = createDock("CONSOLE", console_);
 
-    // Identical split hierarchy to the original QDockWidget layout
-    dockManager_->addDockWidget(ads::LeftDockWidgetArea, explorerDock_);
-    auto* disasmArea = dockManager_->addDockWidget(ads::RightDockWidgetArea, disasmDock_);
-    auto* decompArea = dockManager_->addDockWidget(ads::BottomDockWidgetArea, decompDock_, disasmArea);
-    dockManager_->addDockWidget(ads::BottomDockWidgetArea, hexDock_, decompArea);
-    dockManager_->addDockWidget(ads::BottomDockWidgetArea, consoleDock_);
+    setDockNestingEnabled(true);
+    if (centralWidget()) {
+        centralWidget()->hide();
+    }
+
+    addDockWidget(Qt::LeftDockWidgetArea, explorerDock_);
+    addDockWidget(Qt::RightDockWidgetArea, disasmDock_);
+
+    splitDockWidget(disasmDock_, decompDock_, Qt::Horizontal);
+    splitDockWidget(disasmDock_, consoleDock_, Qt::Vertical);
+    splitDockWidget(decompDock_, hexDock_, Qt::Vertical);
 
     connect(explorer_, &FunctionExplorer::functionSelected,
             this, &MainWindow::onFunctionSelected);

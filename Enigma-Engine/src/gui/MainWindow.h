@@ -1,12 +1,12 @@
 #pragma once
 
 #include <QMainWindow>
+#include <QDockWidget>
 #include <QTreeWidget>
 #include <QLineEdit>
 #include <QPlainTextEdit>
 #include <QLabel>
 #include <QStatusBar>
-#include <DockManager.h>
 #include <QMenuBar>
 #include <QAction>
 #include <QStack>
@@ -86,12 +86,11 @@ private:
     DecompilerView* decompView_;
     HexView* hexView_;
     ConsoleWidget* console_;
-    ads::CDockWidget* explorerDock_;
-    ads::CDockWidget* disasmDock_;
-    ads::CDockWidget* decompDock_;
-    ads::CDockWidget* hexDock_;
-    ads::CDockWidget* consoleDock_;
-    ads::CDockManager* dockManager_;
+    QDockWidget* explorerDock_;
+    QDockWidget* disasmDock_;
+    QDockWidget* decompDock_;
+    QDockWidget* hexDock_;
+    QDockWidget* consoleDock_;
     QLabel* statusFunc_;
     QLabel* statusAddr_;
     QLabel* statusCount_;
