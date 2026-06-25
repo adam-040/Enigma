@@ -57,6 +57,18 @@ MainWindow::MainWindow(QWidget* parent)
         "QTreeView, QHeaderView, QAbstractScrollArea, QTabWidget::pane, QTabBar {"
         "    border: none;"
         "}"
+        "QStatusBar {"
+        "    background-color: #f0f0f0;"
+        "    border-top: 1px solid #d0d0d0;"
+        "}"
+        "QStatusBar::item {"
+        "    border: none;"
+        "}"
+        "QStatusBar QLabel {"
+        "    color: #404040;"
+        "    font-size: 11px;"
+        "    padding: 2px 5px;"
+        "}"
     );
 
     createDockWidgets();
@@ -104,6 +116,10 @@ void MainWindow::createMenuBar() {
     hexAct->setText(tr("&Hex"));
     view->addAction(hexAct);
 
+    auto* consoleAct = consoleDock_->toggleViewAction();
+    consoleAct->setText(tr("&Console"));
+    view->addAction(consoleAct);
+
     view->addSeparator();
     showBytesAction_ = view->addAction(tr("Show &Bytes"));
     showBytesAction_->setCheckable(true);
@@ -138,15 +154,19 @@ void MainWindow::createDockWidgets() {
     console_ = new ConsoleWidget(this);
     explorer_ = new FunctionExplorer(this);
 
-    auto createDock = [&](const QString& title, QWidget* widget) -> QDockWidget* {
+    auto createDock = [&](const QString& title, QWidget* widget, bool closable = true) -> QDockWidget* {
         auto* dock = new QDockWidget(title, this);
         dock->setObjectName(title);
         dock->setWidget(widget);
-        dock->setFeatures(QDockWidget::DockWidgetMovable); // Hide close/float buttons for clean look
+        if (closable) {
+            dock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetClosable);
+        } else {
+            dock->setFeatures(QDockWidget::DockWidgetMovable);
+        }
         return dock;
     };
 
-    explorerDock_ = createDock("EXPLORER", explorer_);
+    explorerDock_ = createDock("EXPLORER", explorer_, false);
     disasmDock_   = createDock("DISASSEMBLY", disasmView_);
     decompDock_   = createDock("DECOMPILER", decompView_);
     hexDock_      = createDock("HEX", hexView_);
