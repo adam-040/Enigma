@@ -237,6 +237,12 @@ target_include_directories(enigma_dump_functions SYSTEM PRIVATE ${CMAKE_SOURCE_D
 target_compile_definitions(enigma_dump_functions PRIVATE ENIGMA_SLEIGH_DIR="${ENIGMA_SLEIGH_DIR}")
 enigma_apply_warning_policy(enigma_dump_functions)
 
+add_executable(enigma_naming_audit tools/enigma_naming_audit.cpp)
+target_link_libraries(enigma_naming_audit PRIVATE enigma_engine)
+target_include_directories(enigma_naming_audit SYSTEM PRIVATE ${CMAKE_SOURCE_DIR}/src/decompiler)
+target_compile_definitions(enigma_naming_audit PRIVATE ENIGMA_SLEIGH_DIR="${ENIGMA_SLEIGH_DIR}")
+enigma_apply_warning_policy(enigma_naming_audit)
+
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 add_test(NAME enigma_test_cli_regression COMMAND Python3::Interpreter ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_cli_regression.py)
 add_test(NAME enigma_test_corpus_regression COMMAND Python3::Interpreter ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_corpus_regression.py)

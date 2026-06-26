@@ -5,6 +5,7 @@
 #include <ghidra/SymbolIterator.h>
 #include <ghidra/Address.h>
 #include <ghidra/AddressFactory.h>
+#include <ghidra/NamingService.h>
 #include <ghidra/TaskMonitor.h>
 #include <ghidra/MessageLog.h>
 #include <ghidra/SourceType.h>
@@ -50,6 +51,7 @@ bool MicrosoftDemanglerAnalyzer::added(Program* program, const AddressSetView& s
     auto* symTable = program->getSymbolTable();
     if (!symTable) return false;
 
+    NamingService naming(program);
     auto it = symTable->getAllProgramSymbols(false);
     int count = 0;
     while (it.hasNext()) {
@@ -59,7 +61,7 @@ bool MicrosoftDemanglerAnalyzer::added(Program* program, const AddressSetView& s
         if (!name.empty() && name[0] == '?') {
             std::string demangled = demangleMicrosoft(name);
             if (!demangled.empty()) {
-                symTable->createLabel(sym->getAddress(), demangled, SourceType::ANALYSIS);
+                naming.assignAlias(sym->getAddress().getOffset(), demangled, SourceType::ANALYSIS);
                 ++count;
             }
         }

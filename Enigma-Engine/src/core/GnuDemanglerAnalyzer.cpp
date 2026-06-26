@@ -5,6 +5,7 @@
 #include <ghidra/SymbolIterator.h>
 #include <ghidra/Address.h>
 #include <ghidra/AddressFactory.h>
+#include <ghidra/NamingService.h>
 #include <ghidra/TaskMonitor.h>
 #include <ghidra/MessageLog.h>
 #include <ghidra/SourceType.h>
@@ -48,6 +49,7 @@ bool GnuDemanglerAnalyzer::added(Program* program, const AddressSetView& set, Ta
     auto* symTable = program->getSymbolTable();
     if (!symTable) return false;
 
+    NamingService naming(program);
     auto it = symTable->getAllProgramSymbols(false);
     int count = 0;
     while (it.hasNext()) {
@@ -57,7 +59,7 @@ bool GnuDemanglerAnalyzer::added(Program* program, const AddressSetView& set, Ta
         if (name.size() >= 3 && name[0] == '_' && name[1] == 'Z') {
             std::string demangled = demangleGnu(name);
             if (!demangled.empty()) {
-                symTable->createLabel(sym->getAddress(), demangled, SourceType::ANALYSIS);
+                naming.assignAlias(sym->getAddress().getOffset(), demangled, SourceType::ANALYSIS);
                 ++count;
             }
         }

@@ -5,6 +5,7 @@
 #include <ghidra/SymbolIterator.h>
 #include <ghidra/Address.h>
 #include <ghidra/AddressFactory.h>
+#include <ghidra/NamingService.h>
 #include <ghidra/TaskMonitor.h>
 #include <ghidra/MessageLog.h>
 #include <ghidra/SourceType.h>
@@ -178,6 +179,7 @@ bool SwiftDemanglerAnalyzer::added(Program* program, const AddressSetView& set, 
     if (!symTable) return false;
 
     auto it = symTable->getAllProgramSymbols(false);
+    NamingService naming(program);
     int count = 0;
     while (it.hasNext()) {
         Symbol* sym = it.next();
@@ -189,7 +191,7 @@ bool SwiftDemanglerAnalyzer::added(Program* program, const AddressSetView& set, 
              (name[0] == '$' && name.size() >= 2 && name[1] == 'S'))) {
             std::string demangled = demangleSwift(name);
             if (!demangled.empty()) {
-                symTable->createLabel(sym->getAddress(), demangled, SourceType::ANALYSIS);
+                naming.assignAlias(sym->getAddress().getOffset(), demangled, SourceType::ANALYSIS);
                 ++count;
             }
         }

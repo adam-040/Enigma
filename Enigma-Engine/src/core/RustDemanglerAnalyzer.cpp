@@ -5,6 +5,7 @@
 #include <ghidra/SymbolIterator.h>
 #include <ghidra/Address.h>
 #include <ghidra/AddressFactory.h>
+#include <ghidra/NamingService.h>
 #include <ghidra/TaskMonitor.h>
 #include <ghidra/MessageLog.h>
 #include <ghidra/SourceType.h>
@@ -237,6 +238,7 @@ bool RustDemanglerAnalyzer::added(Program* program, const AddressSetView& set, T
     if (!symTable) return false;
 
     auto it = symTable->getAllProgramSymbols(false);
+    NamingService naming(program);
     int count = 0;
     while (it.hasNext()) {
         Symbol* sym = it.next();
@@ -245,7 +247,7 @@ bool RustDemanglerAnalyzer::added(Program* program, const AddressSetView& set, T
         if (name.size() >= 2 && name[0] == '_' && name[1] == 'R') {
             std::string demangled = demangleRust(name);
             if (!demangled.empty()) {
-                symTable->createLabel(sym->getAddress(), demangled, SourceType::ANALYSIS);
+                naming.assignAlias(sym->getAddress().getOffset(), demangled, SourceType::ANALYSIS);
                 ++count;
             }
         }
