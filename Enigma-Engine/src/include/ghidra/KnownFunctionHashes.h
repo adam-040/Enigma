@@ -17,7 +17,7 @@ public:
     const char* lookup(uint64_t fullHash, int totalBytes) const;
 
 private:
-    static constexpr int MAX_ENTRIES = 256;
+    static constexpr int MAX_ENTRIES = 512;
     KnownFunctionEntry entries_[MAX_ENTRIES];
     int entryCount_ = 0;
     std::unordered_map<uint64_t, const char*> hashMap_;

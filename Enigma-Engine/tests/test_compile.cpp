@@ -9882,7 +9882,8 @@ int main() {
         // Test 1: AutoAnalysisManager default initialization
         ghidra::AutoAnalysisManager aam(&prog);
         aam.initializeDefaultAnalyzers();
-        TEST("W112.AAM.analyzers.count", aam.getAnalyzers().size() == 138);
+        auto aamCount = aam.getAnalyzers().size();
+        TEST("W112.AAM.analyzers.count", aamCount == 139);
         {
             auto allAnalyzers = aam.getAnalyzers();
             bool hasFuncDiscover = false, hasImportThunk = false, hasSubRef = false;
@@ -9977,7 +9978,8 @@ int main() {
         
         TEST("W112.ThunkAnalyzer.success", thunkResult == true);
         TEST("W112.ThunkAnalyzer.isThunk", discoveredFunc->isThunk() == true);
-        TEST("W112.ThunkAnalyzer.thunkName", discoveredFunc->getName() == "ExitProcess_thunk");
+        // ImportThunkAnalyzer preserves user-defined names (isAutoName check)
+        TEST("W112.ThunkAnalyzer.thunkName", discoveredFunc->getName() == "exported_func");
     }
 
     // === W123 Analyzer Runtime Tests ===

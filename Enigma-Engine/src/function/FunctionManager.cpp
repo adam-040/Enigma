@@ -62,8 +62,7 @@ Function* FunctionManager::createFunction(const std::string& name, Address entry
             --it;
             // Check if this range overlaps with [newStart, newEnd]
             if (it->first <= newEnd && newStart <= it->second) {
-                throw std::runtime_error("Function body overlaps existing function at " +
-                                         std::to_string(it->first));
+                return nullptr;
             }
         }
     }
@@ -107,8 +106,7 @@ Function* FunctionManager::createFunction(const std::string& name, Namespace* na
         if (it != sortedBodyRanges_.begin()) {
             --it;
             if (it->first <= newEnd && newStart <= it->second) {
-                throw std::runtime_error("Function body overlaps existing function at " +
-                                         std::to_string(it->first));
+                return nullptr;
             }
         }
     }

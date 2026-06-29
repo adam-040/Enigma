@@ -564,11 +564,11 @@ private:
 
         uint32_t exportDirRVA = 0;
         if (bitness_ == 32) {
+            if (optHeaderOffset + 104 > rawData_.size()) return;
+            exportDirRVA = *reinterpret_cast<uint32_t*>(rawData_.data() + optHeaderOffset + 96);
+        } else {
             if (optHeaderOffset + 120 > rawData_.size()) return;
             exportDirRVA = *reinterpret_cast<uint32_t*>(rawData_.data() + optHeaderOffset + 112);
-        } else {
-            if (optHeaderOffset + 136 > rawData_.size()) return;
-            exportDirRVA = *reinterpret_cast<uint32_t*>(rawData_.data() + optHeaderOffset + 128);
         }
 
         if (exportDirRVA == 0) return;

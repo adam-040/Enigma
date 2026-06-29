@@ -1,0 +1,703 @@
+{
+  "binary": "profapi.dll",
+  "functions": [
+    {
+      "name": "Ordinal_106",
+      "offset": 6442455792,
+      "size": 240,
+      "instr_count": 37,
+      "source": "IMPORTED",
+      "bytes": "48895c2408574883ec40488bf94885c90f84bcca00004885d2740f488bca48ff152b5101000f1f440000488364242000488d4c2420488364242800488364243000e8a65d00004883c8ff488d542420488bcf48894424284889442430e8335700008bd885c00f8871ca0000488b4c2420e82b00000085c00f847eca000033db488d4c2420e8635d00008bc3488b5c24504883c4405fc3b857000780e9af35ffff488b4c24484c8d05a89d0000448bc8ba44020000e87b9fffff90e98435ffffe890c2ffff84c0750abb01400080e97135ffff488bcf48ff15683201000f1f4400008bd885c00f885835ffffe95135ffff"
+    },
+    {
+      "name": "Ordinal_105",
+      "offset": 6442456048,
+      "size": 484,
+      "instr_count": 105,
+      "source": "IMPORTED",
+      "bytes": "48895c241055564156488bec4883ec50836520004c8bf2488bf14885c90f8409ca0000488365e000488d4de0488365e800488365f000e8b15c00004883c8ff488d55e0488bce488945e8488945f0e8415600008bd885c00f88d9c90000488b4de0488d15d8550100e88b56000085c00f8598000000488b4de0488d15a8550100e87356000085c00f84ce000000488b4de0488d1590550100e85b56000085c00f84d3000000488d35c4d50100488bce48ff15725001000f1f440000488d4530bb0100000048832000f6c3020f85cb000000f6c3017415488b4d304885c9740c48ff15325001000f1f440000488b4de0e8d00000008bd885c00f8887c90000488bce48ff15105001000f1f4400004d85f6742d488b55e041b91f0002004533c04c8974242048c7c10300008048ff15164f01000f1f44000085c00f8573c9000033db488d4de0e8a25b00008bc3488b5c24784883c450415e5e5dc3488b4de0488d15aa540100e88d55000085c00f851affffffe9dcc80000488d35f9d40100488bce48ff159f4f01000f1f440000488d4520bb02000000e928ffffff488b4d2083e3fd4885c90f8425ffffff48ff15654f01000f1f440000e914ffffffb857000780e91637ffff488b4d184c8d054f9d0000448bc8ba18020000e8229fffff90e9ed36ffff"
+    },
+    {
+      "name": "Ordinal_112",
+      "offset": 6442457104,
+      "size": 185,
+      "instr_count": 40,
+      "source": "IMPORTED",
+      "bytes": "488bc4488958084889681048897018574883ec4033ed488bf9668929488bf2488d48d8488968d8488968e0488968e8e83c5700004883c8ff488d4c242048894424284889442430e8640800008bd885c00f887cc600004c8b442420488bd6488bcfe8f60000008bd885c00f8869c600008bdd488d4c2420e8f4560000488b6c24588bc3488b5c2450488b7424604883c4405fc3ba7a000000eb05ba7d000000488b4c24484c8d05feb40000448bc8e85e9effff90e97a39ffff"
+    },
+    {
+      "name": "Ordinal_113",
+      "offset": 6442457264,
+      "size": 259,
+      "instr_count": 48,
+      "source": "IMPORTED",
+      "bytes": "488bc44889580848896810488970184889782041564883ec50488360d800488bd9488360e000488d48d8488360e8004d8bf0418be9488bf2e8935600004883c8ff4c8d4c24304533c04889442438488bd64889442440488bcbe84a520000bb130007808bf83bc3742385c00f88e7c500004c8b4424308bd5498bcee83c0000008bd885c00f88ffc5000033db488d4c2430e83a560000488b6c24688bc3488b5c2460488b742470488b7c24784883c450415ec3488b4c2458488d0594b5000048897424284c8d05309b0000448bcf4889442420ba75010000e8aa4b00008bdfe9033affff488b4c24584c8d050b9b0000448bc8ba76010000e80e9effff90e9e439ffff"
+    },
+    {
+      "name": "Ordinal_111",
+      "offset": 6442458576,
+      "size": 515,
+      "instr_count": 86,
+      "source": "IMPORTED",
+      "bytes": "48895c240848897424105557415441564157488bec4883ec5033ff4d8bf848897d484c8be24c8bf148ff15c94501000f1f440000488bc84c8d4d488d5708448d470148ff15c74501000f1f44000085c0755948ff15574401000f1f4400003df00300000f8579c10000488b7548488d46ff4883f8fd0f861fc1000048897d4848ff155a4501000f1f4400004c8d4548ba08000000488bc848ff15524501000f1f44000085c00f8420c10000488d4de048897de048897de848897df0e8f0500000488b4d484c8d45e04883c8ff498bd6488945e8488945f0e85cfbffffbb130007808bf03bc3746085c00f881ac100004c8b45e0498bd7498bcce89efaffff8bd885c00f8831c10000488d4de0e89f500000488b4d48488d41ff4883f8fd770c48ff15fa4301000f1f4400004c8d5c24508bc7498b5b30498b7338498be3415f415e415c5f5dc348ff150f8300000f1f440000488bce8bd848ff156e8300000f1f4400008bcb48ff15e88200000f1f44000090e9b03effff488b4d284c8d05aa9a0000ba5c010000e844300000eb2085c00f84273fffff488b4d284c8d058b9a0000448bc8ba60010000e84a4b00008bf8e9083fffff488b4d28488d05a4b400004c897424284c8d05609a0000448bce4889442420ba67010000e8da4a00008bdee90e3fffff488b4d284c8d053c9a0000448bc8ba68010000e83f9dffff90e9f03effff"
+    },
+    {
+      "name": "Ordinal_107",
+      "offset": 6442458928,
+      "size": 215,
+      "instr_count": 38,
+      "source": "IMPORTED",
+      "bytes": "488bc44889580848897010574883ec50488360d8008bf1488360e000488d48d8488360e800488bfae8235000004883c8ff488d4c243048894424384889442440e84b0100008bd885c00f88a9c00000488b542430448bce4533c048897c242048c7c10300008048ff159b4401000f1f44000085c00f859dc0000033db488d4c2430e8ca4f0000488b7424688bc3488b5c24604883c4505fc3488b4c24584c8d05c4b30000448bc8ba88000000e81f9dffff90e9653fffff488b4c24584c8d05a5b30000448bc8ba89000000e8bc4a00008bd8e9453fffff"
+    },
+    {
+      "name": "Ordinal_114",
+      "offset": 6442461808,
+      "size": 483,
+      "instr_count": 73,
+      "source": "IMPORTED",
+      "bytes": "48895c24185556574883ec50418be9498bf8488bf2488bd94885c90f844bb900004c89742478488d5424704533f6b9190002004c8974247048ff15b13901000f1f44000085c00f8546b900004c8bcb4c897424304c8d05954001004c89742438488d15794001004c89742440488d4c2430e89a3200008bd885c00f8832b900004885f60f8548b900004885ff741e4c8bc7488d1540400100488d4c2430e8ae0e00008bd885c00f8862b90000488b842490000000448bcd488b5424304533c0488b4c2470488944242048ff15f83801000f1f4400008bd885c074437e090fb7d881cb00000780488d4c2430e820440000488b4c24704c8b7424784885c9740c48ff15ca3801000f1f4400008bc3488b9c24800000004883c4505f5e5dc3418bdeebc3488b4c24684c8d0510b0000041b957000780ba1e000000e86899ffffb857000780e97b47ffff488b4c24684c8d05eaaf0000448bc8ba21000000e8014700008bd8e93e47ffff488b4c24684c8d05caaf0000448bc8ba24000000e82599ffff90e91547ffff4c8bc6488d15cdaf0000488d4c2430e86b55ffff8bd885c00f899a46ffff488b4c24684c8d058daf0000448bc8ba28000000e8e898ffff90e9d846ffff488b4c24684c8d056eaf0000448bc8ba2d000000e8c998ffff90e9b946ffff"
+    },
+    {
+      "name": "Ordinal_103",
+      "offset": 6442462112,
+      "size": 242,
+      "instr_count": 53,
+      "source": "IMPORTED",
+      "bytes": "48895c240848896c24104889742418574883ec40488bda418bf1488bd148c744243000000000498be8488d4c24304533c0e84a0100008bf885c00f88beb8000049c7c0ffffffff660f1f84000000000049ffc06642833c430075f5488d4c24384c8bcd48894c2428488bd3488b4c2430488974242048ff15343b01000f1f4400008bc848ff15363b01000f1f4400008bf885c07f3485ff780233ff488b4c24304885c9740c48ff15ec3a01000f1f440000488b5c24508bc7488b6c2458488b7424604883c4405fc30fb7f881cf00000780ebc1488b4c24484c8d05be960000448bc8ba9f020000e8a998ffff90e97e47ffff"
+    },
+    {
+      "name": "Ordinal_101",
+      "offset": 6442462496,
+      "size": 201,
+      "instr_count": 34,
+      "source": "IMPORTED",
+      "bytes": "48895c24084889742410574883ec20488bda488bf9488bd1410fb6c848ff15fd3901000f1f4400008bc848ff150f3a01000f1f4400008bf085c00f8f7eb7000085f60f8884b70000488bcfe8d0190000488d43ff4883f8fd7726488bd3488bcfe89b0d00008bd885c00f887cb70000488b5c2430488b7424384883c4205fc30fb7f081ce00000780e97448ffff488b4c24284c8d0570960000448bceba79020000e82398ffff90e99548ffff488b0f48ff15238200000f1f4400008bc348c70700000000e96748ffff"
+    },
+    {
+      "name": "Ordinal_104",
+      "offset": 6442462640,
+      "size": 309,
+      "instr_count": 72,
+      "source": "IMPORTED",
+      "bytes": "488bc448895810488970184889782041564883ec40498bd848c740e0ffffffff4533f648c740e8ffffffff4c8d40d84c8970d8498bf9e8752b00008bf085c00f88ba000000488d47ff48896c2450b9feffff7f418bf6483bc10f8719b70000488b6c242085f60f8816b70000418bf64885ff742b482bcf488bd5482bd30f1f00488d04394885c074210fb7041a6685c074186689034883c3024883ef0175e14883eb02be7a000780eb054885ff74f06644893385f60f88d5b600004885ed742048ff15913401000f1f4400004c8bc533d2488bc848ff158d3401000f1f440000418bc6488b6c2450488b5c2458488b742460488b7c24684883c440415ec3488d4c2420e8c74000008bc6ebdbbe57000780e9dd48ffff4885ff0f842849ffffe91f49ffff488d4c2420e8368affff8bc6e94249ffff"
+    },
+    {
+      "name": "Ordinal_117",
+      "offset": 6442473824,
+      "size": 1200,
+      "instr_count": 228,
+      "source": "IMPORTED",
+      "bytes": "48895c241055565741564157488bec4883ec6033db498bf04989184c8bf283f9010f84fb02000083f9020f841502000083f9040f84f001000083f9030f841f02000083f9050f851c01000048895d408bfb4885d20f847502000048895de848895df048895df84d85f60f847d0200004d8bc6488d15f7130100488d4de8e89e03000041bf02000780448bf0413bc70f84db02000085c00f88c5950000488d454048895dd048895dd841b91900020048895de04533c0488b5de848c7c102000080488bd3488944242048ff15090a01000f1f440000448bf885c00f8f5f0200004585ff0f8866020000488b55404c8d05f513010041b101488d4dd0e8e1120000488b4d40448bf848ff15d30901000f1f4400004585ff0f8833020000488b45d04889064885db742048ff157a0801000f1f4400004c8bc333d2488bc848ff15760801000f1f4400004885ff0f85a401000033c0488b9c24980000004883c460415f415e5f5e5dc383f9070f840d01000083f908754348895d404d85f60f842d0100004c8bc6488d155c140100498bce488bfbe8a9daffff448bf085c00f88e30100004885ff74a9488bcb48ff15170801000f1f440000eb9883f9060f8548950000488d5540895d30488d4d3048895d40e87b0700008bf885c00f88ee940000837d3000488b5d400f851b0100004c8bc6498bd6b908000000e803feffff8bf885c00f88a3010000488d43ff4883f8fd0f873bffffff488bcb48ff15710701000f1f440000e927ffffff488bd6488d0dfd110100e89804000085c00f8910ffffffe90dffffff488bd6488d0db9130100e87c04000085c00f89f4feffffe9f1feffff488bd6488d0dad130100e86004000085c00f89d8feffffe9d5feffff48895d404d85f60f84440100004c8bc6488d151c140100498bce488bfbe8a1d9ffff448bf085c00f89f8feffffe9f3930000488d4d40e8b8c3ffff448bf085c00f88e9930000488b5d404c8bf3e9b3feffff488d4d40e898c3ffff448bf885c00f885d930000488b7d40e96efdffff4c8bf7e97bfdffff488bcf48ff15ca0601000f1f440000e948feffff488bd6488bcbe8990f00008bf885c00f89eafeffffe9c9930000488bd6488d0d2c140100e89f03000085c00f8917feffffe914feffff440fb7f84181cf00000780e991fdffff488b4d284c8d0527140100458bcfbafc000000e89a200000488d4dd0e8b1120000488d4de8e8a81200004885ff7571418bc7e9cdfdffffba12010000488b4d284c8d05eb130100448bc8e8632000004885db7560418bc6e9a8fdffff488d4d40e899c2ffff448bf085c00f889f920000488b5d404c8bf3e99cfeffff488bcf48ff15d00501000f1f440000e97bffffff488bcb48ff15bc0501000f1f440000eb8f488b4d284c8d0535810000448bc8baf3000000e8a88dffff488b7d40e9176dffff488b4d284c8d0514810000458bcebaf9000000e8878dffff458bfee9ee6cffff488b4d284c8d05f4800000448bc8ba05010000e8678dffff488b5d40e9fb6cffff488b4d284c8d05c9800000448bc8ba0f010000e83c8dffff488b5d40e9d06cffff488b4d284c8d05a8800000448bc8ba19010000e81b8dffff90e9bf6cffff488b4d284c8d056c80000041b932000000ba28010000e8983a000090e9286affff"
+    },
+    {
+      "name": "Ordinal_102",
+      "offset": 6442479968,
+      "size": 35,
+      "instr_count": 10,
+      "source": "IMPORTED",
+      "bytes": "4883ec284885c9741448ff15c8f500000f1f44000033c04883c428c3b857000780ebf3"
+    },
+    {
+      "name": "dllmain_dispatch",
+      "offset": 6442487728,
+      "size": 301,
+      "instr_count": 96,
+      "source": "ANALYSIS",
+      "bytes": "488bc4488958204c89401889501048894808565741564883ec40498bf08bfa4c8bf185d2750f3915a45101007f0733c0e9f00000008d42ff83f8017745488b05bce200004885c0750ac744243001000000eb14ff15a7d700008bd88944243085c00f84b40000004c8bc68bd7498bcee88cfdffff8bd88944243085c00f84990000004c8bc68bd7498bcee84d4600008bd88944243083ff01753885c075344c8bc633d2498bcee8314600004c8bc633d2498bcee848fdffff488b0541e200004885c0740e4c8bc633d2498bceff152ed7000085ff740583ff0375404c8bc68bd7498bcee818fdffff8bd88944243085c07429488b0507e200004885c075098d5801895c2430eb144c8bc68bd7498bceff15ebd600008bd889442430eb068bc3488b5c24784883c440415e5f5ec3"
+    },
+    {
+      "name": "entry",
+      "offset": 6442488048,
+      "size": 61,
+      "instr_count": 18,
+      "source": "IMPORTED",
+      "bytes": "48895c24084889742410574883ec20498bf88bda488bf183fa017505e86b0600004c8bc78bd3488bce488b5c2430488b7424384883c4205fe983feffff"
+    },
+    {
+      "name": "capture_previous_context",
+      "offset": 6442488488,
+      "size": 113,
+      "instr_count": 33,
+      "source": "ANALYSIS",
+      "bytes": "405356574883ec40488bd9ff15cfd10000488bb3f800000033ff4533c0488d542460488bceff15add100004885c07439488364243800488d4c2468488b5424604c8bc848894c24304c8bc6488d4c247048894c242833c948895c2420ff1586d10000ffc783ff027cb14883c4405f5e5bc3"
+    },
+    {
+      "name": "__scrt_acquire_startup_lock",
+      "offset": 6442488608,
+      "size": 57,
+      "instr_count": 17,
+      "source": "ANALYSIS",
+      "bytes": "4883ec28e8f308000085c0742165488b042530000000488b4808eb05483bc8741433c0f0480fb10dbc53010075ee32c04883c428c3b001ebf7"
+    },
+    {
+      "name": "__scrt_dllmain_after_initialize_c",
+      "offset": 6442488672,
+      "size": 52,
+      "instr_count": 17,
+      "source": "ANALYSIS",
+      "bytes": "4883ec28e8b308000085c07407e81a070000eb19e8970800008bc8e83e09000085c0740432c0eb07e855090000b0014883c428c3"
+    },
+    {
+      "name": "__scrt_dllmain_exception_filter",
+      "offset": 6442488836,
+      "size": 96,
+      "instr_count": 27,
+      "source": "ANALYSIS",
+      "bytes": "48895c240848896c24104889742418574883ec20498bf9498bf08bda488be9e8f407000085c0751683fb0175114c8bc633d2488bcd488bc7ff156ed30000488b5424588b4c2450488b5c2430488b6c2438488b7424404883c4205fe9c4080000"
+    },
+    {
+      "name": "__scrt_dllmain_uninitialize_c",
+      "offset": 6442488940,
+      "size": 48,
+      "instr_count": 13,
+      "source": "ANALYSIS",
+      "bytes": "4883ec28e8a707000085c07410488d0d905201004883c428e94d080000e81a0e000085c07505e81b0800004883c428c3"
+    },
+    {
+      "name": "__scrt_initialize_crt",
+      "offset": 6442489024,
+      "size": 73,
+      "instr_count": 23,
+      "source": "ANALYSIS",
+      "bytes": "40534883ec200fb6057452010085c9bb010000000f44c3880564520100e8aa050000e8b50d000084c0750432c0eb14e8a80d000084c0750933c9e89d0d0000ebea8ac34883c4205bc3"
+    },
+    {
+      "name": "__scrt_is_nonwritable_in_current_image",
+      "offset": 6442489288,
+      "size": 150,
+      "instr_count": 47,
+      "source": "ANALYSIS",
+      "bytes": "4883ec184c8bc1b84d5a0000663905256affff757848630d586affff488d15156affff4803ca813950450000755fb80b0200006639411875544c2bc20fb74114488d51184803d00fb74106488d0c804c8d0cca48891424493bd174188b4a0c4c3bc1720a8b420803c14c3bc072084883c228ebdf33d24885d2750432c0eb14837a24007d0432c0eb0ab001eb0632c0eb024883c418c3"
+    },
+    {
+      "name": "__scrt_release_startup_lock",
+      "offset": 6442489448,
+      "size": 36,
+      "instr_count": 13,
+      "source": "ANALYSIS",
+      "bytes": "40534883ec208ad9e8a705000033d285c0740b84db7507488715825001004883c4205bc3"
+    },
+    {
+      "name": "__scrt_uninitialize_crt",
+      "offset": 6442489492,
+      "size": 41,
+      "instr_count": 14,
+      "source": "ANALYSIS",
+      "bytes": "40534883ec20803da0500100008ad9740484d2750ce8ee0b00008acbe8e70b0000b0014883c4205bc3"
+    },
+    {
+      "name": "_onexit",
+      "offset": 6442489540,
+      "size": 79,
+      "instr_count": 23,
+      "source": "ANALYSIS",
+      "bytes": "40534883ec20488b154f4a0100488bd98bca4833153350010083e13f48d3ca4883faff750a488bcbe8d9050000eb0f488bd3488d0d13500100e81a06000033c985c0480f44cb488bc14883c4205bc3"
+    },
+    {
+      "name": "atexit",
+      "offset": 6442489628,
+      "size": 23,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4883ec28e89fffffff48f7d81bc0f7d8ffc84883c428c3"
+    },
+    {
+      "name": "_o_free",
+      "offset": 6442489660,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e9ef040000"
+    },
+    {
+      "name": "__security_init_cookie",
+      "offset": 6442489724,
+      "size": 172,
+      "instr_count": 39,
+      "source": "ANALYSIS",
+      "bytes": "48895c242055488bec4883ec20488b059049010048bb32a2df2d992b0000483bc375744883651800488d4d18ff15aacd0000488b451848894510ff15eccb00008bc048314510ff15f0cb00008bc0488d4d2048314510ff1528cc00008b4520488d4d1048c1e02048334520483345104833c148b9ffffffffffff00004823c148b933a2df2d992b0000483bc3480f44c14889050d490100488b5c244848f7d0488905064901004883c4205dc3"
+    },
+    {
+      "name": "_guard_check_icall",
+      "offset": 6442490496,
+      "size": 3,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "c20000"
+    },
+    {
+      "name": "__isa_available_init",
+      "offset": 6442490508,
+      "size": 379,
+      "instr_count": 93,
+      "source": "ANALYSIS",
+      "bytes": "48895c24104889742418574883ec1033c0c7058d4601000200000033c9c7057d460100010000000fa2448bc133ff448bcb4181f06e74656c4181f147656e75448bd28bf033c98d4701450bc80fa24181f2696e6549890424450bca895c2404448bd9894c24088954240c755048830d38460100ff25f03fff0f3dc006010074283d6006020074213d70060200741a05b0f9fcff83f820772448b90100010001000000480fa3c17314448b05294c01004183c8014489051e4c0100eb07448b05154c0100b8070000003bf07c2633c90fa28904248bfb895c2404894c24088954240c0fbae309730b4183c802448905e64b0100410fbae3147370c705a145010002000000c7059b45010006000000410fbae31b7355410fbae31c734e33c90f01d048c1e220480bd04889542420488b44242024063c0675328b056b45010083c808c7055a4501000300000089055845010040f6c720741383c820c705414501000500000089053f450100488b5c242833c0488b7424304883c4105fc3"
+    },
+    {
+      "name": "__scrt_is_ucrt_dll_in_use",
+      "offset": 6442490908,
+      "size": 12,
+      "instr_count": 4,
+      "source": "ANALYSIS",
+      "bytes": "33c039051c4501000f95c0c3"
+    },
+    {
+      "name": "_o_free",
+      "offset": 6442490928,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e9ff000000"
+    },
+    {
+      "name": "_initterm",
+      "offset": 6442490950,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2534ca0000"
+    },
+    {
+      "name": "_initterm_e",
+      "offset": 6442490962,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2520ca0000"
+    },
+    {
+      "name": "__CxxFrameHandler4",
+      "offset": 6442490974,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25ecc90000"
+    },
+    {
+      "name": "_o___std_exception_copy",
+      "offset": 6442490998,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25b4c90000"
+    },
+    {
+      "name": "_o___std_exception_destroy",
+      "offset": 6442491010,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25a0c90000"
+    },
+    {
+      "name": "_o___std_type_info_destroy_list",
+      "offset": 6442491022,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff258cc90000"
+    },
+    {
+      "name": "_o___stdio_common_vsnprintf_s",
+      "offset": 6442491034,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2578c90000"
+    },
+    {
+      "name": "_o___stdio_common_vswprintf",
+      "offset": 6442491046,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2554c90000"
+    },
+    {
+      "name": "_o__cexit",
+      "offset": 6442491058,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2580c90000"
+    },
+    {
+      "name": "_o__configure_narrow_argv",
+      "offset": 6442491070,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff254cc90000"
+    },
+    {
+      "name": "_o__crt_atexit",
+      "offset": 6442491082,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2538c90000"
+    },
+    {
+      "name": "_o__execute_onexit_table",
+      "offset": 6442491094,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25bcc80000"
+    },
+    {
+      "name": "_o__initialize_narrow_environment",
+      "offset": 6442491106,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25c0c80000"
+    },
+    {
+      "name": "_o__initialize_onexit_table",
+      "offset": 6442491118,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25bcc80000"
+    },
+    {
+      "name": "_o__invalid_parameter_noinfo",
+      "offset": 6442491130,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25b8c80000"
+    },
+    {
+      "name": "_o__purecall",
+      "offset": 6442491152,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25aac80000"
+    },
+    {
+      "name": "_o__register_onexit_function",
+      "offset": 6442491164,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25a6c80000"
+    },
+    {
+      "name": "_o__seh_filter_dll",
+      "offset": 6442491176,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25a2c80000"
+    },
+    {
+      "name": "_o_free",
+      "offset": 6442491188,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25b6c80000"
+    },
+    {
+      "name": "memset",
+      "offset": 6442491212,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff253ec90000"
+    },
+    {
+      "name": "FID_conflict:_vsnprintf",
+      "offset": 6442491224,
+      "size": 98,
+      "instr_count": 27,
+      "source": "ANALYSIS",
+      "bytes": "48895c240848896c24104889742418574883ec30498bd9498bf8488bf2488be9e8afefffff48895c24284c8bcf4883642420004c8bc6488bd5488b084883c901e809ffffff488b5c244083c9ff488b6c244885c0488b7424500f48c14883c4305fc3"
+    },
+    {
+      "name": "_vsnprintf_s",
+      "offset": 6442491328,
+      "size": 104,
+      "instr_count": 28,
+      "source": "ANALYSIS",
+      "bytes": "48895c240848896c24104889742418574883ec40498bd9498bf8488bf2488be9e847efffff4c8b5424704c8bcf4c895424304c8bc6488364242800488bd5488b0848895c2420e88ffeffff488b5c245083c9ff488b6c245885c0488b7424600f48c14883c4405fc3"
+    },
+    {
+      "name": "DelayLoad_ConvertStringSecurityDescriptorToSecurityDescriptorW",
+      "offset": 6442491438,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d051b720100e900000000"
+    },
+    {
+      "name": "DelayLoad_ConvertSidToStringSidW",
+      "offset": 6442491577,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0598710100e975ffffff"
+    },
+    {
+      "name": "DelayLoad_ConvertStringSidToSidW",
+      "offset": 6442491595,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d058e710100e963ffffff"
+    },
+    {
+      "name": "DelayLoad_GetUserNameExW",
+      "offset": 6442491613,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d052c710100e900000000"
+    },
+    {
+      "name": "DelayLoad_RpcRevertToSelf",
+      "offset": 6442491752,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0591700100e900000000"
+    },
+    {
+      "name": "DelayLoad_LookupAccountSidLocalW",
+      "offset": 6442491891,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0546700100e900000000"
+    },
+    {
+      "name": "DelayLoad_LoadProfileExtender",
+      "offset": 6442492116,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d059d6f0100e900000000"
+    },
+    {
+      "name": "DelayLoad_UnloadProfileExtender",
+      "offset": 6442492255,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d050a6f0100e975ffffff"
+    },
+    {
+      "name": "DelayLoad_GetPackageFamilyNameFromToken",
+      "offset": 6442492273,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05b86e0100e900000000"
+    },
+    {
+      "name": "DelayLoad_PackageSidFromFamilyName",
+      "offset": 6442492412,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d051d6e0100e900000000"
+    },
+    {
+      "name": "ApiSetQueryApiSetPresence",
+      "offset": 6442492560,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2582bf0000"
+    },
+    {
+      "name": "thunk_FUN_18000b574",
+      "offset": 6442492688,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e95f120000"
+    },
+    {
+      "name": "__GSHandlerCheck",
+      "offset": 6442506540,
+      "size": 29,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4883ec284d8b4138488bca498bd1e811000000b8010000004883c428c3"
+    },
+    {
+      "name": "__GSHandlerCheckCommon",
+      "offset": 6442506576,
+      "size": 91,
+      "instr_count": 28,
+      "source": "ANALYSIS",
+      "bytes": "4053458b18488bda4183e3f84c8bc941f600044c8bd17413418b40084d635004f7d84c03d14863c84c23d14963c34a8b1410488b43108b4808488b4308f64401030f740b0fb644010383e0f04c03c84c33ca498bc95be995b7ffff"
+    },
+    {
+      "name": "FID_conflict:__GSHandlerCheck_EH",
+      "offset": 6442506676,
+      "size": 127,
+      "instr_count": 37,
+      "source": "ANALYSIS",
+      "bytes": "488bc44889580848896810488970184889782041564883ec20498b5938488bf24d8bf0488be9498bd1488bce498bf94c8d4304e864ffffff8b45042466f6d8b801000000451bc041f7d84403c04485430474114c8bcf4d8bc6488bd6488bcde846c2ffff488b5c2430488b6c2438488b742440488b7c24484883c420415ec3"
+    },
+    {
+      "name": "_alloca_probe",
+      "offset": 6442506832,
+      "size": 81,
+      "instr_count": 19,
+      "source": "ANALYSIS",
+      "bytes": "4883ec104c8914244c895c24084d33db4c8d5424184c2bd04d0f42d3654c8b1c25100000004d3bd3f27317664181e200f04d8d9b00f0ffff41c603004d3bd3f275ef4c8b14244c8b5c24084883c410f2c3"
+    },
+    {
+      "name": "_CxxThrowException",
+      "offset": 6442506919,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25ab8b0000"
+    },
+    {
+      "name": "memcmp",
+      "offset": 6442506931,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25a78b0000"
+    },
+    {
+      "name": "memcpy",
+      "offset": 6442506943,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25a38b0000"
+    },
+    {
+      "name": "memmove",
+      "offset": 6442506955,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff250f8b0000"
+    },
+    {
+      "name": "_guard_dispatch_icall",
+      "offset": 6442506992,
+      "size": 2,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "ffe0"
+    },
+    {
+      "name": "thunk_FUN_180007204",
+      "offset": 6442507392,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e97f95ffff"
+    },
+    {
+      "name": "thunk_FUN_180007114",
+      "offset": 6442507408,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e97f94ffff"
+    },
+    {
+      "name": "exception",
+      "offset": 6442516828,
+      "size": 50,
+      "instr_count": 15,
+      "source": "ANALYSIS",
+      "bytes": "40534883ec20488bd9488bc2488d0d495f00000f57c048890b488d5308488d48080f1102e8f19affff488bc34883c4205bc3"
+    },
+    {
+      "name": "DebugBreak",
+      "offset": 6442518240,
+      "size": 7,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "48ff25415b0000"
+    },
+    {
+      "name": "FID_conflict:StringCchPrintfA",
+      "offset": 6442522000,
+      "size": 121,
+      "instr_count": 43,
+      "source": "ANALYSIS",
+      "bytes": "4c8bdc4d8943184d894b205356574883ec3033ff488d42ff483dfeffff7f488bf1b9570007800f47f985ff783a488d5aff4d8bc8498d43204c8bc3488bce498943d833ffe8e787ffff85c0780f4898483bc37708751940883c33eb1340883c33bf7a000780eb084885d27403c606008bc74883c4305f5e5bc3"
+    },
+    {
+      "name": "_tlgWriteTransfer_EtwWriteTransfer",
+      "offset": 6442525528,
+      "size": 148,
+      "instr_count": 35,
+      "source": "ANALYSIS",
+      "bytes": "4883ec480fb6024c8d5201488b5424784c8bd9c1e01889442430410fb70289442434498b42024983c20a4889442438488b4108488902488b410848895424280fb708894a08488d0d0c5b0000c7420c020000004c895210410fb702894218488d056a5e00002bc1c7421c01000000498b4b20488d542430894424788b4424708944242048ff15ce4200000f1f4400004883c448c3"
+    },
+    {
+      "name": "thunk_FUN_180006f80",
+      "offset": 6442525728,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e95b4bffff"
+    },
+    {
+      "name": "thunk_FUN_180007b88",
+      "offset": 6442527232,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e98351ffff"
+    },
+    {
+      "name": "Ordinal_116",
+      "offset": 6442530672,
+      "size": 147,
+      "instr_count": 42,
+      "source": "IMPORTED",
+      "bytes": "488bc4488958084889681048897018574883ec40488360d8008bf9488360e000488d48d8488360e800498bf1498be8488bdae8d937ffff4883c8ff4c8d442420488bd348894424288bcf4889442430e89c21ffff8bd885c078184c8b442420488bd6488bcde892e1feff8bd885c0780233db488d4c2420e89437ffff488b6c24588bc3488b5c2450488b7424604883c4405fc3"
+    },
+    {
+      "name": "Ordinal_108",
+      "offset": 6442530992,
+      "size": 854,
+      "instr_count": 219,
+      "source": "IMPORTED",
+      "bytes": "48895c24085556574154415541564157488bec4881ec8000000033ff4c8be248893a4c8bf948897d5048ff15e82a00000f1f440000448d7708488bc8418bd64c8d4d50448d470148ff15e22a00000f1f44000085c00f85b100000048ff156e2900000f1f4400003df0030000757a488b7550488d46ff4883f8fd772b48ff154d2900000f1f440000488bce8bd848ff15ac2900000f1f4400008bcb48ff15262900000f1f44000048897d5048ff154e2a00000f1f4400004c8d4550418bd6488bc848ff15482a00000f1f44000085c0753b488b4d384c8d05c4400000bae9000000e85ed6ffffeb2085c00f8480000000488b4d384c8d05a5400000448bc8baed000000e864f1ffff8bf8eb644d85ff742d488d5548897d48498bcfe8a4ecfeff8bd885c07907baf4000000eb2e397d48740cbb57000780baf5000000eb1d488d554848897d48b910000000e88451ffff8bd885c07921baf9000000488b4d384c8d053a400000448bcbe84243ffff8bfb8bf7e9a80100004c8b7548488d4dc8498bde48897dc848897dd048897dd8e89936ffff488b4d50488d55c84983cdff4c896dd04c896dd8e82830ffff8bf085c0791d488b4d384c8d05e33f0000448bc8bafd000000e8e642ffffe93a0100004c8b45c8488d15f62f0000488d4de048897de048897de848897df0e8e122ffff8bf085c0791d488b4d384c8d05a03f0000448bc8ba02010000e8a342ffffe9ee0000004d85ff0f8493000000488d4db048897db048897db848897dc0e8fc35ffff488d55b04c896db8498bcf4c896dc048ff1562d500000f1f44000085c07519488b4d384c8d05463f0000ba07010000e8e0d4ffff8bf0eb324c8b45b0488d15352f0000488d4de0e894fefeff8bf085c07923488b4d384c8d05133f0000448bc8ba08010000e81642ffff488d4db0e88935ffffeb5b488d4db0e87e35ffff488b55e041b9190002004533c04c8974242048c7c10300008048ff15ba2800000f1f44000085c0741c488b4d384c8d05be3e0000448bc8ba0b010000e87defffff8bf0eb0d41897e08488bdf4d8934248bf7488d4de0e8c733ffff488d4dc8e81a35ffff4885db7408488bcbe891cbffff488b4d50488d51ff4883fafd770c48ff150c2700000f1f440000488b9c24c00000008bc64881c480000000415f415e415d415c5f5e5dc3"
+    },
+    {
+      "name": "Ordinal_110",
+      "offset": 6442531856,
+      "size": 118,
+      "instr_count": 34,
+      "source": "IMPORTED",
+      "bytes": "40534883ec20488bd9488b094885c9743248ff15182800000f1f44000085c0741e488b4c24284c8d05133e0000448bc8ba360100004883c4205be9cdeeffff48832300488bcbe88d30ffff8bd885c0791d488b4c24284c8d05e33d0000448bc8ba3a010000e8e640ffff8bc3eb0233c04883c4205bc3"
+    },
+    {
+      "name": "Ordinal_115",
+      "offset": 6442531984,
+      "size": 245,
+      "instr_count": 67,
+      "source": "IMPORTED",
+      "bytes": "488bc448895808488968104889701857415641574883ec60488360c800488be9488360d000488d48c8488360d8004d8bf14d8bf8488bf2e8b432ffff4883c8ff4c8d442440488bd64889442448488bcd4889442450e8f6ddfeffbb130007808bf83bc3746a85c07933488b4c2478488d05433e000048897424304c8d053f3d000048896c2428448bcfba4a0100004889442420e8b4edffff8bdfeb334c8b442440498bd6498bcfe830dcfeff8bd885c0791b488b4c24784c8d05023d0000448bc8ba4b010000e80540ffffeb0233db488d4c2440e81732ffff4c8d5c24608bc3498b5b20498b6b28498b7330498be3415f415e5fc3"
+    },
+    {
+      "name": "Ordinal_109",
+      "offset": 6442532240,
+      "size": 234,
+      "instr_count": 51,
+      "source": "IMPORTED",
+      "bytes": "48895c2418574881ec70020000488b057ca300004833c448898424600200004883642438004c8d4c24404883642430004c8d442450488364242800488bfa8b5108488bd9488b09488364242000c74424400401000048ff152c2600000f1f4400003d030100007507b801000000eb5a85c0741e488b8c24780200004c8d053e3c0000448bc8ba25010000e8fdecffffeb38488bd7488d4c245048ff1530d200000f1f44000085c0751b488b8c24780200004c8d05083c0000ba27010000e8a2d1ffffeb05ff430833c0488b8c24600200004833cce8d752ffff488b9c24900200004881c4700200005fc3"
+    }
+  ],
+  "total_functions": 615,
+  "exported_functions": 87
+}

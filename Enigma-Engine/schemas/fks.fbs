@@ -1,0 +1,106 @@
+// Schema for FksLibrary — authoritative function knowledge library.
+// Each .fkslib file is a standalone FlatBuffer containing all known
+// functions for one library family + compiler + architecture combination.
+
+namespace fbschema;
+
+// 4-hash fingerprint for a function (V1: raw bytes, V2: instruction-aware).
+struct FkHashQuad {
+    // V1: raw-byte FNV-1a hashes
+    full_hash:  ulong;   // Masked instruction bytes, normalized registers (primary key)
+    short_hash: ulong;   // First 32 raw bytes (FLIRT-compatible quick filter)
+    mnem_hash:  ulong;   // Mnemonic sequence only (compiler-variant neutral)
+    call_hash:  ulong;   // Full body hash with call targets zeroed out
+}
+
+// V2: Capstone instruction-aware hashes (cross-binary stable).
+struct FkHashQuadV2 {
+    full_hash:  ulong;   // Mnemonic opcode sequence hash (MOV,PUSH,SUB,...)
+    short_hash: ulong;   // First 8 mnemonics hash (quick prefix filter)
+    mnem_hash:  ulong;   // Mnemonic sequence with calls/jumps excluded
+    call_hash:  ulong;   // First 4 bytes of each instruction hashed
+}
+
+// A single known function in the library.
+// NOTE: new fields MUST be appended at the end for FlatBuffer backward compatibility.
+// Original fields (schema v2): uid..virtual_address
+// New fields (schema v3): namespace_path..signature
+table FksFunction {
+    uid:             ulong;        // Permanent content-derived UID (= full_hash)
+    name:            string;       // Primary function name
+    name_demangled:  string;       // Optional demangled name
+    hashes:          FkHashQuad;   // V1: raw-byte hashes
+    hashes_v2:       FkHashQuadV2; // V2: instruction-aware hashes (cross-binary stable)
+    body_size:       uint;
+    instr_count:     ushort;
+    call_count:      ushort = 0;
+    basic_blocks:    ushort = 0;
+    cyclomatic:      ushort = 0;
+    has_frame:       bool = false;
+    exported:        bool = false;
+    virtual_address: ulong = 0;    // RVA-based address for address-based lookup
+    // ── New fields (appended for backward compat) ──────────────────────────
+    namespace_path:  string;       // Full namespace/class path (e.g. "std::vector")
+    is_thunk:        bool = false;
+    is_library:      bool = false;
+    is_external:     bool = false;
+    signature:       string;       // Function prototype (e.g. "void __stdcall CloseHandle(HANDLE)")
+}
+
+// Library metadata describing the source of the knowledge base.
+table FksLibraryMeta {
+    family:      string;   // "msvcrt", "ntoskrnl", "libc", etc.
+    version:     string;   // "14.40.33816.0"
+    variant:     string;   // "dynamic" | "static" | ""
+    compiler:    string;   // "MSVC" | "GCC" | "Clang" | "MinGW"
+    language:    string;   // "x86:LE:64:default"
+    description: string;
+    created:     ulong;    // Unix timestamp
+}
+
+// Call-graph relation between two functions in this library.
+// Indices reference into the functions[] vector.
+table FksRelation {
+    caller_index: uint;    // Index into functions[]
+    callee_index: uint;    // Index into functions[]
+}
+
+// ── LMDB index value format ──────────────────────────────────────────
+// These tables are NOT stored in the .fkslib FlatBuffer file.
+// They are used only for serializing LMDB index values during rebuild.
+
+// A single candidate entry in the LMDB hash index.
+table FkCandidate {
+    uid:              ulong;    // Permanent function UID
+    name:             string;
+    name_demangled:   string;   // Demangled C++ name (empty for C exports)
+    namespace_path:   string;   // Namespace/class path
+    library_family:   string;
+    library_compiler: string;
+    body_size:        uint;
+    instr_count:      ushort;
+    call_count:       ushort = 0;
+    basic_blocks:     ushort = 0;
+    cyclomatic:       ushort = 0;
+    has_frame:        bool = false;
+    is_thunk:         bool = false;
+    is_library:       bool = false;
+    signature:        string;   // Function prototype
+    exported:         bool = false;
+}
+
+// List of candidates that share the same hash value.
+table FkCandidateList {
+    candidates: [FkCandidate];
+}
+
+// ── Root type ────────────────────────────────────────────────────────
+// A standalone FKS knowledge library for one library family.
+table FksLibrary {
+    schema_version: int = 3;
+    meta:           FksLibraryMeta;
+    functions:      [FksFunction];
+    relations:      [FksRelation];
+}
+
+root_type FksLibrary;

@@ -28,6 +28,17 @@ if(NOT LMDB_INCLUDE_DIR OR NOT LMDB_LIBRARY)
     message(FATAL_ERROR "LMDB was not found. Set LMDB_INCLUDE_DIR/LMDB_LIBRARY or MSYS2_MINGW64_ROOT.")
 endif()
 
+# nlohmann/json (header-only JSON library for ingest tools)
+include(FetchContent)
+FetchContent_Declare(
+    nlohmann_json
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG v3.11.3
+    GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(nlohmann_json)
+message(STATUS "nlohmann/json fetched")
+
 # FlatBuffers
 find_path(FLATBUFFERS_INCLUDE_DIR NAMES flatbuffers/flatbuffers.h HINTS "$ENV{MSYSTEM_PREFIX}/include" "${MSYS2_MINGW64_ROOT}/include")
 find_library(FLATBUFFERS_LIBRARY NAMES flatbuffers libflatbuffers HINTS "$ENV{MSYSTEM_PREFIX}/lib" "${MSYS2_MINGW64_ROOT}/lib")
@@ -42,6 +53,7 @@ set(FBS_SCHEMAS
     ${CMAKE_CURRENT_SOURCE_DIR}/schemas/project.fbs
     ${CMAKE_CURRENT_SOURCE_DIR}/schemas/commit.fbs
     ${CMAKE_CURRENT_SOURCE_DIR}/schemas/changeset.fbs
+    ${CMAKE_CURRENT_SOURCE_DIR}/schemas/fks.fbs
 )
 set(FBS_OUTPUT_DIR ${CMAKE_BINARY_DIR}/schemas)
 file(MAKE_DIRECTORY ${FBS_OUTPUT_DIR})
@@ -52,11 +64,13 @@ add_custom_command(
         ${FBS_OUTPUT_DIR}/project_generated.h
         ${FBS_OUTPUT_DIR}/commit_generated.h
         ${FBS_OUTPUT_DIR}/changeset_generated.h
+        ${FBS_OUTPUT_DIR}/fks_generated.h
     COMMAND ${FLATC_EXECUTABLE} --cpp -o ${FBS_OUTPUT_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/schemas/program.fbs
         ${CMAKE_CURRENT_SOURCE_DIR}/schemas/project.fbs
         ${CMAKE_CURRENT_SOURCE_DIR}/schemas/commit.fbs
         ${CMAKE_CURRENT_SOURCE_DIR}/schemas/changeset.fbs
+        ${CMAKE_CURRENT_SOURCE_DIR}/schemas/fks.fbs
     DEPENDS ${FBS_SCHEMAS}
     COMMENT "Compiling FlatBuffers schemas..."
 )
@@ -65,6 +79,7 @@ add_custom_target(flatbuffers_schemas DEPENDS
     ${FBS_OUTPUT_DIR}/project_generated.h
     ${FBS_OUTPUT_DIR}/commit_generated.h
     ${FBS_OUTPUT_DIR}/changeset_generated.h
+    ${FBS_OUTPUT_DIR}/fks_generated.h
 )
 
 # enigma_engine Library
@@ -82,7 +97,10 @@ add_dependencies(enigma_engine flatbuffers_schemas)
 target_include_directories(enigma_engine PUBLIC ${CMAKE_SOURCE_DIR}/src/include ${FBS_OUTPUT_DIR})
 target_include_directories(enigma_engine PRIVATE ${CAPSTONE_INCLUDE_DIR} ${SQLITE3_INCLUDE_DIR} ${LMDB_INCLUDE_DIR} ${CMAKE_SOURCE_DIR}/src/decompiler)
 target_link_libraries(enigma_engine PRIVATE ${CAPSTONE_LIBRARY} ${SQLITE3_LIBRARY} ${LMDB_LIBRARY} ${FLATBUFFERS_LIBRARY} decompiler dbghelp)
-target_compile_definitions(enigma_engine PRIVATE ENIGMA_SLEIGH_DIR="${ENIGMA_SLEIGH_DIR}")
+target_compile_definitions(enigma_engine PRIVATE
+    ENIGMA_SLEIGH_DIR="${ENIGMA_SLEIGH_DIR}"
+    ENIGMA_FKS_DIR="${CMAKE_INSTALL_PREFIX}/fid"
+)
 
 function(enigma_apply_warning_policy target_name)
     if(MSVC)
@@ -242,6 +260,117 @@ target_link_libraries(enigma_naming_audit PRIVATE enigma_engine)
 target_include_directories(enigma_naming_audit SYSTEM PRIVATE ${CMAKE_SOURCE_DIR}/src/decompiler)
 target_compile_definitions(enigma_naming_audit PRIVATE ENIGMA_SLEIGH_DIR="${ENIGMA_SLEIGH_DIR}")
 enigma_apply_warning_policy(enigma_naming_audit)
+
+# ── FKS (Function Knowledge System) tools ─────────────────────────────────────
+add_executable(enigma_fks_ingest tools/enigma_fks_ingest.cpp)
+target_link_libraries(enigma_fks_ingest PRIVATE enigma_engine)
+target_include_directories(enigma_fks_ingest SYSTEM PRIVATE ${CMAKE_SOURCE_DIR}/src/decompiler)
+target_compile_definitions(enigma_fks_ingest PRIVATE
+    ENIGMA_SLEIGH_DIR="${ENIGMA_SLEIGH_DIR}"
+    ENIGMA_FKS_DIR="${CMAKE_INSTALL_PREFIX}/fid"
+)
+add_dependencies(enigma_fks_ingest flatbuffers_schemas)
+enigma_apply_warning_policy(enigma_fks_ingest)
+
+add_executable(enigma_fks_build_index tools/enigma_fks_build_index.cpp)
+target_link_libraries(enigma_fks_build_index PRIVATE enigma_engine)
+target_compile_definitions(enigma_fks_build_index PRIVATE
+    ENIGMA_SLEIGH_DIR="${ENIGMA_SLEIGH_DIR}"
+    ENIGMA_FKS_DIR="${CMAKE_INSTALL_PREFIX}/fid"
+)
+add_dependencies(enigma_fks_build_index flatbuffers_schemas)
+enigma_apply_warning_policy(enigma_fks_build_index)
+
+add_executable(enigma_fks_export_hashes tools/enigma_fks_export_hashes.cpp)
+target_link_libraries(enigma_fks_export_hashes PRIVATE enigma_engine)
+target_compile_definitions(enigma_fks_export_hashes PRIVATE
+    ENIGMA_SLEIGH_DIR="${ENIGMA_SLEIGH_DIR}"
+    ENIGMA_FKS_DIR="${CMAKE_INSTALL_PREFIX}/fid"
+)
+add_dependencies(enigma_fks_export_hashes flatbuffers_schemas)
+enigma_apply_warning_policy(enigma_fks_export_hashes)
+
+add_executable(enigma_fingerprint_audit tools/enigma_fingerprint_audit.cpp)
+target_link_libraries(enigma_fingerprint_audit PRIVATE enigma_engine)
+target_compile_definitions(enigma_fingerprint_audit PRIVATE
+    ENIGMA_SLEIGH_DIR="${ENIGMA_SLEIGH_DIR}"
+    ENIGMA_FKS_DIR="${CMAKE_INSTALL_PREFIX}/fid"
+)
+add_dependencies(enigma_fingerprint_audit flatbuffers_schemas)
+enigma_apply_warning_policy(enigma_fingerprint_audit)
+
+add_executable(enigma_fks_ingest_from_ghidra tools/enigma_fks_ingest_from_ghidra.cpp)
+target_link_libraries(enigma_fks_ingest_from_ghidra PRIVATE enigma_engine nlohmann_json::nlohmann_json)
+target_compile_definitions(enigma_fks_ingest_from_ghidra PRIVATE
+    ENIGMA_SLEIGH_DIR="${ENIGMA_SLEIGH_DIR}"
+    ENIGMA_FKS_DIR="${CMAKE_INSTALL_PREFIX}/fid"
+)
+add_dependencies(enigma_fks_ingest_from_ghidra flatbuffers_schemas)
+enigma_apply_warning_policy(enigma_fks_ingest_from_ghidra)
+
+add_executable(enigma_survey_fkslibs tools/survey_fkslibs.cpp)
+target_link_libraries(enigma_survey_fkslibs PRIVATE enigma_engine)
+target_include_directories(enigma_survey_fkslibs PRIVATE ${FBS_OUTPUT_DIR})
+target_compile_definitions(enigma_survey_fkslibs PRIVATE ENIGMA_SLEIGH_DIR="${ENIGMA_SLEIGH_DIR}")
+add_dependencies(enigma_survey_fkslibs flatbuffers_schemas)
+enigma_apply_warning_policy(enigma_survey_fkslibs)
+
+add_executable(enigma_survey_v3 tools/survey_v3_status.cpp)
+target_link_libraries(enigma_survey_v3 PRIVATE enigma_engine)
+target_include_directories(enigma_survey_v3 PRIVATE ${FBS_OUTPUT_DIR})
+target_compile_definitions(enigma_survey_v3 PRIVATE ENIGMA_SLEIGH_DIR="${ENIGMA_SLEIGH_DIR}")
+add_dependencies(enigma_survey_v3 flatbuffers_schemas)
+enigma_apply_warning_policy(enigma_survey_v3)
+
+add_executable(enigma_find_no_relations tools/find_no_relations.cpp)
+target_link_libraries(enigma_find_no_relations PRIVATE enigma_engine)
+target_include_directories(enigma_find_no_relations PRIVATE ${FBS_OUTPUT_DIR})
+target_compile_definitions(enigma_find_no_relations PRIVATE ENIGMA_SLEIGH_DIR="${ENIGMA_SLEIGH_DIR}")
+add_dependencies(enigma_find_no_relations flatbuffers_schemas)
+enigma_apply_warning_policy(enigma_find_no_relations)
+
+add_executable(enigma_final_survey tools/final_survey.cpp)
+target_link_libraries(enigma_final_survey PRIVATE enigma_engine)
+target_compile_definitions(enigma_final_survey PRIVATE ENIGMA_SLEIGH_DIR="${ENIGMA_SLEIGH_DIR}")
+enigma_apply_warning_policy(enigma_final_survey)
+
+add_executable(enigma_list_ghidra_status tools/list_ghidra_status.cpp)
+target_link_libraries(enigma_list_ghidra_status PRIVATE enigma_engine)
+target_compile_definitions(enigma_list_ghidra_status PRIVATE ENIGMA_SLEIGH_DIR="${ENIGMA_SLEIGH_DIR}")
+enigma_apply_warning_policy(enigma_list_ghidra_status)
+
+add_executable(enigma_evaluate_graph tools/evaluate_graph_matching.cpp)
+target_link_libraries(enigma_evaluate_graph PRIVATE enigma_engine)
+target_include_directories(enigma_evaluate_graph PRIVATE ${FBS_OUTPUT_DIR})
+target_compile_definitions(enigma_evaluate_graph PRIVATE ENIGMA_SLEIGH_DIR="${ENIGMA_SLEIGH_DIR}")
+add_dependencies(enigma_evaluate_graph flatbuffers_schemas)
+enigma_apply_warning_policy(enigma_evaluate_graph)
+
+add_executable(enigma_evaluate_id_rate tools/evaluate_id_rate_from_fkslib.cpp)
+target_link_libraries(enigma_evaluate_id_rate PRIVATE enigma_engine)
+target_include_directories(enigma_evaluate_id_rate PRIVATE ${FBS_OUTPUT_DIR})
+target_compile_definitions(enigma_evaluate_id_rate PRIVATE ENIGMA_SLEIGH_DIR="${ENIGMA_SLEIGH_DIR}")
+add_dependencies(enigma_evaluate_id_rate flatbuffers_schemas)
+enigma_apply_warning_policy(enigma_evaluate_id_rate)
+
+add_executable(enigma_evaluate_cross tools/evaluate_cross_library.cpp)
+target_link_libraries(enigma_evaluate_cross PRIVATE enigma_engine)
+target_include_directories(enigma_evaluate_cross PRIVATE ${FBS_OUTPUT_DIR})
+target_compile_definitions(enigma_evaluate_cross PRIVATE ENIGMA_SLEIGH_DIR="${ENIGMA_SLEIGH_DIR}")
+add_dependencies(enigma_evaluate_cross flatbuffers_schemas)
+enigma_apply_warning_policy(enigma_evaluate_cross)
+
+# ── FKS tests ────────────────────────────────────────────────────────────────
+foreach(test_name enigma_test_fks_fingerprint enigma_test_fks_library enigma_test_fks_index)
+    string(REPLACE "enigma_" "" file_base ${test_name})
+    add_executable(${test_name} tests/${file_base}.cpp)
+    target_link_libraries(${test_name} PRIVATE enigma_engine)
+    target_include_directories(${test_name} PRIVATE ${FBS_OUTPUT_DIR})
+    target_compile_definitions(${test_name} PRIVATE ENIGMA_SLEIGH_DIR="${ENIGMA_SLEIGH_DIR}")
+    add_dependencies(${test_name} flatbuffers_schemas)
+    enigma_apply_warning_policy(${test_name})
+    add_test(NAME ${test_name} COMMAND ${test_name})
+endforeach()
 
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 add_test(NAME enigma_test_cli_regression COMMAND Python3::Interpreter ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_cli_regression.py)

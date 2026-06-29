@@ -1,0 +1,663 @@
+{
+  "binary": "mlang.dll",
+  "functions": [
+    {
+      "name": "IsConvertINetStringAvailable",
+      "offset": 6442458496,
+      "size": 151,
+      "instr_count": 44,
+      "source": "IMPORTED",
+      "bytes": "48895c2410894c2408574883ec208bdab970000000488d1546460200e86f520000488bf833c04885ff7461488907488947084889471048894718894720488947284889473048894738488947404889474889475048894758488947608947684885ff742d448bc3488d542430488bcfe85c070000488bcf8bd8e8220000008bc3488b5c24384883c4205fc3488bf8ebceb80e000780ebe8"
+    },
+    {
+      "name": "ConvertINetUnicodeToMultiByte",
+      "offset": 6442459344,
+      "size": 59,
+      "instr_count": 16,
+      "source": "IMPORTED",
+      "bytes": "4883ec4833c04885c974088b01c1e80e83e00248836424380089442430488b4424784889442428488b4424704889442420e80e0000004883c448c3"
+    },
+    {
+      "name": "DllGetClassObject",
+      "offset": 6442463568,
+      "size": 106,
+      "instr_count": 21,
+      "source": "IMPORTED",
+      "bytes": "48895c24084889742410574883ec2048833d1125030000498bd8488bfa488bf17505e8d1000000e82c00000085c00f85e66600004c8bcb4c8bc7488bd6488b5c2430488b7424384883c4205fe96bfeffff488d0de70b020048ff1560c001000f1f44000090e90199ffff"
+    },
+    {
+      "name": "DllCanUnloadNow",
+      "offset": 6442465856,
+      "size": 12,
+      "instr_count": 4,
+      "source": "IMPORTED",
+      "bytes": "33c03905901c03000f95c0c3"
+    },
+    {
+      "name": "ConvertINetReset",
+      "offset": 6442468848,
+      "size": 3,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "33c0c3"
+    },
+    {
+      "name": "LcidToRfc1766W",
+      "offset": 6442475536,
+      "size": 331,
+      "instr_count": 42,
+      "source": "IMPORTED",
+      "bytes": "48895c24205556574883ec40488b0585cb02004833c448894424384963f0488bea8bf9bb570007804585c07e3d4c8d0ddcde010033c0498bc9ba9d0000003939740affc04883c1183bc272f23bc20f833e4600004c8d0440488bd64f8b44c108488bcde858cbffff33db8bc3488b4c24384833cce8570f0000488b5c24784883c4405f5e5dc341b9060000004c8d4424308bcf418d515348ff155eb201000f1f44000085c00f849600000083f803752a448bc8c64424322d4c8d4424338bcf8d505748ff1533b201000f1f44000083f8037419c644243200eb1283f8047507c644243300eb060f8f72b9ffff488d4c243048ff157cb301000f1f440000488d4c24304883c8ff48ffc0803c010075f7448d4801897424284c8d44243048896c242033d2b9e404000048ff15e5b201000f1f44000085c00f8422b9ffffe91bb9ffffbb05400080e913b9ffff"
+    },
+    {
+      "name": "Rfc1766ToLcidW",
+      "offset": 6442475680,
+      "size": 394,
+      "instr_count": 61,
+      "source": "IMPORTED",
+      "bytes": "48895c241855565741544155415641574883ec50488b05edca02004833c4488944244033ff488bea4c8bf9bb570007804885c9746d4885d274684c8d3547de01008bf74d8be68d5f0141bd9d000000834c2428ff4183c9ff4d8b04248bd3b90904000048896c242048ff1529f901000f1f44000083f802740b03f34983c418413bf572cb413bf50f833b4600008bc68bdf488d0c40488d05e4dd01008b04c84189078bc3488b4c24404833cce88f0e0000488b9c24a00000004883c450415f415e415d415c5f5e5dc3488bcd48ff15feb201000f1f44000083e80283f8030f879c0000004c8bc5488d4c2430ba06000000e83b84ffffba2d000000488d4c243048ff156ab401000f1f4400004885c07418488d542430488bc8482bca4883e1fe4883f9047c0366893883ceff4d8b06488d44243089742428448bce8bd34889442420b90904000048ff154bb201000f1f44000083f802740b03fb4983c618413bfd72c9413bfd73188bc7488d0c40488d050c9701008b04c8418907e923b9ffffbb05400080e919b9ffff"
+    },
+    {
+      "name": "`scalar_deleting_destructor'",
+      "offset": 6442476240,
+      "size": 57,
+      "instr_count": 17,
+      "source": "ANALYSIS",
+      "bytes": "48895c2408574883ec20488d05b7a001008bda488901488bf9e817110000f6c3017408488bcfe8090d0000488b5c2430488bc74883c4205fc3"
+    },
+    {
+      "name": "_Copy",
+      "offset": 6442476360,
+      "size": 224,
+      "instr_count": 71,
+      "source": "ANALYSIS",
+      "bytes": "488bc44c894018488950104889480853565741564883ec3848c740c8feffffff4d8bf0488bd9488bfa4883cf0f49c7c1feffffff493bf97605488bfaeb314c8b4118498bc848d1e948b8abaaaaaaaaaaaaaa48f7e748d1ea483bca7612498bc1482bc14c3bc04a8d3c017603498bf9488d4f0133f64885c9740de8a9fdffff488bf04885c07466eb144d85f6741a48837b18107205488b13eb03488bd34d8bc6488bcee84010000048837b18107208488b0be8f10b000048893348897b184c8973104883ff10480f43de42c60433004883c438415e5f5e5bc3e86a00000090cc"
+    },
+    {
+      "name": "_Tidy",
+      "offset": 6442476612,
+      "size": 88,
+      "instr_count": 25,
+      "source": "ANALYSIS",
+      "bytes": "48895c24084889742410574883ec20498bf8488bd984d2741f48837918107218488b314d85c07408488bd6e8d00f0000488bcee8880b0000488b74243848c743180f00000048897b10c6041f00488b5c24304883c4205fc3"
+    },
+    {
+      "name": "_Xran",
+      "offset": 6442476748,
+      "size": 17,
+      "instr_count": 4,
+      "source": "ANALYSIS",
+      "bytes": "4883ec28488d0d99ff0100e808000000cc"
+    },
+    {
+      "name": "_Xran",
+      "offset": 6442476860,
+      "size": 17,
+      "instr_count": 4,
+      "source": "ANALYSIS",
+      "bytes": "4883ec28488d0d11ff0100e8c4ffffffcc"
+    },
+    {
+      "name": "assign",
+      "offset": 6442476884,
+      "size": 259,
+      "instr_count": 76,
+      "source": "ANALYSIS",
+      "bytes": "48895c240848896c24104889742418574883ec20488b7a10498be8488bf2488bd9493bf80f82cd000000492bf84c3bcf490f42f9483bca752c4a8d0407483941100f82b00000004883791810488941107203488b09c604010033d2488bcbe879020000eb7a4883fffe0f878e00000048397918730e4c8b4110488bd7e873fdffffeb1b4885ff751b4821791048837918107205488b01eb03488bc3c600004885ff743c48837e18107203488b3648837b18107205488b0beb03488bcb488d142e4c8bc7e8280e000048837b181048897b107205488b03eb03488bc3c6043800488b6c2438488bc3488b5c2430488b7424404883c4205fc3e8ecfeffffcce876feffffcc"
+    },
+    {
+      "name": "assign",
+      "offset": 6442477152,
+      "size": 243,
+      "instr_count": 78,
+      "source": "ANALYSIS",
+      "bytes": "48895c24084889742410574883ec20498bf8488bf2488bd94885d2744c48837918107205488b01eb03488bc3483bf0723848837918107203488b0948034b10483bce762548837b18107205488b03eb03488bc3482bf04c8bcf4c8bc6488bd3488bcbe88dfeffffeb714883fffe777b48397b1873114c8b4310488bd7488bcbe864fcffffeb1b4885ff751b48217b1048837b18107205488b03eb03488bc3c600004885ff743148837b18107205488b0beb03488bcb4c8bc7488bd6e8240d000048837b181048897b107205488b03eb03488bc3c6043800488bc3488b5c2430488b7424384883c4205fc3488bcbe87afdffffcc"
+    },
+    {
+      "name": "default_error_condition",
+      "offset": 6442477408,
+      "size": 63,
+      "instr_count": 18,
+      "source": "ANALYSIS",
+      "bytes": "48895c2408574883ec20418bc8418bd8488bfae8d80200004885c0891f488d057c9802007507488d0583980200488b5c243048894708488bc74883c4205fc3"
+    },
+    {
+      "name": "equivalent",
+      "offset": 6442477552,
+      "size": 58,
+      "instr_count": 20,
+      "source": "ANALYSIS",
+      "bytes": "40534883ec30488b01498bd8448bc2488d542420488b4018ff1552f40100488b4b0848394808750a8b0b39087504b001eb0232c04883c4305bc3"
+    },
+    {
+      "name": "erase",
+      "offset": 6442477616,
+      "size": 152,
+      "instr_count": 49,
+      "source": "ANALYSIS",
+      "bytes": "48895c2408574883ec20488b7910488bd9483bfa727c488bc7482bc2493bc077194883791810488951107205488b01eb03488bc3c6041000eb4a4d85c07445488b41184883f8107203488b09492bf84c8d0c11488bcf482bca74134b8d14014c8bc1498bc9e8b60b0000488b431848897b104883f8107205488b03eb03488bc3c6043800488bc3488b5c24304883c4205fc3e875fcffffcc"
+    },
+    {
+      "name": "message",
+      "offset": 6442477776,
+      "size": 87,
+      "instr_count": 25,
+      "source": "ANALYSIS",
+      "bytes": "40534883ec20418bc8488bdae86f0100004533c048c743180f0000004885c04c894310488d151efb0100448803480f45d044380274104883c8ff48ffc04438040275f74c8bc0488bcbe842fdffff488bc34883c4205bc3"
+    },
+    {
+      "name": "message",
+      "offset": 6442477872,
+      "size": 126,
+      "instr_count": 34,
+      "source": "ANALYSIS",
+      "bytes": "40534883ec20488bda4183f80175214533c048c742180f0000004c89421044880241b815000000488d15dafa0100eb3d418bc8e8e80000004533c048c743180f0000004885c04c894310488d1597fa0100448803480f45d044380274104883c8ff48ffc04438040275f74c8bc0488bcbe8bbfcffff488bc34883c4205bc3"
+    },
+    {
+      "name": "message",
+      "offset": 6442478016,
+      "size": 87,
+      "instr_count": 25,
+      "source": "ANALYSIS",
+      "bytes": "40534883ec20418bc8488bdae8af0000004533c048c743180f0000004885c04c894310488d152efa0100448803480f45d044380274104883c8ff48ffc04438040275f74c8bc0488bcbe852fcffff488bc34883c4205bc3"
+    },
+    {
+      "name": "entry",
+      "offset": 6442478896,
+      "size": 61,
+      "instr_count": 18,
+      "source": "IMPORTED",
+      "bytes": "48895c24084889742410574883ec20498bf88bda488bf183fa017505e8630800004c8bc78bd3488bce488b5c2430488b7424384883c4205fe907000000"
+    },
+    {
+      "name": "__security_check_cookie",
+      "offset": 6442479584,
+      "size": 30,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "483b0dc1bb0200751048c1c11066f7c1ffff7501c348c1c910e9a2000000"
+    },
+    {
+      "name": "operator_delete",
+      "offset": 6442479620,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff252eec0100"
+    },
+    {
+      "name": "_purecall",
+      "offset": 6442479680,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25e2eb0100"
+    },
+    {
+      "name": "strrchr",
+      "offset": 6442479692,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25ceeb0100"
+    },
+    {
+      "name": "__raise_securityfailure",
+      "offset": 6442479704,
+      "size": 52,
+      "instr_count": 13,
+      "source": "ANALYSIS",
+      "bytes": "40534883ec20488bd933c9ff1577e70100488bcbff1566e70100ff15d8e80100488bc8ba090400c04883c4205b48ff25cce80100"
+    },
+    {
+      "name": "wcsstr",
+      "offset": 6442480405,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff255de80100"
+    },
+    {
+      "name": "_callnewh",
+      "offset": 6442480417,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2521e80100"
+    },
+    {
+      "name": "exception",
+      "offset": 6442480609,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2581e70100"
+    },
+    {
+      "name": "exception",
+      "offset": 6442480621,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff257de70100"
+    },
+    {
+      "name": "exception",
+      "offset": 6442480633,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2591e70100"
+    },
+    {
+      "name": "~exception",
+      "offset": 6442480645,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2595e70100"
+    },
+    {
+      "name": "what",
+      "offset": 6442480672,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2582e70100"
+    },
+    {
+      "name": "_CxxThrowException",
+      "offset": 6442480684,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2596e70100"
+    },
+    {
+      "name": "memcpy",
+      "offset": 6442480708,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff256ee70100"
+    },
+    {
+      "name": "memmove",
+      "offset": 6442480720,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff255ae70100"
+    },
+    {
+      "name": "_guard_check_icall",
+      "offset": 6442480800,
+      "size": 3,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "c20000"
+    },
+    {
+      "name": "_XcptFilter",
+      "offset": 6442480809,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25a9e60100"
+    },
+    {
+      "name": "_amsg_exit",
+      "offset": 6442480821,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25c5e60100"
+    },
+    {
+      "name": "_FindPESection",
+      "offset": 6442480848,
+      "size": 68,
+      "instr_count": 23,
+      "source": "ANALYSIS",
+      "bytes": "4c63413c4533c94c03c14c8bd2410fb74014450fb758064883c0184903c04585db741e8b500c4c3bd2720a8b480803ca4c3bd1720e41ffc14883c028453bcb72e233c0c3"
+    },
+    {
+      "name": "_IsNonwritableInCurrentImage",
+      "offset": 6442480928,
+      "size": 75,
+      "instr_count": 24,
+      "source": "ANALYSIS",
+      "bytes": "48895c2408574883ec20488bd9488d3dcc8affff488bcfe84400000085c07422482bdf488bd3488bcfe882ffffff4885c0740f8b4024c1e81ff7d083e001eb02488b5c24304883c4205fc3"
+    },
+    {
+      "name": "_ValidateImageBase",
+      "offset": 6442481024,
+      "size": 45,
+      "instr_count": 14,
+      "source": "ANALYSIS",
+      "bytes": "b84d5a000066390175204863413c4803c18138504500007511b90b020000663948187506b801000000c333c0c3"
+    },
+    {
+      "name": "_initterm",
+      "offset": 6442481294,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff259ce40100"
+    },
+    {
+      "name": "_lock",
+      "offset": 6442481306,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25a0e50100"
+    },
+    {
+      "name": "_unlock",
+      "offset": 6442481318,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2524e50100"
+    },
+    {
+      "name": "__dllonexit",
+      "offset": 6442481330,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25e0e40100"
+    },
+    {
+      "name": "DelayLoad_Ordinal_2",
+      "offset": 6442481471,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05ba080300e975ffffff"
+    },
+    {
+      "name": "DelayLoad_CreateStreamOnHGlobal",
+      "offset": 6442481489,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05c8080300e900000000"
+    },
+    {
+      "name": "DelayLoad_CoTaskMemAlloc",
+      "offset": 6442481628,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0535080300e975ffffff"
+    },
+    {
+      "name": "DelayLoad_CoTaskMemFree",
+      "offset": 6442481646,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d051b080300e963ffffff"
+    },
+    {
+      "name": "DelayLoad_GetObjectA",
+      "offset": 6442481748,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05d5070300e900000000"
+    },
+    {
+      "name": "DelayLoad_SelectObject",
+      "offset": 6442481887,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d055a070300e975ffffff"
+    },
+    {
+      "name": "DelayLoad_GetCurrentObject",
+      "offset": 6442481905,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0540070300e963ffffff"
+    },
+    {
+      "name": "DelayLoad_EnumFontFamiliesExW",
+      "offset": 6442482008,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0519070300e900000000"
+    },
+    {
+      "name": "DelayLoad_EnumFontFamiliesExA",
+      "offset": 6442482147,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d056e060300e975ffffff"
+    },
+    {
+      "name": "DelayLoad_CreateFontIndirectA",
+      "offset": 6442482165,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0564060300e963ffffff"
+    },
+    {
+      "name": "DelayLoad_GetTextFaceA",
+      "offset": 6442482183,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d055a060300e951ffffff"
+    },
+    {
+      "name": "DelayLoad_EnumFontFamiliesA",
+      "offset": 6442482201,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0550060300e93fffffff"
+    },
+    {
+      "name": "DelayLoad_TranslateCharsetInfo",
+      "offset": 6442482219,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d051e060300e92dffffff"
+    },
+    {
+      "name": "DelayLoad_GetDeviceCaps",
+      "offset": 6442482324,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05ed050300e900000000"
+    },
+    {
+      "name": "DelayLoad_DeleteObject",
+      "offset": 6442482463,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0572050300e900000000"
+    },
+    {
+      "name": "DelayLoad_GetDC",
+      "offset": 6442482688,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05a9040300e900000000"
+    },
+    {
+      "name": "DelayLoad_ReleaseDC",
+      "offset": 6442482827,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0516040300e975ffffff"
+    },
+    {
+      "name": "ApiSetQueryApiSetPresence",
+      "offset": 6442482848,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2502db0100"
+    },
+    {
+      "name": "thunk_FUN_180006170",
+      "offset": 6442482860,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e9bfe4ffff"
+    },
+    {
+      "name": "thunk_FUN_180007cc4",
+      "offset": 6442482872,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e907000000"
+    },
+    {
+      "name": "thunk_FUN_180007cfc",
+      "offset": 6442482928,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e907000000"
+    },
+    {
+      "name": "__GSHandlerCheck",
+      "offset": 6442483196,
+      "size": 29,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4883ec284d8b4138488bca498bd1e811000000b8010000004883c428c3"
+    },
+    {
+      "name": "__GSHandlerCheckCommon",
+      "offset": 6442483232,
+      "size": 91,
+      "instr_count": 28,
+      "source": "ANALYSIS",
+      "bytes": "4053458b18488bda4183e3f84c8bc941f600044c8bd17413418b40084d635004f7d84c03d14863c84c23d14963c34a8b1410488b43108b4808488b4308f64401030f740b0fb644010383e0f04c03c84c33ca498bc95be965f1ffff"
+    },
+    {
+      "name": "memcmp",
+      "offset": 6442483478,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2524dc0100"
+    },
+    {
+      "name": "memset",
+      "offset": 6442483490,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2520dd0100"
+    },
+    {
+      "name": "_guard_dispatch_icall",
+      "offset": 6442483520,
+      "size": 2,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "ffe0"
+    },
+    {
+      "name": "Catch_All@180008045",
+      "offset": 6442483781,
+      "size": 67,
+      "instr_count": 20,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b4d6848894d6833c04883c10174154883f9ff770ae803e1ffff4885c07505e82de4ffff48894578488d054fe3ffff4883c4205dc3"
+    },
+    {
+      "name": "Catch_All@180008089",
+      "offset": 6442483849,
+      "size": 36,
+      "instr_count": 11,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea4533c0b201488b4d60e8a0e3ffff33d233c9e87ff3ffff"
+    },
+    {
+      "name": "Catch_All@1800083aa",
+      "offset": 6442484650,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea4883655000488d0562ecffff4883c4205dc3"
+    },
+    {
+      "name": "thunk_FUN_180007cfc",
+      "offset": 6442498004,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e917c5ffff"
+    },
+    {
+      "name": "thunk_FUN_180007cc4",
+      "offset": 6442498016,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e9d3c4ffff"
+    },
+    {
+      "name": "ConvertINetMultiByteToUnicode",
+      "offset": 6442515712,
+      "size": 45,
+      "instr_count": 10,
+      "source": "IMPORTED",
+      "bytes": "4883ec484883642438008364243000488b4424784889442428488b4424704889442420e830eeffff4883c448c3"
+    },
+    {
+      "name": "ConvertINetString",
+      "offset": 6442515776,
+      "size": 63,
+      "instr_count": 13,
+      "source": "IMPORTED",
+      "bytes": "4c8bdc4883ec58498363e8008364243800488b842490000000498943d8488b842488000000498943d0488b842480000000498943c8e82624ffff4883c458c3"
+    },
+    {
+      "name": "GetGlobalFontLinkObject",
+      "offset": 6442565888,
+      "size": 141,
+      "instr_count": 33,
+      "source": "IMPORTED",
+      "bytes": "40534883ec20488bd9b8570007804885c97474488b05ce9601004885c07543488d0d5a95010048ff15939900000f1f44000048833dae96010000750c4c8d05a5960100e8305bfeff488d0d3195010048ff155a9900000f1f440000488b0586960100488903488b0d7c9601004885c97411488b01488b4008ff15e29a000033c0eb05b8054000804883c4205bc3"
+    },
+    {
+      "name": "LcidToRfc1766A",
+      "offset": 6442566048,
+      "size": 321,
+      "instr_count": 88,
+      "source": "IMPORTED",
+      "bytes": "48895c24205556574883ec50488b05f56901004833c448894424484963f0488bea8bf9bb570007804585c00f8ef10000004c8d15487d000033c0498bcaba9d0000003939740affc04883c1183bc272f23bc273424883642438004c8d04404883642430004183c9ff4f8b44c20833d289742428b9e404000048896c242048ff151c9800000f1f44000085c00f8491000000e98300000041b9060000004c8d4424408bcf418d515348ff15ca9600000f1f44000085c0746683f803752a448bc8c64424422d4c8d4424438bcf8d505748ff15a39600000f1f44000083f8037415c644244200eb0e83f8047507c644244300eb027f2e488d4c244048ff15f09700000f1f440000488bd64c8d442440488bcde8bb88feff85c0780933dbeb05bb054000808bc3488b4c24484833cce80fadfeff488b9c24880000004883c4505f5e5dc3"
+    },
+    {
+      "name": "Rfc1766ToLcidA",
+      "offset": 6442566384,
+      "size": 114,
+      "instr_count": 31,
+      "source": "IMPORTED",
+      "bytes": "4883ec48488b05ad6801004833c448894424304533d2b8570007804885c974404885d2743b458bc24c8d4c24200fbe026641890166443bd0741041ffc048ffc24983c1024183f8057ce34183f805750666448954242a488d542420e8509dfeff488b4c24304833cce883acfeff4883c448c3"
+    }
+  ],
+  "total_functions": 767,
+  "exported_functions": 82
+}

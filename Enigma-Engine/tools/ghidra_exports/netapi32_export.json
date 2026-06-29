@@ -1,0 +1,599 @@
+{
+  "binary": "netapi32.dll",
+  "functions": [
+    {
+      "name": "NetWkstaGetInfo",
+      "offset": 6442455056,
+      "size": 231,
+      "instr_count": 47,
+      "source": "IMPORTED",
+      "bytes": "48895c240848896c24104889742418574883ec20488b0595360100498bd88bfa488bf14885c074244c8bc38bd7488bceff15eac30000488b5c2430488b6c2438488b7424404883c4205fc333ed48392dcb350100753633d2448d4508488d0d0cc5000048ff155dc100000f1f440000488bc84885c00f84742b000033c0f0480fb10d993501000f85762b000085ed752b488b0d88350100488d15c1c4000048ff152ac100000f1f4400004885c0740c488905f9350100e96cffffff8bc5e973ffffff48ff15619500000f1f4400008be8e98ad4ffff48ff15ae9500000f1f44000090e978d4ffff"
+    },
+    {
+      "name": "entry",
+      "offset": 6442455904,
+      "size": 61,
+      "instr_count": 18,
+      "source": "IMPORTED",
+      "bytes": "48895c24084889742410574883ec20498bf88bda488bf183fa017505e8b30300004c8bc78bd3488bce488b5c2430488b7424384883c4205fe907000000"
+    },
+    {
+      "name": "__security_check_cookie",
+      "offset": 6442456576,
+      "size": 30,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "483b0d012a0100751048c1c11066f7c1ffff7501c348c1c910e962020000"
+    },
+    {
+      "name": "_wcsicmp",
+      "offset": 6442456612,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25b6bc0000"
+    },
+    {
+      "name": "_XcptFilter",
+      "offset": 6442456624,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff252abd0000"
+    },
+    {
+      "name": "_amsg_exit",
+      "offset": 6442456636,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2516bd0000"
+    },
+    {
+      "name": "_FindPESection",
+      "offset": 6442456656,
+      "size": 68,
+      "instr_count": 23,
+      "source": "ANALYSIS",
+      "bytes": "4c63413c4533c94c03c14c8bd2410fb74014450fb758064883c0184903c04585db741e8b500c4c3bd2720a8b480803ca4c3bd1720e41ffc14883c028453bcb72e233c0c3"
+    },
+    {
+      "name": "_IsNonwritableInCurrentImage",
+      "offset": 6442456736,
+      "size": 75,
+      "instr_count": 24,
+      "source": "ANALYSIS",
+      "bytes": "48895c2408574883ec20488bd9488d3d4ce9ffff488bcfe84400000085c07422482bdf488bd3488bcfe882ffffff4885c0740f8b4024c1e81ff7d083e001eb02488b5c24304883c4205fc3"
+    },
+    {
+      "name": "_ValidateImageBase",
+      "offset": 6442456832,
+      "size": 45,
+      "instr_count": 14,
+      "source": "ANALYSIS",
+      "bytes": "b84d5a000066390175204863413c4803c18138504500007511b90b020000663948187506b801000000c333c0c3"
+    },
+    {
+      "name": "_initterm",
+      "offset": 6442457102,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff252cbb0000"
+    },
+    {
+      "name": "_guard_check_icall",
+      "offset": 6442457136,
+      "size": 3,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "c20000"
+    },
+    {
+      "name": "__raise_securityfailure",
+      "offset": 6442457148,
+      "size": 52,
+      "instr_count": 13,
+      "source": "ANALYSIS",
+      "bytes": "40534883ec20488bd933c9ff1523b90000488bcbff1522b90000ff15b4b90000488bc8ba090400c04883c4205b48ff2598b90000"
+    },
+    {
+      "name": "DelayLoad_LsaUnregisterPolicyChangeNotification",
+      "offset": 6442457606,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05fb450100e900000000"
+    },
+    {
+      "name": "DelayLoad_LsaRegisterPolicyChangeNotification",
+      "offset": 6442457745,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0568450100e975ffffff"
+    },
+    {
+      "name": "DelayLoad_NetWkstaStatisticsGet",
+      "offset": 6442457763,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d051e460100e900000000"
+    },
+    {
+      "name": "DelayLoad_NetServerStatisticsGet",
+      "offset": 6442457902,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0583450100e900000000"
+    },
+    {
+      "name": "DelayLoad_NetApiBufferFree",
+      "offset": 6442458041,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05d0440100e900000000"
+    },
+    {
+      "name": "DelayLoad_NetApiBufferAllocate",
+      "offset": 6442458180,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0555440100e975ffffff"
+    },
+    {
+      "name": "DelayLoad_OpenServiceW",
+      "offset": 6442458198,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05e3430100e900000000"
+    },
+    {
+      "name": "DelayLoad_EnumServicesStatusExW",
+      "offset": 6442458337,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0530430100e900000000"
+    },
+    {
+      "name": "DelayLoad_StartServiceW",
+      "offset": 6442458476,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05b5420100e9eafeffff"
+    },
+    {
+      "name": "DelayLoad_ControlService",
+      "offset": 6442458494,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05cb420100e900000000"
+    },
+    {
+      "name": "DelayLoad_OpenSCManagerW",
+      "offset": 6442458633,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0520420100e94dfeffff"
+    },
+    {
+      "name": "DelayLoad_CloseServiceHandle",
+      "offset": 6442458651,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0516420100e93bfeffff"
+    },
+    {
+      "name": "DelayLoad_QueryServiceStatus",
+      "offset": 6442458669,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0524420100e951ffffff"
+    },
+    {
+      "name": "DelayLoad_I_BrowserSetNetlogonState",
+      "offset": 6442458772,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05cd410100e900000000"
+    },
+    {
+      "name": "DelayLoad_NetServerEnumEx",
+      "offset": 6442458911,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d054a410100e975ffffff"
+    },
+    {
+      "name": "DelayLoad_NetServerEnum",
+      "offset": 6442458929,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0540410100e963ffffff"
+    },
+    {
+      "name": "ApiSetQueryApiSetPresence",
+      "offset": 6442458960,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25e2b10000"
+    },
+    {
+      "name": "DelayLoad_NetpIsUncComputerNameValid",
+      "offset": 6442458972,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0525410100e95dfcffff"
+    },
+    {
+      "name": "NetpIsUncComputerNameValid",
+      "offset": 6442458992,
+      "size": 6,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "ff2512410100"
+    },
+    {
+      "name": "DelayLoad_NetapipBufferAllocate",
+      "offset": 6442459004,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0515410100e93dfcffff"
+    },
+    {
+      "name": "DelayLoad_NetpIsRemoteNameValid",
+      "offset": 6442459022,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0513410100e92bfcffff"
+    },
+    {
+      "name": "NetpCompareFtinfoEntrySid",
+      "offset": 6442460416,
+      "size": 88,
+      "instr_count": 27,
+      "source": "ANALYSIS",
+      "bytes": "4c8b01488b1241837804027436837a040274294c2bc248b8254992244992244949f7e848c1fa04488bc248c1e83f4803d0781a4885d27f0433c0c3b801000000c3837a0402498b4810740583c8ffc3488b5210e9a16a0000"
+    },
+    {
+      "name": "__GSHandlerCheck",
+      "offset": 6442465308,
+      "size": 29,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4883ec284d8b4138488bca498bd1e811000000b8010000004883c428c3"
+    },
+    {
+      "name": "__GSHandlerCheckCommon",
+      "offset": 6442465344,
+      "size": 91,
+      "instr_count": 28,
+      "source": "ANALYSIS",
+      "bytes": "4053458b18488bda4183e3f84c8bc941f600044c8bd17413418b40084d635004f7d84c03d14863c84c23d14963c34a8b1410488b43108b4808488b4308f64401030f740b0fb644010383e0f04c03c84c33ca498bc95be965ddffff"
+    },
+    {
+      "name": "memcpy",
+      "offset": 6442465441,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25899a0000"
+    },
+    {
+      "name": "memset",
+      "offset": 6442465453,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25cd9a0000"
+    },
+    {
+      "name": "_guard_dispatch_icall",
+      "offset": 6442465488,
+      "size": 2,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "ffe0"
+    },
+    {
+      "name": "NetAccessAdd",
+      "offset": 6442466352,
+      "size": 6,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "b832000000c3"
+    },
+    {
+      "name": "I_BrowserSetNetlogonState",
+      "offset": 6442466368,
+      "size": 93,
+      "instr_count": 26,
+      "source": "IMPORTED",
+      "bytes": "48895c240848896c24104889742418574883ec20418bd9498bf8488bf2488be9e8dbe1ffff84c0741a448bcb4c8bc7488bd6488bcd48ff15ec2301000f1f440000eb05b832000000488b5c2430488b6c2438488b7424404883c4205fc3"
+    },
+    {
+      "name": "NetServerEnum",
+      "offset": 6442466480,
+      "size": 154,
+      "instr_count": 36,
+      "source": "IMPORTED",
+      "bytes": "48895c240848896c24104889742418574883ec50418bd9498bf88bf2488be9e86ce1ffff84c07458488b8424a0000000448bcb48894424404c8bc7488b8424980000008bd64889442438488bcd8b84249000000089442430488b8424880000004889442428488b842480000000488944242048ff154f2301000f1f440000eb05b832000000488b5c2460488b6c2468488b7424704883c4505fc3"
+    },
+    {
+      "name": "NetServerEnumEx",
+      "offset": 6442466656,
+      "size": 154,
+      "instr_count": 36,
+      "source": "IMPORTED",
+      "bytes": "48895c240848896c24104889742418574883ec50418bd9498bf88bf2488be9e8bce0ffff84c07458488b8424a0000000448bcb48894424404c8bc7488b8424980000008bd64889442438488bcd8b84249000000089442430488b8424880000004889442428488b842480000000488944242048ff15972201000f1f440000eb05b832000000488b5c2460488b6c2468488b7424704883c4505fc3"
+    },
+    {
+      "name": "NetpAssertFailed",
+      "offset": 6442466832,
+      "size": 3,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "c20000"
+    },
+    {
+      "name": "NetpDbgPrint",
+      "offset": 6442466848,
+      "size": 16,
+      "instr_count": 4,
+      "source": "IMPORTED",
+      "bytes": "48895424104c894424184c894c2420c3"
+    },
+    {
+      "name": "NetpNetBiosReset",
+      "offset": 6442466880,
+      "size": 110,
+      "instr_count": 25,
+      "source": "IMPORTED",
+      "bytes": "40534881ec90000000488b05b80101004833c4488984248000000033d28ad9488d4c2420448d4260e840faffff33c0c644242032488d4c242088442422c744243218001000885c2460e8c20000008ac8e82b000000488b8c24800000004833cce85bd7ffff4881c4900000005bc3"
+    },
+    {
+      "name": "NetpNetBiosStatusToApiStatus",
+      "offset": 6442467008,
+      "size": 114,
+      "instr_count": 44,
+      "source": "IMPORTED",
+      "bytes": "84c9750433c0c30fb6c983f9147743743a83e909742e83e904742283e901741683e901740a83f903753c8d4130c3b8fa080000c3b8e5080000c3b8e4080000c3b839080000c3b8e1080000c383e915741d83e901741183e901741383f9027407b858080000c3b8f9080000c3b857000000c3"
+    },
+    {
+      "name": "Netbios",
+      "offset": 6442467152,
+      "size": 156,
+      "instr_count": 38,
+      "source": "IMPORTED",
+      "bytes": "48895c2408574883ec20488b0567070100488bf9b3404885c07569483905c6060100753a33d2448d4008488d0d7798000048ff15509200000f1f440000488bc84885c0744a33c0f0480fb10d98060100740c48ff151f9200000f1f440000488b0d83060100488d155498000048ff151d9200000f1f4400004885c07412488905f4060100488bcfff15539400008ad88ac3488b5c24304883c4205fc3"
+    },
+    {
+      "name": "NetRegisterDomainNameChangeNotification",
+      "offset": 6442467328,
+      "size": 157,
+      "instr_count": 45,
+      "source": "IMPORTED",
+      "bytes": "48895c240848896c24104889742418574883ec2033db488bf14885c975058d4157eb654533c94533c033d233c948ff15649200000f1f440000488bf84885c0750e48ff15209100000f1f440000eb30488bd7b90400000048ff15a21f01000f1f4400008be885c0791a488bcf48ff15159100000f1f4400008bcde80d5f00008bd8eb0348893e8bc3488b5c2430488b6c2438488b7424404883c4205fc3"
+    },
+    {
+      "name": "NetUnregisterDomainNameChangeNotification",
+      "offset": 6442467504,
+      "size": 84,
+      "instr_count": 25,
+      "source": "IMPORTED",
+      "bytes": "48895c2408574883ec20488bd94885c975058d4157eb32488bd3b90400000048ff15321f01000f1f4400008bc8e8aa5e00008bf885c0750f488bcb48ff15969000000f1f4400008bc7488b5c24304883c4205fc3"
+    },
+    {
+      "name": "NetStatisticsGet",
+      "offset": 6442467600,
+      "size": 180,
+      "instr_count": 47,
+      "source": "IMPORTED",
+      "bytes": "488bc44889580848896810488970184889782041564883ec20488b5c24504c8bf2488be9488d15dd960000498bce418bf9418bf04883230048ff15919100000f1f44000085c075194c8bcb448bc78bd6488bcd48ff155e1f01000f1f440000eb38488d15c8960000498bce48ff155e9100000f1f44000085c075194c8bcb448bc78bd6488bcd48ff151b1f01000f1f440000eb05b832000000488b5c2430488b6c2438488b742440488b7c24484883c420415ec3"
+    },
+    {
+      "name": "NetWkstaSetInfo",
+      "offset": 6442467792,
+      "size": 145,
+      "instr_count": 39,
+      "source": "IMPORTED",
+      "bytes": "488bc44889580848896810488970184889782041564883ec30488b05e0040100498bf9498bf08bea4c8bf14885c07531e8630000008bd885c07539488b0d1e040100488d154796000048ff15c08f00000f1f4400004885c0741a4889059f0401004c8bcf4c8bc68bd5498bceff15ee9100008bd8488b6c24488bc3488b5c2440488b742450488b7c24584883c430415ec3"
+    },
+    {
+      "name": "NetServiceControl",
+      "offset": 6442468064,
+      "size": 142,
+      "instr_count": 40,
+      "source": "IMPORTED",
+      "bytes": "488bc44889580848897010574883ec40488360e800418bd8488bf14c8d40f0488bca488bfae8ce040000488d442430448bc3488bd74889442420488bcee846090000488b5c24308bf885c0751b488b442470448d4701488bd348894424208d4f02e83e0200008bf84885db740f488bcb48ff15391d01000f1f440000488b5c24508bc7488b7424584883c4405fc3"
+    },
+    {
+      "name": "NetServiceEnum",
+      "offset": 6442468224,
+      "size": 171,
+      "instr_count": 44,
+      "source": "IMPORTED",
+      "bytes": "4c8bdc49895b0849896b104989731841564883ec50488b842490000000498bf04c8bb424800000004d8d43e8498363e8008bea498943d8488b842488000000498943d04d8973c8e8bc0a00008bd885c074073dea0000007521458b064585c07415488b5424408bcd4889742420e8920100008bd8eb044883260048837c2440007411488b4c244048ff15821c01000f1f440000488b6c24688bc3488b5c2460488b7424704883c450415ec3"
+    },
+    {
+      "name": "NetServiceGetInfo",
+      "offset": 6442468416,
+      "size": 143,
+      "instr_count": 41,
+      "source": "IMPORTED",
+      "bytes": "488bc4488958084889681048897018574883ec40488360e800418bf0488bf94c8d40f0488bca498be9488bdae8670300004c8d4c2430448bc6488bd3488bcfe80c0d0000488b5c24308bf885c07515448d400148896c2420488bd38bcee8e20000008bf84885db740f488bcb48ff15dd1b01000f1f440000488b5c24508bc7488b6c2458488b7424604883c4405fc3"
+    },
+    {
+      "name": "NetServiceInstall",
+      "offset": 6442468576,
+      "size": 157,
+      "instr_count": 44,
+      "source": "IMPORTED",
+      "bytes": "488bc4488958084889681048897018574883ec40488360e800418bf8488be94c8d40f0488bca498bd9488bf2e8c7020000488d4424304c8bcb448bc74889442420488bd6488bcde8040e0000488b5c24308bf885c0751b488b442470448d4701488bd348894424208d4f02e8340000008bf84885db740f488bcb48ff152f1b01000f1f440000488b5c24508bc7488b6c2458488b7424604883c4405fc3"
+    },
+    {
+      "name": "RxNetServerEnum",
+      "offset": 6442473552,
+      "size": 755,
+      "instr_count": 209,
+      "source": "IMPORTED",
+      "bytes": "40555356574154415541564157488d6c24f94881ecf8000000488b0598e700004833c4488945ef488b45774533e44c8b6d7f418bf84489458f418bdc4c8b8597000000458bf448894db7458bfc488b8d8f000000458bd445896500458adc448920418bf44c894dbf488955af488945c748894da74c89658748895d974489642470448965934d85c0750766448965cfeb09488d4dcfe8b60700004c89642458488d45834c896424504533c94c896424488bcf4889442440488d459f48894424384c896424304c896424284c89642420e8140b00008bf885c00f859b010000448b6583448b458f488d4dcf488b55af4c8d4d8744885c2450418bc748894c2448412bc6488b4da703456f48894c24408b8d87000000894c2438488d4da348894c2430488d4d8348894c2428488b4db789442420e8c50100004533db8bf885c0740b3dea0000000f850e010000448b458381ffea00000075774585c00f84ff000000837d6fff7468488b4d874585c0745b458bc8448b458f488b51084503f44885d274164883c8ff48ffc06644391c4275f6448d3445020000004183f865751f488b51204885d274164883c8ff48ffc06644391c4275f6458d34464183c6024903cc4983e90175b0448b4583448b7d9f8b45a3488d542470448b4d8f488d4d9789442438488d458744894424304c8d459348894424284489642420e89afbffff4c8b558785c075624d85d27416498bca48ff152b0601000f1f4400004533d24c8955878b742470488b5d9785ff74368d46ff410fafc4488d4dcf4c8b441808e80e060000438d043741b3013b456f0f8290feffffbfea000000eb194c8b5587eb134c8b55874533e4eb19488b5d978bf88b7424704533e485ff740881ffea0000007528488b45bf488918498bdc488b45c7893085ff750641897500eb0e8d46013945930f474593418945004d85d2740f498bca48ff15880501000f1f4400004885db740f488bcb48ff15740501000f1f4400008bc7488b4def4833cce8d1baffff4881c4f8000000415f415e415d415c5f5e5b5dc3"
+    },
+    {
+      "name": "RxRemoteApi",
+      "offset": 6442475776,
+      "size": 817,
+      "instr_count": 209,
+      "source": "IMPORTED",
+      "bytes": "40555356574154415541564157488dac2498feffff4881ec78020000488b05e5de00004833c448898550010000488b85d001000033f6488bbdd80100004d8be04c8badf0010000488bda488945c8448bf1488b85e0010000448bfe488945c0488b85e8010000488945b80fb7c14c894d983bc174088d4657e991020000488bcbe8ebbdffff85c0750ab82f090000e97b020000488d45e0897580488945a8488d4de0488d45d8488975b048894424404d8bcc488d45848975844889442430458bc6488d45a8c7458804000000488944242848897c2420e80d0b000085c00f852b0200008b85f8010000488db5000200004889759085c0790c4883c608488975904c8b7ef84c8b45c84c8bcf488b4dd889842488000000488d45b04889842480000000488d45804889442478488d45d04889442470488d45a04889442468488d45904889442460488d45a84889442458488d45844889442450488d45884889442448b8680100008944244089442438488b45b84c896c24304c8b6d984889442428498bd5488b45c04889442420e8630b0000488365900085c00f85700100008b4d8085c97418894d98e8cb3f0000488bf84885c0750e8d4708e9510100008365980033ff8b85f80100004c8d45e0448b4d8483e00189442450498bd7488d4598488bcb48894424488b458848897c244089442438488d45e048894424308b45a089442428488b45d04889442420e8271600008bd885c074223dea000000741b3d4b080000740b3d0d0900000f84b300000083658000e9aa0000008b5d984183fe6874094181fed7000000751a448b4588488d55e08b0e4c8bcf895c2420e8ef14000085c074798b8df8010000488d85000200004889459085c979084883c008488945908b4580488d55e0894c24604d8bcd894424584d8bc4488b45b0418bce4889442450488d4590895c244848897c24404889442438488b45b84889442430488b45c04889442428488b45c84889442420e8eb18000048836590008bd8eb05bb0d000000488b4dd04885c9740c48ff15b56d00000f1f4400004885ff740f488bcf48ff15a16d00000f1f4400008bc3488b8d500100004833cce8e3b1ffff4881c478020000415f415e415d415c5f5e5b5dc3"
+    },
+    {
+      "name": "NetpULongRoundUp",
+      "offset": 6442482840,
+      "size": 31,
+      "instr_count": 13,
+      "source": "ANALYSIS",
+      "bytes": "8d04113bc1760a33c9f7daffc823c2eb08b9950000c083c8ff4189008bc1c3"
+    },
+    {
+      "name": "NetpAddTlnFtinfoEntry",
+      "offset": 6442486128,
+      "size": 251,
+      "instr_count": 68,
+      "source": "IMPORTED",
+      "bytes": "488bc44889580848896810488970184889782041564883ec40488b31488bea488bf9483bf10f8489000000488bde488b36837b2400757441b001488d5330488bcde80609000084c00f85aa0000004533c0488d4b30488bd5e8ef08000084c0744a488b03483958080f8583000000488b4b08483919757a4889014c8bc34889480833d2ff4f188b43102947108b431429471465488b0c2560000000488b493048ff15f24900000f1f440000483bf70f8577ffffff4883642430004533c983642428004c8bc548836424200033d2488bcfe83b000000488b5c2450488b6c2458488b742460488b7c24684883c440415ec3b903000000cd29b001ebd9"
+    },
+    {
+      "name": "NetpAllocFtinfoEntry",
+      "offset": 6442486400,
+      "size": 130,
+      "instr_count": 41,
+      "source": "IMPORTED",
+      "bytes": "4055488bec4883ec600f57c033c0488945f00f1145c08955c40f1145d00f1145e085d2785783fa017e3a83fa02740a83fa03742083fa047543488b4530410f10004c894dd00f1008f30f7f45d8f30f7f4de8eb198b45388945d0488b4540488945d8eb09410f1000f30f7f45d0488d55c0e8160000004885c00f95c04883c4605dc3"
+    },
+    {
+      "name": "NetpCleanFtinfoContext",
+      "offset": 6442487088,
+      "size": 91,
+      "instr_count": 27,
+      "source": "IMPORTED",
+      "bytes": "40534883ec20488bd94c8b034c3bc37444493958087537498b004c394008752e48890333d248895808ff4b18418b401029431065488b0c2560000000488b493048ff15914600000f1f440000ebbbb903000000cd294883c4205bc3"
+    },
+    {
+      "name": "NetpCompareFtinfoEntryNetbios",
+      "offset": 6442487568,
+      "size": 122,
+      "instr_count": 37,
+      "source": "ANALYSIS",
+      "bytes": "4c8b014533c9488b0241837804027535498d482866443909742b4c3949087425837804027545488d50286644390a743b4c394a08743541b00148ff25c044000083780402742e4c2bc048b8254992244992244949f7e848c1fa04488bc248c1e83f4803d0790583c8ffeb0e4885d27f0433c0eb05b801000000c3"
+    },
+    {
+      "name": "NetpCopyFtinfoContext",
+      "offset": 6442487984,
+      "size": 474,
+      "instr_count": 128,
+      "source": "IMPORTED",
+      "bytes": "48895c2410488974241848897c2420554154415541564157488bec4883ec20ba080000004c8d4530488bf98d4a08e8b5ebffff448b45304183f8100f827a0100008b4710468d0c00443bc80f826a010000448b5f18bbffffffff496bc338483bc30f87540100004c8d4530ba080000008bc8e871ebffff85c00f883c010000448b55304503d1453bd10f822c01000049c1e3034c3bdb0f871f0100004c8d4530ba08000000418bcbe83bebffff85c00f88060100008b4d304103ca413bca0f82f70000008bf18bd1b94000000048ff151c4000000f1f440000488bd84885c00f84d6000000448bc633d2488bc8e80ba7ffff488d4b104c8d453048894d30e8f90500004c8b6d304c8d45308b4f18890b8b4718486bc8384903cd48894d30e8d9050000488b4d304c8d453048894b088b4718488d0cc148894d30e8bd0500004c8b75304533e4488b37458bfe442bfbeb39488b43084c8d4530418bcc458bcf486bd138488d4e204903d54a8914e0e83d01000085c0743c488b36418bc64c8b7530412bc64403f841ffc4483bf775c28b134c8d0de8fbffff488b4b0841b80800000048ff150f4100000f1f440000488bc3eb0a488bcbe8f90f000033c0488b5c2458488b742460488b7c24684883c420415f415e415d415c5dc3"
+    },
+    {
+      "name": "NetpInitFtinfoContext",
+      "offset": 6442488480,
+      "size": 18,
+      "instr_count": 5,
+      "source": "IMPORTED",
+      "bytes": "4883611000488361180048894908488909c3"
+    },
+    {
+      "name": "NetpMergeFtinfo",
+      "offset": 6442489200,
+      "size": 243,
+      "instr_count": 77,
+      "source": "IMPORTED",
+      "bytes": "48895c2408488974241048897c2418554154415541564157488bec4883ec40488365f000488bc24c8be9488d55f033f633ff4921314533f6488bc848897d484d8be1488975e84d8bf84c8975e0e892a1ffff8bd885c0785a4d85ff7416488d5548498bcfe87ba1ffff488b7d488bd885c0783f488b55f04c8d4de84c8bc7498bcde85a96ffff488b75e88bd885c07822488d55e0488bcee82c91ffff8bd885c0780c488b45e033db49890424eb044c8b75e0498bcee83a0c0000488bcee8320c0000488bcfe82a0c0000488b4df0e8210c00004c8d5c24408bc3498b5b30498b7338498b7b40498be3415f415e415d415c5dc3"
+    },
+    {
+      "name": "NetpCloseConfigData",
+      "offset": 6442489824,
+      "size": 57,
+      "instr_count": 17,
+      "source": "IMPORTED",
+      "bytes": "40534883ec20488bd94885c975058d4157eb20488b0948ff15433a00000f1f440000488bcb48ff159c3900000f1f44000033c04883c4205bc3"
+    },
+    {
+      "name": "NetpGetConfigBool",
+      "offset": 6442489888,
+      "size": 419,
+      "instr_count": 115,
+      "source": "IMPORTED",
+      "bytes": "48895c240848896c241056574154415641574883ec3033db4d8bf9418be84c8be24c8bf14d85c90f845a0100004589014885c90f844e0100004c8d442470e8351100008bf885c00f853f0100008b4c247085c90f8433010000e8fa090000488bf04885c075088d4608e91e010000498b0e488d44247048894424284c8d4c24784533c04889742420498bd448ff15963900000f1f44000083f802740685c074188bd8488bce48ff15dc3800000f1f4400008bc3e9d400000041be0100000044397424780f8589000000488d1580420000488bce48ff15e63900000f1f44000085c0741a488d1576420000488bce48ff15cc3900000f1f44000085c07505418beeeb36488d155f420000488bce48ff15ad3900000f1f44000085c0741a488d1551420000488bce48ff15933900000f1f44000085c075068beb8bfbeb1f4883c8ff48ffc066391c4675f7f7d81bff83e70deb09837c24780475188b2e488bce48ff150bc700000f1f4400008bc741892feb1b488bce48ff150d3800000f1f440000b80d000000eb05b857000000488b5c2460488b6c24684883c430415f415e415c5f5ec3"
+    },
+    {
+      "name": "NetpGetConfigDword",
+      "offset": 6442490320,
+      "size": 490,
+      "instr_count": 131,
+      "source": "IMPORTED",
+      "bytes": "488bc4488958084889681056574154415641574883ec4033db498be9458bf04c8be24c8bf94d85c90f84a00100004589014885c90f84940100004c8d4018e8850f00008bf085c00f85860100008b8c248000000085c90f8477010000e847080000488bf84885c075088d4708e962010000498b0f488d84248000000048894424284c8d8c24880000004533c048897c2420498bd448ff15dd3700000f1f44000083f802740685c074188bd8488bcf48ff15233700000f1f4400008bc3e91201000083bc2488000000010f85c50000004883c8ff48ffc066391c4775f785c075078bf3e9ba00000041b8020000008bf0488d15d6400000488bcf48ff15403800000f1f440000488bcf85c07530448d4010488d54243048ff151c3800000f1f440000488b4c2430448bf0482bcf48d1f9482bce48f7d91bf683e60deb65488d159540000048ff15e63700000f1f440000483bc67407be0d000000eb460fb7174c8bc7448bf3eb248d42d06683f8090f876dffffff0fb7c2478d34b64983c002458d76e8468d3470410fb7106685d275d7e94cffffff83bc248800000004751a448b37488bcf48ff1515c500000f1f4400008bc644897500eb1b488bcf48ff15163600000f1f440000b80d000000eb05b857000000488b5c2470488b6c24784883c440415f415e415c5f5ec3"
+    },
+    {
+      "name": "NetpGetConfigTStrArray",
+      "offset": 6442490832,
+      "size": 220,
+      "instr_count": 65,
+      "source": "IMPORTED",
+      "bytes": "48895c241848896c2420565741564883ec3033ed498bf0498928488bda4c8bf14885d20f849b00000066392a0f84920000004c8d442450e88c0d000085c00f85850000008b4c245085c97507b863080000eb76e850060000488bf84885c075058d4708eb64498b0e488d44245048894424284c8d4c24584533c048897c2420488bd348ff15ef3500000f1f4400008bd883f8027507bb63080000eb0e85c0750a837c24580774168d580d488bcf48ff15243500000f1f4400008bc3eb0c48893e33c0eb05b857000000488b5c2460488b6c24684883c430415e5f5ec3"
+    },
+    {
+      "name": "NetpGetConfigValue",
+      "offset": 6442491072,
+      "size": 288,
+      "instr_count": 84,
+      "source": "IMPORTED",
+      "bytes": "405355565741564883ec3033ed498bf0498928488bfa4c8bf14885d20f84ee00000066392a0f84e50000004c8d442460e8a30c000085c00f85d80000008b4c246085c9750ab863080000e9c6000000e864050000488bd84885c075088d4308e9b1000000498b0e488d44246048894424284c8d4c24684533c048895c2420488bd748ff15003500000f1f4400008bf883f8027507bf63080000eb6285c0755e837c246802754b488d54247048896c2470488bcbe8040d00008bf8488bcb85c0741848ff15203400000f1f440000488b4c24704885c97435eb2748ff15083400000f1f440000488b5c247048891e33c0eb24837c24680174f2bf0d000000488bcb48ff15e13300000f1f4400008bc7eb05b8570000004883c430415e5f5e5d5bc3"
+    },
+    {
+      "name": "NetpOpenConfigData",
+      "offset": 6442491376,
+      "size": 8,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "458bc8e908000000"
+    },
+    {
+      "name": "LocalFree",
+      "offset": 6442492516,
+      "size": 7,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "48ff253d2f0000"
+    },
+    {
+      "name": "FID_conflict:StringCchCopyA",
+      "offset": 6442500732,
+      "size": 114,
+      "instr_count": 36,
+      "source": "ANALYSIS",
+      "bytes": "4533c9488d42ff41bafeffff7f41bb57000780493bc2450f47cb4585c978474885d274224c2bd24c2bc1498d04124885c07413418a040884c0740b880148ffc14883ea0175e44885d2488d41ff480f45c148f7da451bc941f7d14181e17a000780c60000eb084885d27403c60100418bc1c3"
+    }
+  ],
+  "total_functions": 281,
+  "exported_functions": 74
+}

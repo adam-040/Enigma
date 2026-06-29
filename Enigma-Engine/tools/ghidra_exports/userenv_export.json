@@ -1,0 +1,1583 @@
+{
+  "binary": "userenv.dll",
+  "functions": [
+    {
+      "name": "GetDefaultUserProfileDirectoryW",
+      "offset": 6442455568,
+      "size": 16,
+      "instr_count": 5,
+      "source": "IMPORTED",
+      "bytes": "4c8bca4c8bc133d28d4a02e9f0180000"
+    },
+    {
+      "name": "UnloadUserProfile",
+      "offset": 6442455600,
+      "size": 49,
+      "instr_count": 7,
+      "source": "IMPORTED",
+      "bytes": "4883ec28e81b00000085c00f88ad720000b8010000004883c428c30fb7c848ff15704801000f1f44000033c0e9428dffff"
+    },
+    {
+      "name": "LoadUserProfileW",
+      "offset": 6442456368,
+      "size": 49,
+      "instr_count": 7,
+      "source": "IMPORTED",
+      "bytes": "4883ec28e81b00000085c00f884b720000b8010000004883c428c30fb7c848ff15d24501000f1f44000033c0e9a48dffff"
+    },
+    {
+      "name": "GetUserProfileDirectoryW",
+      "offset": 6442461392,
+      "size": 322,
+      "instr_count": 61,
+      "source": "IMPORTED",
+      "bytes": "40535541574883ec30498be84c8bfa4885c90f84b26600004d85c00f84c166000033db4889742458488d5424508bf3e8bc00000085c00f88d366000048897c2428488d542468488b7c2450488bcf4c8974242048ff153e6702000f1f44000085c00f8493660000448bf3488b7424684885ff742448ff15d5a401000f1f4400004c8bc733d2488bc848ff15d1a401000f1f44000085c07448488b7c24284585f64c8b7424200f88646600004c8bcd4d8bc7488bd6b905000000e882010000488bce8bd848ff15b6a401000f1f440000488b7424588bc34883c430415f5d5bc3e8d3080000ebb1b90600000048ff15c23d01000f1f44000033dbe9f299ffffb95700000048ff15aa3d01000f1f44000033dbe9da99ffffe8b9a2ffff448bf085c00f886599ffffe95b99ffffb90600000048ff157d3d01000f1f44000090e9a999ffff"
+    },
+    {
+      "name": "GetProfileType",
+      "offset": 6442464784,
+      "size": 49,
+      "instr_count": 7,
+      "source": "IMPORTED",
+      "bytes": "4883ec28e82700000085c00f88835c0000b8010000004883c428c30fb7c848ff15ba3a01000f1f44000033c0e96ca3ffff"
+    },
+    {
+      "name": "ExpandEnvironmentStringsForUserW",
+      "offset": 6442467840,
+      "size": 49,
+      "instr_count": 13,
+      "source": "IMPORTED",
+      "bytes": "4883ec2848ff155d4f02000f1f44000085c0780bb8010000004883c428c30fb7c848ff153f8b01000f1f44000033c0ebe7"
+    },
+    {
+      "name": "GetAppContainerRegistryLocation",
+      "offset": 6442467904,
+      "size": 59,
+      "instr_count": 18,
+      "source": "IMPORTED",
+      "bytes": "48895c2408574883ec20488bfa8bd9e84820000084c0741d488bd78bcb48ff15b44e02000f1f440000488b5c24304883c4205fc3b801400080ebed"
+    },
+    {
+      "name": "DeriveRestrictedAppContainerSidFromAppContainerSidAndRestrictedName",
+      "offset": 6442468256,
+      "size": 77,
+      "instr_count": 22,
+      "source": "IMPORTED",
+      "bytes": "48895c24084889742410574883ec20498bd8488bfa488bf1e8df1e000084c074264c8bc3488bd7488bce48ff152f4d02000f1f440000488b5c2430488b7424384883c4205fc3b801400080ebe8"
+    },
+    {
+      "name": "GetAppContainerFolderPath",
+      "offset": 6442468576,
+      "size": 61,
+      "instr_count": 18,
+      "source": "IMPORTED",
+      "bytes": "48895c2408574883ec20488bda488bf9e8a71d000084c0741e488bd3488bcf48ff15ea4b02000f1f440000488b5c24304883c4205fc3b801400080ebed"
+    },
+    {
+      "name": "DeriveAppContainerSidFromAppContainerName",
+      "offset": 6442468960,
+      "size": 61,
+      "instr_count": 18,
+      "source": "IMPORTED",
+      "bytes": "48895c2408574883ec20488bda488bf9e8271c000084c0741e488bd3488bcf48ff155a4a02000f1f440000488b5c24304883c4205fc3b801400080ebed"
+    },
+    {
+      "name": "CreateAppContainerProfile",
+      "offset": 6442469200,
+      "size": 37,
+      "instr_count": 9,
+      "source": "IMPORTED",
+      "bytes": "4883ec48488b442478488944243083642428008b44247089442420e8100000004883c448c3"
+    },
+    {
+      "name": "Ordinal_212",
+      "offset": 6442469248,
+      "size": 122,
+      "instr_count": 32,
+      "source": "IMPORTED",
+      "bytes": "48895c240848896c24104889742418574883ec40498bd9498bf8488bf2488be9e8f71a000084c0744b488b8424800000004c8bcb48894424304c8bc78b442478488bd689442428488bcd8b4424708944242048ff15c74802000f1f440000488b5c2450488b6c2458488b7424604883c4405fc3b801400080ebe3"
+    },
+    {
+      "name": "DestroyEnvironmentBlock",
+      "offset": 6442469520,
+      "size": 56,
+      "instr_count": 8,
+      "source": "IMPORTED",
+      "bytes": "4883ec2848ff15c54802000f1f44000085c00f88e0500000b8010000004883c428c30fb7c848ff15d63301000f1f44000033c0e90fafffff"
+    },
+    {
+      "name": "CreateEnvironmentBlock",
+      "offset": 6442469568,
+      "size": 56,
+      "instr_count": 8,
+      "source": "IMPORTED",
+      "bytes": "4883ec2848ff15a54802000f1f44000085c00f88c6500000b8010000004883c428c30fb7c848ff15c03301000f1f44000033c0e929afffff"
+    },
+    {
+      "name": "RegisterGPNotification",
+      "offset": 6442469616,
+      "size": 7,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "48ff2599890100"
+    },
+    {
+      "name": "UnregisterGPNotification",
+      "offset": 6442469760,
+      "size": 7,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "48ff2589890100"
+    },
+    {
+      "name": "GetAppliedGPOListW",
+      "offset": 6442469824,
+      "size": 7,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "48ff25d9880100"
+    },
+    {
+      "name": "LeaveCriticalPolicySection",
+      "offset": 6442469952,
+      "size": 7,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "48ff2581880100"
+    },
+    {
+      "name": "EnterCriticalPolicySection",
+      "offset": 6442469984,
+      "size": 7,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "48ff2549880100"
+    },
+    {
+      "name": "GetProfilesDirectoryW",
+      "offset": 6442470064,
+      "size": 16,
+      "instr_count": 5,
+      "source": "IMPORTED",
+      "bytes": "4c8bca4c8bc133d28d4a01e950e0ffff"
+    },
+    {
+      "name": "Ordinal_217",
+      "offset": 6442470096,
+      "size": 5,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "e907000000"
+    },
+    {
+      "name": "dllmain_dispatch",
+      "offset": 6442470976,
+      "size": 301,
+      "instr_count": 96,
+      "source": "ANALYSIS",
+      "bytes": "488bc4488958204c89401889501048894808565741564883ec40498bf08bfa4c8bf185d2750f3915541302007f0733c0e9f00000008d42ff83f8017745488b05dc8b01004885c0750ac744243001000000eb14ff15ff8401008bd88944243085c00f84b40000004c8bc68bd7498bcee88cfdffff8bd88944243085c00f84990000004c8bc68bd7498bcee8852c00008bd88944243083ff01753885c075344c8bc633d2498bcee8692c00004c8bc633d2498bcee848fdffff488b05618b01004885c0740e4c8bc633d2498bceff158684010085ff740583ff0375404c8bc68bd7498bcee818fdffff8bd88944243085c07429488b05278b01004885c075098d5801895c2430eb144c8bc68bd7498bceff15438401008bd889442430eb068bc3488b5c24784883c440415e5f5ec3"
+    },
+    {
+      "name": "entry",
+      "offset": 6442471296,
+      "size": 61,
+      "instr_count": 18,
+      "source": "IMPORTED",
+      "bytes": "48895c24084889742410574883ec20498bf88bda488bf183fa017505e86b0600004c8bc78bd3488bce488b5c2430488b7424384883c4205fe983feffff"
+    },
+    {
+      "name": "capture_previous_context",
+      "offset": 6442471736,
+      "size": 113,
+      "instr_count": 33,
+      "source": "ANALYSIS",
+      "bytes": "405356574883ec40488bd9ff155f7e0100488bb3f800000033ff4533c0488d542460488bceff15557e01004885c07439488364243800488d4c2468488b5424604c8bc848894c24304c8bc6488d4c247048894c242833c948895c2420ff15167e0100ffc783ff027cb14883c4405f5e5bc3"
+    },
+    {
+      "name": "__scrt_acquire_startup_lock",
+      "offset": 6442471856,
+      "size": 57,
+      "instr_count": 17,
+      "source": "ANALYSIS",
+      "bytes": "4883ec28e8f308000085c0742165488b042530000000488b4808eb05483bc8741433c0f0480fb10d6c15020075ee32c04883c428c3b001ebf7"
+    },
+    {
+      "name": "__scrt_dllmain_after_initialize_c",
+      "offset": 6442471920,
+      "size": 52,
+      "instr_count": 17,
+      "source": "ANALYSIS",
+      "bytes": "4883ec28e8b308000085c07407e81a070000eb19e8970800008bc8e84a09000085c0740432c0eb07e861090000b0014883c428c3"
+    },
+    {
+      "name": "__scrt_dllmain_exception_filter",
+      "offset": 6442472084,
+      "size": 96,
+      "instr_count": 27,
+      "source": "ANALYSIS",
+      "bytes": "48895c240848896c24104889742418574883ec20498bf9498bf08bda488be9e8f407000085c0751683fb0175114c8bc633d2488bcd488bc7ff15c6800100488b5424588b4c2450488b5c2430488b6c2438488b7424404883c4205fe9d4080000"
+    },
+    {
+      "name": "__scrt_dllmain_uninitialize_c",
+      "offset": 6442472188,
+      "size": 48,
+      "instr_count": 13,
+      "source": "ANALYSIS",
+      "bytes": "4883ec28e8a707000085c07410488d0d401402004883c428e959080000e83a13000085c07505e8270800004883c428c3"
+    },
+    {
+      "name": "__scrt_initialize_crt",
+      "offset": 6442472272,
+      "size": 73,
+      "instr_count": 23,
+      "source": "ANALYSIS",
+      "bytes": "40534883ec200fb6052414020085c9bb010000000f44c3880514140200e8aa050000e8d512000084c0750432c0eb14e8c812000084c0750933c9e8bd120000ebea8ac34883c4205bc3"
+    },
+    {
+      "name": "__scrt_is_nonwritable_in_current_image",
+      "offset": 6442472536,
+      "size": 150,
+      "instr_count": 47,
+      "source": "ANALYSIS",
+      "bytes": "4883ec184c8bc1b84d5a000066390595abffff757848630dc8abffff488d1585abffff4803ca813950450000755fb80b0200006639411875544c2bc20fb74114488d51184803d00fb74106488d0c804c8d0cca48891424493bd174188b4a0c4c3bc1720a8b420803c14c3bc072084883c228ebdf33d24885d2750432c0eb14837a24007d0432c0eb0ab001eb0632c0eb024883c418c3"
+    },
+    {
+      "name": "__scrt_release_startup_lock",
+      "offset": 6442472696,
+      "size": 36,
+      "instr_count": 13,
+      "source": "ANALYSIS",
+      "bytes": "40534883ec208ad9e8a705000033d285c0740b84db7507488715321202004883c4205bc3"
+    },
+    {
+      "name": "__scrt_uninitialize_crt",
+      "offset": 6442472740,
+      "size": 41,
+      "instr_count": 14,
+      "source": "ANALYSIS",
+      "bytes": "40534883ec20803d50120200008ad9740484d2750ce80e1100008acbe807110000b0014883c4205bc3"
+    },
+    {
+      "name": "_onexit",
+      "offset": 6442472788,
+      "size": 79,
+      "instr_count": 23,
+      "source": "ANALYSIS",
+      "bytes": "40534883ec20488b15ff0b0200488bd98bca483315e311020083e13f48d3ca4883faff750a488bcbe8e5050000eb0f488bd3488d0dc3110200e82a06000033c985c0480f44cb488bc14883c4205bc3"
+    },
+    {
+      "name": "atexit",
+      "offset": 6442472876,
+      "size": 23,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4883ec28e89fffffff48f7d81bc0f7d8ffc84883c428c3"
+    },
+    {
+      "name": "_o_free",
+      "offset": 6442472908,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e9ef040000"
+    },
+    {
+      "name": "__security_init_cookie",
+      "offset": 6442472972,
+      "size": 172,
+      "instr_count": 39,
+      "source": "ANALYSIS",
+      "bytes": "48895c242055488bec4883ec20488b05400b020048bb32a2df2d992b0000483bc375744883651800488d4d18ff156a7a0100488b451848894510ff15bc7801008bc048314510ff15c07801008bc0488d4d2048314510ff15f87801008b4520488d4d1048c1e02048334520483345104833c148b9ffffffffffff00004823c148b933a2df2d992b0000483bc3480f44c1488905bd0a0200488b5c244848f7d0488905b60a02004883c4205dc3"
+    },
+    {
+      "name": "_guard_check_icall",
+      "offset": 6442473744,
+      "size": 3,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "c20000"
+    },
+    {
+      "name": "__isa_available_init",
+      "offset": 6442473756,
+      "size": 379,
+      "instr_count": 93,
+      "source": "ANALYSIS",
+      "bytes": "48895c24104889742418574883ec1033c0c7053d0802000200000033c9c7052d080200010000000fa2448bc133ff448bcb4181f06e74656c4181f147656e75448bd28bf033c98d4701450bc80fa24181f2696e6549890424450bca895c2404448bd9894c24088954240c755048830de8070200ff25f03fff0f3dc006010074283d6006020074213d70060200741a05b0f9fcff83f820772448b90100010001000000480fa3c17314448b05d90d02004183c801448905ce0d0200eb07448b05c50d0200b8070000003bf07c2633c90fa28904248bfb895c2404894c24088954240c0fbae309730b4183c802448905960d0200410fbae3147370c7055107020002000000c7054b07020006000000410fbae31b7355410fbae31c734e33c90f01d048c1e220480bd04889542420488b44242024063c0675328b051b07020083c808c7050a0702000300000089050807020040f6c720741383c820c705f1060200050000008905ef060200488b5c242833c0488b7424304883c4105fc3"
+    },
+    {
+      "name": "__scrt_is_ucrt_dll_in_use",
+      "offset": 6442474156,
+      "size": 12,
+      "instr_count": 4,
+      "source": "ANALYSIS",
+      "bytes": "33c03905cc0602000f95c0c3"
+    },
+    {
+      "name": "_o_free",
+      "offset": 6442474176,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e90f010000"
+    },
+    {
+      "name": "_initterm",
+      "offset": 6442474198,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2504770100"
+    },
+    {
+      "name": "_initterm_e",
+      "offset": 6442474210,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25f0760100"
+    },
+    {
+      "name": "__CxxFrameHandler4",
+      "offset": 6442474222,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25bc760100"
+    },
+    {
+      "name": "_o___std_exception_copy",
+      "offset": 6442474258,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2580760100"
+    },
+    {
+      "name": "_o___std_exception_destroy",
+      "offset": 6442474270,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff256c760100"
+    },
+    {
+      "name": "_o___std_type_info_destroy_list",
+      "offset": 6442474282,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2558760100"
+    },
+    {
+      "name": "_o___stdio_common_vsnprintf_s",
+      "offset": 6442474294,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2544760100"
+    },
+    {
+      "name": "_o___stdio_common_vswprintf",
+      "offset": 6442474306,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2530760100"
+    },
+    {
+      "name": "_o__cexit",
+      "offset": 6442474318,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2514760100"
+    },
+    {
+      "name": "_o__configure_narrow_argv",
+      "offset": 6442474330,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2500760100"
+    },
+    {
+      "name": "_o__crt_atexit",
+      "offset": 6442474342,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25e4750100"
+    },
+    {
+      "name": "_o__execute_onexit_table",
+      "offset": 6442474354,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25e0750100"
+    },
+    {
+      "name": "_o__initialize_narrow_environment",
+      "offset": 6442474366,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff257c750100"
+    },
+    {
+      "name": "_o__initialize_onexit_table",
+      "offset": 6442474378,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2578750100"
+    },
+    {
+      "name": "_o__invalid_parameter_noinfo",
+      "offset": 6442474390,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2574750100"
+    },
+    {
+      "name": "_o__purecall",
+      "offset": 6442474416,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2562750100"
+    },
+    {
+      "name": "_o__register_onexit_function",
+      "offset": 6442474428,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff255e750100"
+    },
+    {
+      "name": "_o__seh_filter_dll",
+      "offset": 6442474440,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff255a750100"
+    },
+    {
+      "name": "_o_free",
+      "offset": 6442474452,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2566750100"
+    },
+    {
+      "name": "memset",
+      "offset": 6442474464,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff250a760100"
+    },
+    {
+      "name": "_vsnwprintf",
+      "offset": 6442474476,
+      "size": 98,
+      "instr_count": 27,
+      "source": "ANALYSIS",
+      "bytes": "48895c240848896c24104889742418574883ec30498bd9498bf8488bf2488be9e8abefffff48895c24284c8bcf4883642420004c8bc6488bd5488b084883c901e811ffffff488b5c244083c9ff488b6c244885c0488b7424500f48c14883c4305fc3"
+    },
+    {
+      "name": "FID_conflict:vsnwprintf_s",
+      "offset": 6442474580,
+      "size": 104,
+      "instr_count": 28,
+      "source": "ANALYSIS",
+      "bytes": "48895c240848896c24104889742418574883ec40498bd9498bf8488bf2488be9e843efffff4c8b5424704c8bcf4c895424304c8bc6488364242800488bd5488b0848895c2420e897feffff488b5c245083c9ff488b6c245885c0488b7424600f48c14883c4405fc3"
+    },
+    {
+      "name": "DelayLoad_ConvertSidToStringSidW",
+      "offset": 6442474690,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d059f330200e900000000"
+    },
+    {
+      "name": "DelayLoad_GetUserNameExW",
+      "offset": 6442474829,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05ec320200e900000000"
+    },
+    {
+      "name": "DelayLoad_GetBestInterface",
+      "offset": 6442474968,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0541320200e900000000"
+    },
+    {
+      "name": "DelayLoad_IcmpSendEcho",
+      "offset": 6442475107,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05be310200e975ffffff"
+    },
+    {
+      "name": "DelayLoad_IcmpCloseHandle",
+      "offset": 6442475125,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d059c310200e963ffffff"
+    },
+    {
+      "name": "DelayLoad_DnsNameCompare_W",
+      "offset": 6442475143,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0572310200e900000000"
+    },
+    {
+      "name": "DelayLoad_IcmpCreateFile",
+      "offset": 6442475282,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05f7300200e9c6feffff"
+    },
+    {
+      "name": "DelayLoad_GetIfEntry",
+      "offset": 6442475300,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0505310200e9b4feffff"
+    },
+    {
+      "name": "DelayLoad_NetApiBufferFree",
+      "offset": 6442475318,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0513320200e900000000"
+    },
+    {
+      "name": "DelayLoad_DsEnumerateDomainTrustsW",
+      "offset": 6442475457,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0578310200e900000000"
+    },
+    {
+      "name": "CStdStubBuffer_Invoke",
+      "offset": 6442475600,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25526c0100"
+    },
+    {
+      "name": "IUnknown_AddRef_Proxy",
+      "offset": 6442475616,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25926c0100"
+    },
+    {
+      "name": "CStdStubBuffer_DebugServerQueryInterface",
+      "offset": 6442475632,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25b26b0100"
+    },
+    {
+      "name": "NdrOleFree",
+      "offset": 6442475648,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25c26b0100"
+    },
+    {
+      "name": "CStdStubBuffer_AddRef",
+      "offset": 6442475664,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25d26b0100"
+    },
+    {
+      "name": "IUnknown_Release_Proxy",
+      "offset": 6442475680,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff254a6c0100"
+    },
+    {
+      "name": "CStdStubBuffer_CountRefs",
+      "offset": 6442475696,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25326c0100"
+    },
+    {
+      "name": "CStdStubBuffer_QueryInterface",
+      "offset": 6442475712,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff251a6c0100"
+    },
+    {
+      "name": "NdrOleAllocate",
+      "offset": 6442475728,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25026c0100"
+    },
+    {
+      "name": "CStdStubBuffer_DebugServerRelease",
+      "offset": 6442475744,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25ea6b0100"
+    },
+    {
+      "name": "CStdStubBuffer_Disconnect",
+      "offset": 6442475760,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25d26b0100"
+    },
+    {
+      "name": "IUnknown_QueryInterface_Proxy",
+      "offset": 6442475776,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25ba6b0100"
+    },
+    {
+      "name": "CStdStubBuffer_IsIIDSupported",
+      "offset": 6442475792,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25a26b0100"
+    },
+    {
+      "name": "CStdStubBuffer_Connect",
+      "offset": 6442475808,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff258a6b0100"
+    },
+    {
+      "name": "DelayLoad_Ordinal_105",
+      "offset": 6442475820,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d054d300200e900000000"
+    },
+    {
+      "name": "DelayLoad_Ordinal_101",
+      "offset": 6442475959,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05b22f0200e975ffffff"
+    },
+    {
+      "name": "DelayLoad_Ordinal_103",
+      "offset": 6442475977,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05982f0200e963ffffff"
+    },
+    {
+      "name": "DelayLoad_Ordinal_102",
+      "offset": 6442475995,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d057e2f0200e951ffffff"
+    },
+    {
+      "name": "DelayLoad_Ordinal_104",
+      "offset": 6442476013,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05842f0200e93fffffff"
+    },
+    {
+      "name": "DelayLoad_SetNamedSecurityInfoW",
+      "offset": 6442476031,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05522e0200e900000000"
+    },
+    {
+      "name": "DelayLoad_SetEntriesInAclW",
+      "offset": 6442476170,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05bf2d0200e975ffffff"
+    },
+    {
+      "name": "DelayLoad_LookupAppContainerDisplayNameWorker",
+      "offset": 6442476356,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05bd2d0200e900000000"
+    },
+    {
+      "name": "DelayLoad_RsopSetPolicySettingStatusWorker",
+      "offset": 6442476495,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05022d0200e975ffffff"
+    },
+    {
+      "name": "DelayLoad_DeriveAppContainerSidFromAppContainerNameWorker",
+      "offset": 6442476513,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05f82c0200e963ffffff"
+    },
+    {
+      "name": "DelayLoad_DeleteAppContainerProfileWorker",
+      "offset": 6442476531,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05ee2c0200e951ffffff"
+    },
+    {
+      "name": "DelayLoad_GetAppContainerFolderPathWorker",
+      "offset": 6442476549,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05e42c0200e93fffffff"
+    },
+    {
+      "name": "DelayLoad_UpdateAppContainerProfileWorker",
+      "offset": 6442476567,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05da2c0200e92dffffff"
+    },
+    {
+      "name": "DelayLoad_DeriveRestrictedAppContainerSidFromAppContainerSidAndRestrictedNameWorker",
+      "offset": 6442476585,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05d02c0200e91bffffff"
+    },
+    {
+      "name": "DelayLoad_ProcessGroupPolicyCompletedWorker",
+      "offset": 6442476603,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05462c0200e909ffffff"
+    },
+    {
+      "name": "DelayLoad_CreateDirectoryJunctionsForUserProfileWorker",
+      "offset": 6442476621,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05bc2c0200e9f7feffff"
+    },
+    {
+      "name": "DelayLoad_GetAppContainerRegistryLocationWorker",
+      "offset": 6442476639,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05b22c0200e9e5feffff"
+    },
+    {
+      "name": "DelayLoad_RsopResetPolicySettingStatusWorker",
+      "offset": 6442476657,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05a82c0200e9d3feffff"
+    },
+    {
+      "name": "DelayLoad_DeleteGroupWorker",
+      "offset": 6442476675,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05462c0200e9c1feffff"
+    },
+    {
+      "name": "DelayLoad_DeleteLinkFileWorker",
+      "offset": 6442476693,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d052c2c0200e9affeffff"
+    },
+    {
+      "name": "DelayLoad_RsopFileAccessCheckWorker",
+      "offset": 6442476711,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05122c0200e99dfeffff"
+    },
+    {
+      "name": "DelayLoad_CreateDirectoryJunctionsForSystemWorker",
+      "offset": 6442476729,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05f82b0200e98bfeffff"
+    },
+    {
+      "name": "DelayLoad_RsopAccessCheckByTypeWorker",
+      "offset": 6442476747,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05de2b0200e979feffff"
+    },
+    {
+      "name": "DelayLoad_CreateLinkFileExWorker",
+      "offset": 6442476765,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05c42b0200e967feffff"
+    },
+    {
+      "name": "DelayLoad_IsAppContainerProfilePresentWorker",
+      "offset": 6442476783,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d053a2c0200e900000000"
+    },
+    {
+      "name": "DelayLoad_CreateAppContainerProfileWorker",
+      "offset": 6442476922,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d051f2b0200e9cafdffff"
+    },
+    {
+      "name": "DelayLoad_ProcessGroupPolicyCompletedExWorker",
+      "offset": 6442476940,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05052b0200e9b8fdffff"
+    },
+    {
+      "name": "DelayLoad_CreateGroupExWorker",
+      "offset": 6442476958,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05eb2a0200e9a6fdffff"
+    },
+    {
+      "name": "DelayLoad_CfGetPlaceholderStateFromAttributeTag",
+      "offset": 6442476976,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05c12a0200e900000000"
+    },
+    {
+      "name": "ApiSetQueryApiSetPresence",
+      "offset": 6442477120,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25c2660100"
+    },
+    {
+      "name": "Ordinal_219",
+      "offset": 6442482336,
+      "size": 172,
+      "instr_count": 46,
+      "source": "IMPORTED",
+      "bytes": "488bc44889580848897010574883ec3048834820ff8bfa488bf14d85c97477488d5020498bc9e89dfeffff8bd885c0791b488b4c24384c8d05bb640100448bc8ba4c000000e8025c0000eb0c8bd7488bcee84ee000008bd8488b4c24584883f9ff742048894c2458488d0511feffff488d4c24204889442420488d542458e8fdebffff488b7424488bc3488b5c24404883c4305fc3488b4c24384c8d0556640100ba4b000000e81c720000cc"
+    },
+    {
+      "name": "__GSHandlerCheck",
+      "offset": 6442483860,
+      "size": 29,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4883ec284d8b4138488bca498bd1e811000000b8010000004883c428c3"
+    },
+    {
+      "name": "__GSHandlerCheckCommon",
+      "offset": 6442483896,
+      "size": 91,
+      "instr_count": 28,
+      "source": "ANALYSIS",
+      "bytes": "4053458b18488bda4183e3f84c8bc941f600044c8bd17413418b40084d635004f7d84c03d14863c84c23d14963c34a8b1410488b43108b4808488b4308f64401030f740b0fb644010383e0f04c03c84c33ca498bc95be9bdceffff"
+    },
+    {
+      "name": "FID_conflict:__GSHandlerCheck_EH",
+      "offset": 6442483996,
+      "size": 127,
+      "instr_count": 37,
+      "source": "ANALYSIS",
+      "bytes": "488bc44889580848896810488970184889782041564883ec20498b5938488bf24d8bf0488be9498bd1488bce498bf94c8d4304e864ffffff8b45042466f6d8b801000000451bc041f7d84403c04485430474114c8bcf4d8bc6488bd6488bcde86ed9ffff488b5c2430488b6c2438488b742440488b7c24484883c420415ec3"
+    },
+    {
+      "name": "_alloca_probe",
+      "offset": 6442484144,
+      "size": 81,
+      "instr_count": 19,
+      "source": "ANALYSIS",
+      "bytes": "4883ec104c8914244c895c24084d33db4c8d5424184c2bd04d0f42d3654c8b1c25100000004d3bd3f27317664181e200f04d8d9b00f0ffff41c603004d3bd3f275ef4c8b14244c8b5c24084883c410f2c3"
+    },
+    {
+      "name": "_CxxThrowException",
+      "offset": 6442484231,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25ab4f0100"
+    },
+    {
+      "name": "memcmp",
+      "offset": 6442484243,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25a74f0100"
+    },
+    {
+      "name": "memcpy",
+      "offset": 6442484255,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25a34f0100"
+    },
+    {
+      "name": "memmove",
+      "offset": 6442484267,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25074f0100"
+    },
+    {
+      "name": "_guard_dispatch_icall",
+      "offset": 6442484304,
+      "size": 2,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "ffe0"
+    },
+    {
+      "name": "thunk_FUN_180004b7c",
+      "offset": 6442484912,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e9c7c6ffff"
+    },
+    {
+      "name": "thunk_FUN_180004b08",
+      "offset": 6442484928,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e943c6ffff"
+    },
+    {
+      "name": "RsopLoggingEnabled",
+      "offset": 6442490352,
+      "size": 7,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "48ff2521390100"
+    },
+    {
+      "name": "AreThereVisibleLogoffScripts",
+      "offset": 6442490384,
+      "size": 7,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "48ff25e1380100"
+    },
+    {
+      "name": "AreThereVisibleShutdownScripts",
+      "offset": 6442490416,
+      "size": 7,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "48ff2589380100"
+    },
+    {
+      "name": "ForceSyncFgPolicy",
+      "offset": 6442490448,
+      "size": 7,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "48ff2531380100"
+    },
+    {
+      "name": "FreeGPOListA",
+      "offset": 6442490480,
+      "size": 7,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "48ff2591380100"
+    },
+    {
+      "name": "FreeGPOListW",
+      "offset": 6442490512,
+      "size": 7,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "48ff2539380100"
+    },
+    {
+      "name": "GenerateGPNotification",
+      "offset": 6442490544,
+      "size": 7,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "48ff2501380100"
+    },
+    {
+      "name": "GetAppliedGPOListA",
+      "offset": 6442490576,
+      "size": 7,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "48ff25d1370100"
+    },
+    {
+      "name": "GetGPOListA",
+      "offset": 6442490608,
+      "size": 7,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "48ff25f9370100"
+    },
+    {
+      "name": "GetGPOListW",
+      "offset": 6442490640,
+      "size": 7,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "48ff2511380100"
+    },
+    {
+      "name": "GetNextFgPolicyRefreshInfo",
+      "offset": 6442490672,
+      "size": 7,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "48ff25b1370100"
+    },
+    {
+      "name": "GetPreviousFgPolicyRefreshInfo",
+      "offset": 6442490704,
+      "size": 7,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "48ff2529370100"
+    },
+    {
+      "name": "HasPolicyForegroundProcessingCompleted",
+      "offset": 6442490736,
+      "size": 7,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "48ff2521370100"
+    },
+    {
+      "name": "RefreshPolicy",
+      "offset": 6442490768,
+      "size": 7,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "48ff2589370100"
+    },
+    {
+      "name": "RefreshPolicyEx",
+      "offset": 6442490800,
+      "size": 7,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "48ff2521370100"
+    },
+    {
+      "name": "WaitForMachinePolicyForegroundProcessing",
+      "offset": 6442490832,
+      "size": 7,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "48ff2509370100"
+    },
+    {
+      "name": "WaitForUserPolicyForegroundProcessing",
+      "offset": 6442490864,
+      "size": 7,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "48ff2509370100"
+    },
+    {
+      "name": "thunk_FUN_18000c58c",
+      "offset": 6442491040,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e9e7280000"
+    },
+    {
+      "name": "exception",
+      "offset": 6442491884,
+      "size": 50,
+      "instr_count": 15,
+      "source": "ANALYSIS",
+      "bytes": "40534883ec20488bd9488bc2488d0d212101000f57c048890b488d5308488d48080f1102e8fdbaffff488bc34883c4205bc3"
+    },
+    {
+      "name": "DebugBreak",
+      "offset": 6442494832,
+      "size": 7,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "48ff25b1210100"
+    },
+    {
+      "name": "Ordinal_206",
+      "offset": 6442513472,
+      "size": 34,
+      "instr_count": 9,
+      "source": "IMPORTED",
+      "bytes": "4883ec28e8536effff84c074104883c42848ff25609c0100b8014000804883c428c3"
+    },
+    {
+      "name": "Ordinal_207",
+      "offset": 6442513520,
+      "size": 44,
+      "instr_count": 14,
+      "source": "IMPORTED",
+      "bytes": "40534883ec20488bd9e81e6effff84c07414488bcb4883c4205b48ff257f9c0100b8014000804883c4205bc3"
+    },
+    {
+      "name": "Ordinal_137",
+      "offset": 6442513584,
+      "size": 88,
+      "instr_count": 26,
+      "source": "IMPORTED",
+      "bytes": "48895c240848896c24104889742418574883ec20418bd9498bf88bf2488be9e8c86dffff84c07419448bcb4c8bc78bd6488bcd48ff15a69b01000f1f440000eb0233c0488b5c2430488b6c2438488b7424404883c4205fc3"
+    },
+    {
+      "name": "Ordinal_139",
+      "offset": 6442513680,
+      "size": 187,
+      "instr_count": 43,
+      "source": "IMPORTED",
+      "bytes": "48895c240848896c24104889742418574883ec60498bd9498bf8488bf28be9e8686dffff84c0747b8b8424c80000004c8bcb894424584c8bc7488b8424c0000000488bd648894424508bcd488b8424b800000048894424488b8424b0000000894424400fb78424a80000006689442438488b8424a000000048894424308b84249800000089442428488b842490000000488944242048ff15fc9a01000f1f440000eb0233c04c8d5c2460498b5b10498b6b18498b7320498be35fc3"
+    },
+    {
+      "name": "DeleteAppContainerProfile",
+      "offset": 6442513888,
+      "size": 7,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "33d2e909000000"
+    },
+    {
+      "name": "Ordinal_213",
+      "offset": 6442513904,
+      "size": 59,
+      "instr_count": 18,
+      "source": "IMPORTED",
+      "bytes": "48895c2408574883ec208bda488bf9e8986cffff84c074138bd3488bcf48ff15d49a01000f1f440000eb05b801400080488b5c24304883c4205fc3"
+    },
+    {
+      "name": "Ordinal_104",
+      "offset": 6442513984,
+      "size": 56,
+      "instr_count": 18,
+      "source": "IMPORTED",
+      "bytes": "48895c2408574883ec208bda488bf9e8486cffff84c074138bd3488bcf48ff156c9a01000f1f440000eb0233c0488b5c24304883c4205fc3"
+    },
+    {
+      "name": "Ordinal_122",
+      "offset": 6442514048,
+      "size": 88,
+      "instr_count": 26,
+      "source": "IMPORTED",
+      "bytes": "48895c240848896c24104889742418574883ec20418bd9498bf8488bf28be9e8f86bffff84c07419448bcb4c8bc7488bd68bcd48ff150e9a01000f1f440000eb0233c0488b5c2430488b6c2438488b7424404883c4205fc3"
+    },
+    {
+      "name": "Ordinal_218",
+      "offset": 6442514144,
+      "size": 75,
+      "instr_count": 22,
+      "source": "IMPORTED",
+      "bytes": "48895c24084889742410574883ec20498bd88bfa488bf1e8f46bffff84c074164c8bc38bd7488bce48ff15219a01000f1f440000eb05b801400080488b5c2430488b7424384883c4205fc3"
+    },
+    {
+      "name": "Ordinal_211",
+      "offset": 6442514240,
+      "size": 61,
+      "instr_count": 18,
+      "source": "IMPORTED",
+      "bytes": "48895c2408574883ec20488bda488bf9e8476bffff84c07414488bd3488bcf48ff15a29901000f1f440000eb05b801400080488b5c24304883c4205fc3"
+    },
+    {
+      "name": "ProcessGroupPolicyCompleted",
+      "offset": 6442514320,
+      "size": 77,
+      "instr_count": 22,
+      "source": "IMPORTED",
+      "bytes": "48895c24084889742410574883ec20418bd8488bfa488bf1e8ef6affff84c07417448bc3488bd7488bce48ff15c79801000f1f440000eb05b87f000000488b5c2430488b7424384883c4205fc3"
+    },
+    {
+      "name": "ProcessGroupPolicyCompletedEx",
+      "offset": 6442514416,
+      "size": 93,
+      "instr_count": 26,
+      "source": "IMPORTED",
+      "bytes": "48895c240848896c24104889742418574883ec20418bd9418bf8488bf2488be9e8876affff84c0741a448bcb448bc7488bd6488bcd48ff156c9801000f1f440000eb05b87f000000488b5c2430488b6c2438488b7424404883c4205fc3"
+    },
+    {
+      "name": "RsopAccessCheckByType",
+      "offset": 6442514528,
+      "size": 183,
+      "instr_count": 41,
+      "source": "IMPORTED",
+      "bytes": "48895c240848896c24104889742418574883ec60418bd9498bf8488bf2488be9e8176affff84c07473488b8424c0000000448bcb48894424504c8bc7488b8424b8000000488bd64889442448488bcd488b8424b00000004889442440488b8424a80000004889442438488b8424a000000048894424308b84249800000089442428488b842490000000488944242048ff15bb9701000f1f440000eb05b8014000804c8d5c2460498b5b10498b6b18498b7320498be35fc3"
+    },
+    {
+      "name": "RsopFileAccessCheck",
+      "offset": 6442514720,
+      "size": 103,
+      "instr_count": 28,
+      "source": "IMPORTED",
+      "bytes": "48895c240848896c24104889742418574883ec30498bd9418bf8488bf2488be9e85769ffff84c07424488b4424604c8bcb448bc74889442420488bd6488bcd48ff155a9701000f1f440000eb05b801400080488b5c2440488b6c2448488b7424504883c4305fc3"
+    },
+    {
+      "name": "RsopResetPolicySettingStatus",
+      "offset": 6442514832,
+      "size": 75,
+      "instr_count": 22,
+      "source": "IMPORTED",
+      "bytes": "48895c24084889742410574883ec20498bd8488bfa8bf1e8f068ffff84c074164c8bc3488bd78bce48ff15619701000f1f440000eb05b801400080488b5c2430488b7424384883c4205fc3"
+    },
+    {
+      "name": "RsopSetPolicySettingStatus",
+      "offset": 6442514928,
+      "size": 101,
+      "instr_count": 28,
+      "source": "IMPORTED",
+      "bytes": "48895c240848896c24104889742418574883ec30418bd9498bf8488bf28be9e88868ffff84c07423488b442460448bcb4c8bc74889442420488bd68bcd48ff15a49601000f1f440000eb05b801400080488b5c2440488b6c2448488b7424504883c4305fc3"
+    },
+    {
+      "name": "Ordinal_210",
+      "offset": 6442515040,
+      "size": 122,
+      "instr_count": 32,
+      "source": "IMPORTED",
+      "bytes": "48895c240848896c24104889742418574883ec40498bd9498bf8488bf2488be9e81768ffff84c074378b8424800000004c8bcb894424304c8bc78b442478488bd689442428488bcd488b442470488944242048ff153f9601000f1f440000eb05b801400080488b5c2450488b6c2458488b7424604883c4405fc3"
+    },
+    {
+      "name": "thunk_FUN_180003444",
+      "offset": 6442520496,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e98f24ffff"
+    },
+    {
+      "name": "CreateProfile",
+      "offset": 6442525568,
+      "size": 373,
+      "instr_count": 78,
+      "source": "IMPORTED",
+      "bytes": "488bc4448948204c894018488950105553488da838fdffff4881ecb8030000488b05ba3d01004833c4488985a002000048894c24284885c90f8419010000e805f1feff85c0740ab805000780e90b0100004883bdd8020000000f84f80000004883bde0020000000f84ea00000083bde8020000000f84dd00000033d2488d8d9000000041b80a020000e8d237ffffc74424200501000048ff1523ab00000f1f4400004c8d4c242033d2488bc84c8d859000000048ff1536ab00000f1f44000048ff15aaaa00000f1f440000488d15a6d50000488bd8488d4c2450e86103ffff488d0532a300004c8bc3488d95900000004889442450488d4c2450e871f5ffff488d4424284889442430488d4c2430488d85d80200004889442438488d85e00200004889442440488d85e80200004889442448e865d7ffff8bd885c0780c488d4c2450e8a9fefeff33db488d4c2450e805e6ffff8bc3eb05b857000780488b8da00200004833cce8e52affff4881c4b80300005b5dc3"
+    },
+    {
+      "name": "DeleteProfileW",
+      "offset": 6442525952,
+      "size": 42,
+      "instr_count": 12,
+      "source": "IMPORTED",
+      "bytes": "4883ec28e833e9ffff85c07807b801000000eb110fb7c848ff154aa800000f1f44000033c04883c428c3"
+    },
+    {
+      "name": "LoadProfileExtender",
+      "offset": 6442526016,
+      "size": 218,
+      "instr_count": 60,
+      "source": "IMPORTED",
+      "bytes": "48895c240848897c241055488d6c24a94881ec9000000033c0c74517380000002145e70f57c0482145ef488bf92145f7488bd12145fb488d4de72145ff0f11451b89454b0f11452b0f11453bf30f7f4507e84a0cffff8bd885c07907ba29020000eb1b4533c0488d551f418d4802e8e9eaffff8bd885c0791aba2b020000488b4d5f4c8d0547d40000448bc8e81bb1ffffeb27488d4de7e8700dffff4c8d4517488bd733c9e8f205ffff488b4d1f33db85c00f48d8e84a0effff488d4de7e8110dffff4c8d9c24900000008bc3498b5b10498b7b18498be35dc3"
+    },
+    {
+      "name": "_o_malloc",
+      "offset": 6442526256,
+      "size": 7,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "48ff2511ab0000"
+    },
+    {
+      "name": "_o_free",
+      "offset": 6442526288,
+      "size": 7,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "48ff25e9aa0000"
+    },
+    {
+      "name": "Ordinal_208",
+      "offset": 6442526320,
+      "size": 355,
+      "instr_count": 75,
+      "source": "IMPORTED",
+      "bytes": "48895c2420894c240855488dac2450fdffff4881ecb0030000488b05d03a01004833c4488985a002000048895424304c894424284885d20f84010100004d85c00f84f8000000488bcae80aeefeff85c00f85e1000000488b4c2428e8f8edfeff85c00f85cf00000033d2488d8d9000000041b80a020000e8f434ffffc74424200501000048ff1545a800000f1f4400004c8d4c242033d2488bc84c8d859000000048ff1558a800000f1f44000048ff15cca700000f1f440000488d15b0d20000488bd8488d4c2450e88300ffff488d056ca000004c8bc3488d95900000004889442450488d4c2450e85bf4ffff488d85c00200004889442438488d4c2438488d4424304889442440488d4424284889442448e85dd3ffff8bd885c0780c488d4c2450e8d9fbfeff33db488d4c2450e88de3ffff8bc3eb0cb805000780eb05b857000780488b8da00200004833cce80e28ffff488b9c24d80300004881c4b00300005dc3"
+    },
+    {
+      "name": "UnloadProfileExtender",
+      "offset": 6442526688,
+      "size": 13,
+      "instr_count": 4,
+      "source": "IMPORTED",
+      "bytes": "488bd14533c033c9e9ef03ffff"
+    },
+    {
+      "name": "_tlgWriteTransfer_EtwWriteTransfer",
+      "offset": 6442526708,
+      "size": 148,
+      "instr_count": 35,
+      "source": "ANALYSIS",
+      "bytes": "4883ec480fb6024c8d5201488b5424784c8bd9c1e01889442430410fb70289442434498b42024983c20a4889442438488b4108488902488b410848895424280fb708894a08488d0dc0bc0000c7420c020000004c895210410fb702894218488d0591ce00002bc1c7421c01000000498b4b20488d542430894424788b4424708944242048ff1502ab00000f1f4400004883c448c3"
+    },
+    {
+      "name": "DeleteProfileA",
+      "offset": 6442527136,
+      "size": 246,
+      "instr_count": 68,
+      "source": "IMPORTED",
+      "bytes": "48895c240848896c24104889742418574883ec20498bf8488bda4885c97529b95700000048ff159da300000f1f44000033c0488b5c2430488b6c2438488b7424404883c4205fc3e8a3feffff488bf04885c074db4885db7415488bcbe88efeffff488bd84885c07505488bceeb2c4885ff7435488bcfe874feffff488bf84885c07525488bce48ff1522a400000f1f4400004885db7498488bcb48ff150ea400000f1f440000eb874c8bc7488bd3488bcee8a9faffff488bce8be848ff15eda300000f1f4400004885db740f488bcb48ff15d9a300000f1f4400004885ff740f488bcf48ff15c5a300000f1f4400008bc5e93bffffff"
+    },
+    {
+      "name": "ExpandEnvironmentStringsForUserA",
+      "offset": 6442527392,
+      "size": 249,
+      "instr_count": 66,
+      "source": "IMPORTED",
+      "bytes": "48895c240848896c2410488974241857415641574883ec4033db418be94d8bf04c8bf94d85c00f84a1000000488bcae8bcfdffff488bf04885c00f848d0000008bcde871feffff488bf84885c0746b448bcd4c8bc0488bd6498bcf48ff15666601000f1f44000085c079110fb7c848ff1553a200000f1f440000eb2f48895c24384183c9ff48895c24304c8bc7896c2428ba0004000033c94c8974242048ff1594a400000f1f4400008bd8488bcf48ff15fba200000f1f440000488bce48ff15eca200000f1f4400008bc3eb13b95700000048ff15efa100000f1f44000033c0488b5c2460488b6c2468488b7424704883c440415f415e5fc3"
+    },
+    {
+      "name": "GetAllUsersProfileDirectoryA",
+      "offset": 6442527648,
+      "size": 267,
+      "instr_count": 70,
+      "source": "IMPORTED",
+      "bytes": "488bc44889580848896810488970184889782041564883ec40488bda488be94885c90f84b50000004885d20f84ac0000008b0ae880fdffff488bf84885c00f84aa000000448b3333d24c8bcb4c8bc08d4a04e819fffeff8bf085c0746d48836424380083ceff488364243000448bce83642428004c8bc7ba0004000048896c242033c948ff15aea300000f1f4400008903413bc6760433f6eb30488364243800448bce4883642430004c8bc789442428ba0004000033c948896c242048ff1575a300000f1f4400008bf0488bcf48ff15dca100000f1f4400008bc6eb13b95700000048ff15dfa000000f1f44000033c0488b5c2450488b6c2458488b742460488b7c24684883c440415ec3"
+    },
+    {
+      "name": "GetAllUsersProfileDirectoryW",
+      "offset": 6442527936,
+      "size": 16,
+      "instr_count": 5,
+      "source": "IMPORTED",
+      "bytes": "4c8bca4c8bc133d28d4a04e940fefeff"
+    },
+    {
+      "name": "GetDefaultUserProfileDirectoryA",
+      "offset": 6442527968,
+      "size": 267,
+      "instr_count": 70,
+      "source": "IMPORTED",
+      "bytes": "488bc44889580848896810488970184889782041564883ec40488bda488be94885c90f84b50000004885d20f84ac0000008b0ae840fcffff488bf84885c00f84aa000000448b3333d24c8bcb4c8bc08d4a02e8d9fdfeff8bf085c0746d48836424380083ceff488364243000448bce83642428004c8bc7ba0004000048896c242033c948ff156ea200000f1f4400008903413bc6760433f6eb30488364243800448bce4883642430004c8bc789442428ba0004000033c948896c242048ff1535a200000f1f4400008bf0488bcf48ff159ca000000f1f4400008bc6eb13b95700000048ff159f9f00000f1f44000033c0488b5c2450488b6c2458488b742460488b7c24684883c440415ec3"
+    },
+    {
+      "name": "GetProfilesDirectoryA",
+      "offset": 6442528256,
+      "size": 267,
+      "instr_count": 70,
+      "source": "IMPORTED",
+      "bytes": "488bc44889580848896810488970184889782041564883ec40488bda488be94885c90f84b50000004885d20f84ac0000008b0ae820fbffff488bf84885c00f84aa000000448b3333d24c8bcb4c8bc08d4a01e8b9fcfeff8bf085c0746d48836424380083ceff488364243000448bce83642428004c8bc7ba0004000048896c242033c948ff154ea100000f1f4400008903413bc6760433f6eb30488364243800448bce4883642430004c8bc789442428ba0004000033c948896c242048ff1515a100000f1f4400008bf0488bcf48ff157c9f00000f1f4400008bc6eb13b95700000048ff157f9e00000f1f44000033c0488b5c2450488b6c2458488b742460488b7c24684883c440415ec3"
+    },
+    {
+      "name": "GetUserProfileDirectoryA",
+      "offset": 6442528544,
+      "size": 269,
+      "instr_count": 70,
+      "source": "IMPORTED",
+      "bytes": "488bc44889580848896810488970184889782041564883ec40498bd8488bea488bf14885d20f84b40000004885db0f84ab000000418b08e8fcf9ffff488bf84885c00f84a8000000448b334c8bc3488bd0488bcee8730c00008bf085c0746d48836424380083ceff488364243000448bce83642428004c8bc7ba0004000048896c242033c948ff152ca000000f1f4400008903413bc6760433f6eb30488364243800448bce4883642430004c8bc789442428ba0004000033c948896c242048ff15f39f00000f1f4400008bf0488bcf48ff155a9e00000f1f4400008bc6eb13b95700000048ff155d9d00000f1f44000033c0488b5c2450488b6c2458488b742460488b7c24684883c440415ec3"
+    },
+    {
+      "name": "LoadUserProfileA",
+      "offset": 6442528832,
+      "size": 306,
+      "instr_count": 77,
+      "source": "IMPORTED",
+      "bytes": "48895c240848897c241055488bec4883ec60488bda488bf94885d20f84ee000000833a380f85e50000008b42040f57c0488b4a08f30f7f45e8c745c0380000008945c4e808f8ffff488b4b10488945c8e8fbf7ffff488b4b18488945d0e8eef7ffff488b4b20488945d8e8e1f7fffff645c402488945e0740d488b4b28e8cef7ffff488945e8488d55c0488bcfe85ee4feff488b4dc88bf84885c9740c48ff156c9d00000f1f440000488b4dd04885c9740c48ff15579d00000f1f440000488b4dd84885c9740c48ff15429d00000f1f440000488b4de04885c9740c48ff152d9d00000f1f440000f645c4027415488b4de84885c9740c48ff15129d00000f1f440000488b45f0488943308bc7eb13b95700000048ff150d9c00000f1f44000033c0488b5c2470488b7c24784883c4605dc3"
+    },
+    {
+      "name": "Ordinal_203",
+      "offset": 6442529648,
+      "size": 5,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "e9c3170000"
+    },
+    {
+      "name": "Ordinal_209",
+      "offset": 6442529664,
+      "size": 5,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "e9831b0000"
+    },
+    {
+      "name": "Ordinal_202",
+      "offset": 6442529680,
+      "size": 5,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "e9af270000"
+    },
+    {
+      "name": "DllCanUnloadNow",
+      "offset": 6442529696,
+      "size": 14,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0d6136010048ff25ea980000"
+    },
+    {
+      "name": "DllGetClassObject",
+      "offset": 6442529728,
+      "size": 69,
+      "instr_count": 16,
+      "source": "IMPORTED",
+      "bytes": "4883ec38488b057d9500004c8b480833c04d8b114d85d27403498b024c8d0d253601004c894c24284c8d0d59950000488944242048ff15959800000f1f4400004883c438c3"
+    },
+    {
+      "name": "DllRegisterServer",
+      "offset": 6442529808,
+      "size": 46,
+      "instr_count": 10,
+      "source": "IMPORTED",
+      "bytes": "488b05319500004533c0488b4808488b014885c074034c8b00488b0d00350100488d151195000048ff254a980000"
+    },
+    {
+      "name": "DllUnregisterServer",
+      "offset": 6442529872,
+      "size": 46,
+      "instr_count": 10,
+      "source": "IMPORTED",
+      "bytes": "488b05f19400004533c0488b4808488b014885c074034c8b00488b0dc0340100488d15d194000048ff2502980000"
+    },
+    {
+      "name": "Ordinal_214",
+      "offset": 6442529936,
+      "size": 5,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "e983310000"
+    },
+    {
+      "name": "Ordinal_175",
+      "offset": 6442531328,
+      "size": 458,
+      "instr_count": 124,
+      "source": "IMPORTED",
+      "bytes": "48895c2418555657488bec4883ec7033db488bf94885c97522488b4d184c8d0544c10000bb57000780ba47020000448bcbe8b69cffffe97d010000488d1586c10000e89d6dffff8bf085c00f85620100000f57c048895db0488bd748895db8488d4dc848895dc0f30f7f45e8895dc848895dd048895dd8895de0e861f7feff8bf885c07931ba53020000488b4d184c8d05d3c00000448bc8e84f9cffff488d4dc8e86ef8feff488d4db0e8490bffff8bc7e904010000488d4db0e8390bffff4883c8ff4c8d45b033d2488945b8488945c08d480de8c3d5ffff8bf83d4b05078074bb3d3405078074b485c07907ba58020000eb96488d4dc8e817f8feff4c8d4d20895d204c8d452848895d28ba0100000033c948ff15265601000f1f4400003dba060000746f85c07438488b4d184c8d0533c00000448bc8ba61020000e882deffff488b4d288bf84885c90f8455ffffff48ff15f85501000f1f440000e944ffffff8bfb395d20762c85f67528488b55288bc7486bc838488b541108488b4db048ff15795401000f1f440000ffc78bf03b7d2072d4488b4d284885c9740c48ff15ab5501000f1f440000488d4db0e8450affff85f60f94c38bc3488b9c24a00000004883c4705f5e5dc3"
+    },
+    {
+      "name": "Ordinal_135",
+      "offset": 6442531808,
+      "size": 5,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "e9c3f9ffff"
+    },
+    {
+      "name": "thunk_FUN_180017a24",
+      "offset": 6442547736,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e907000000"
+    },
+    {
+      "name": "FID_conflict:StringCchCopyNW",
+      "offset": 6442549544,
+      "size": 143,
+      "instr_count": 42,
+      "source": "ANALYSIS",
+      "bytes": "48895c24084533db488d42ff483dfeffff7f458bd3bb57000780440f47d34585d2785a4981f9feffff7f7605448bd3eb514885d274264c2bca4c2bc1498d04114885c07417410fb704086685c0740d6689014883c1024883ea0175e04885d2488d41fe480f45c148f7da451bd241f7d24181e27a00078066448918eb094885d2740466448919488b5c2408418bc2c3"
+    },
+    {
+      "name": "FID_conflict:StringVPrintfWorkerW",
+      "offset": 6442550432,
+      "size": 125,
+      "instr_count": 38,
+      "source": "ANALYSIS",
+      "bytes": "488bc44889580848896810488970184889782041564883ec20498bc1488d5aff4c8b4c2450498bf84533f64c8bc0488bd3488bf1418beee810d7feff85c0780e4898483bc37707740a488bd8eb0abd7a000780664489345e4885ff740348891f488b5c24308bc5488b6c2438488b742440488b7c24484883c420415ec3"
+    },
+    {
+      "name": "_tlgWriteTransfer_EtwWriteTransfer",
+      "offset": 6442557312,
+      "size": 148,
+      "instr_count": 35,
+      "source": "ANALYSIS",
+      "bytes": "4883ec480fb6024c8d5201488b5424784c8bd9c1e01889442430410fb70289442434498b42024983c20a4889442438488b4108488902488b410848895424280fb708894a08488d0d34450000c7420c020000004c895210410fb702894218488d05055700002bc1c7421c01000000498b4b20488d542430894424788b4424708944242048ff15fe3100000f1f4400004883c448c3"
+    },
+    {
+      "name": "StringCopyWorkerW",
+      "offset": 6442559624,
+      "size": 115,
+      "instr_count": 36,
+      "source": "ANALYSIS",
+      "bytes": "48895c240833db4c8bd1448bdb4885d2742b488b4424284c2bc94885c0741e430fb70c116685c974146641890a48ffc84983c20249ffc34883ea0175dd488bc2498d4afe48f7d81bc0f7d0257a0007804885d2490f45ca6689194d85c0740e4885d2498d4bff490f45cb498908488b5c2408c3"
+    }
+  ],
+  "total_functions": 927,
+  "exported_functions": 197
+}

@@ -1,0 +1,1847 @@
+{
+  "binary": "WindowsCodecs.dll",
+  "functions": [
+    {
+      "name": "thunk_FUN_1800618ec",
+      "offset": 6442456944,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e977010600"
+    },
+    {
+      "name": "thunk_FUN_18004d070",
+      "offset": 6442490016,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e9cb370400"
+    },
+    {
+      "name": "thunk_FUN_18004e0d0",
+      "offset": 6442491840,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e90b410400"
+    },
+    {
+      "name": "thunk_FUN_18004f2a0",
+      "offset": 6442491856,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e9cb520400"
+    },
+    {
+      "name": "WICMapSchemaToName",
+      "offset": 6442542496,
+      "size": 361,
+      "instr_count": 87,
+      "source": "IMPORTED",
+      "bytes": "488bc44889581048896818488970205741544155415641574883ec3033f6458be8488970084d8bf9488970d0488bea488970c84c8bf14885c90f84d7a907004885d20f84cea907004c8ba424800000004d85e40f84bda90700488d48c8e86e0700008bf885c00f88c8a90700488b7424208bdf85ff787d4c8d4c24604c8bc5498bd6488bcee8b20000008bf885c00f888d0000008bdf85ff785a488b4c24604c8d442428baffffff7fe8660800008bf885c00f88a2a907008bdf85ff7836488b6c242848ffc54d85ff0f85a5a90700b9ffffffff483be98bc10f46c5483bcd418904241bdb81e316020780483be90f87b5a907004885f67408488bcee8ff8b0300488b6c24708bc3488b5c2468488b7424784883c430415f415e415d415c5fc3833d4c561800000f8466ffffffe91aa90700393558ad1000bb570007800f84da56f8ff8bcbe89631ffff90e9cd56f8ff39353aad10000f842c56f8ff8bcfe87d31ffff90e91f56f8ff"
+    },
+    {
+      "name": "DllGetClassObject",
+      "offset": 6442543376,
+      "size": 169,
+      "instr_count": 37,
+      "source": "IMPORTED",
+      "bytes": "48895c240848896c24104889742418574883ec30498bf8488bf2488be94d85c0746c49832000488d0d7b65180048ff154cc014000f1f440000e85e0000008bd885c0781f48897c2428488bd54889742420e85e0400008bd83d110104800f8479a70700488d0d3e65180048ff153fc014000f1f4400008bc3488b5c2440488b6c2448488b7424504883c4305fc3b803400080ebe34c8bc7488bd6488bcde86e7502008bd8e97258f8ff"
+    },
+    {
+      "name": "WICMatchMetadataContent",
+      "offset": 6442571584,
+      "size": 377,
+      "instr_count": 83,
+      "source": "IMPORTED",
+      "bytes": "488bc4488958104889681856574154415641574883ec40488360c80033f6488970084d8bf1498be84c8be24c8bf94885c90f84a76007004d85c00f849e6007004d85c90f8495600700488d48c8e8720100008bf885c00f88a06007008bdf85ff7842488d4424704c8bcd48894424284d8bc44821742420498bd7e8c1b500008bf885c00f888c600700488b7424708bdf85ff7810743e833d37e5170000bb502f98887563488b4c24304885c97405e86d0000004885f6753d4c8d5c24408bc3498b5b38498b6b40498be3415f415e415c5f5ec3488b06498bd6488bce488b4058ff15815414008bf885c00f883d6007008bdfebaf488b16488bce488b4210ff1563541400ebb18bcbe816690600eb943935f0841000bb570007800f84c99ff8ff8bcbe82e09ffff90e9bc9ff8ff3935d28410000f84549ff8ff8bcfe81509ffff90e9479ff8ff3935b98410000f84689ff8ff8bcfe8fc08ffff90e95b9ff8ff833d9f841000000f84b69ff8ff8bcfe8e208ffff90e9a99ff8ff"
+    },
+    {
+      "name": "`scalar_deleting_destructor'",
+      "offset": 6442657312,
+      "size": 57,
+      "instr_count": 17,
+      "source": "ANALYSIS",
+      "bytes": "48895c2408574883ec20488d055fc111008bda488901488bf9e822000000f6c3017408488bcfe8654b0400488b5c2430488bc74883c4205fc3"
+    },
+    {
+      "name": "caseD_b",
+      "offset": 6442664249,
+      "size": 620,
+      "instr_count": 166,
+      "source": "ANALYSIS",
+      "bytes": "837b04000f851c04000083fd03732f4585f60f8412ffffff410fb6078bcdd3e041ffce49ffc74489b424980000004403e04c897c243883c50883fd0372d1418bc441d1ec83e001894304418bc483e00383f8010f855e040000488d05676414004c895b5848894360c7436809000000c7436c05000000c7031300000041c1ec0283c5fde923feffff8b4b68ba01000000d3e2ffca418bc4448993dc1b00004c8b53588bca4823c8418b048a8bc8c1e9080fb6c93bcd76424585f60f846afeffff410fb6078bcdd3e041ffce4403e04489b42498000000418bcc49ffc78bc283c5084823c14c897c2438418b04828bc8c1e9080fb6c93bcd77be84c07408a8f00f84260a00008bc8c1e9080fb6c9018bdc1b00002be941d3ec8bc8c1e910894b4884c00f84da030000a8200f851c010000a8400f85fa9006000fb6c883e10fc70315000000894b508b535085d20f853c0300008b43488983e01b0000c703160000008b4b6cba010000004c8b5360d3e2ffca418bc48bca4823c8418b048a8bc8c1e9080fb6c93bcd0f879a030000a8f00f84c40a0000448b8424900000008bc8c1e9080fb6c9018bdc1b00002be941d3eca8400f85989006008bc8c70317000000c1e9104c8d0dfdbcfcff894b4c4c8d1d736314000fb6c883e10f894b504533d28b535085d20f8550020000c703180000004585c00f8430fdffff8b434c418bd0488bce482bc88b4348413bc00f46d0442bc22bc244898424900000008943480f1f8400000000000fb601488d4901880648ffc683c2ff75ef3953480f856afcffffc70314000000e95ffcffff448b842490000000c7030b000000c783dc1b0000ffffffff4533d2e931fcffff"
+    },
+    {
+      "name": "caseD_0",
+      "offset": 6442664869,
+      "size": 3436,
+      "instr_count": 121,
+      "source": "ANALYSIS",
+      "bytes": "837b08000f84348d060083fd10732f4585f60f84a6fcffff410fb6078bcdd3e041ffce49ffc74489b424980000004403e04c897c243883c50883fd1072d1410fb6cc418bc4c1e808c1e10803c8b885104208f7e18bc12bc2d1e803c2c1e8046bc01f3bc80f85df8c0600418bc4240f3c080f85318d06008b432883c5fc41c1ec04418bcc83e10f83c10885c00f842c8d06003bc80f872c8d0600b8010000004533c0d3e033d233c9894314e87719000089431889474c410fbae4090f821b8d0600b80b000000448b8424900000004533d2458be28903418beae953fbffff837b08000f84bc00000083fd20732f4585f60f84c8fbffff410fb6078bcdd3e041ffce49ffc74489b424980000004403e04c897c243883c50883fd2072d1452be844016f1c44016b1c4585ed743d8b4b18488bd6418bc5458bc5482bd0837b10000f85608e0600e8dd180000448b8424900000004c8d0d02bbfcff8943184c8d1d7861140089474c4533d2418bcc418bc4c1e01081e100ff000003c8458be8c1e108418bc4c1e8082500ff000003c8418bc4c1e81803c83b4b180f85128e0600458be2418beac7031c000000c78424a000000001000000e904fbffff3bea732e4585f60f84e2faffff410fb6078bcdd3e041ffce49ffc74489b424980000004403e04c897c243883c5083bea72d28bcab801000000d3e02beaffc84123c441d3ec01434c0193dc1b0000e95dfdffff3bea0f82170700008bcab801000000d3e02beaffc84123c441d3ec0143480193dc1b0000e99bfcffff4585c00f8447faffff0fb64348880648ffc641ffc8c703140000004489842490000000e9a9f9ffff448b8424900000004533d2c70319000000e985f9ffff4585ed0f85b3faffffe9998d06004585f60f84faf9ffff410fb6078bcdd3e041ffce4403e04489b424980000008bc249ffc7418bcc83c5084823c84c897c2438418b048a8bc8c1e9080fb6c93bcd0f8620fcffffebb88bcd83e10741d3ec2be983fd20732f4585f60f84a3f9ffff410fb6078bcdd3e041ffce49ffc74489b424980000004403e04c897c243883c50883fd2072d1418bc4410fb7ccf7d0c1e8103bc80f855e8b0600894b48458be2418beac7030f0000008b4b4885c90f84c7050000413bce418bc6458bf00f46c1413bc0440f46f04585f60f84ea050000458bc6498bd7488bcee81c080500448b8424900000004429b42498000000452bc644297348418bc6448bb424980000004c03f84803f04c897c243844898424900000004533d2e95bf8ffff83fd0e732f4585f60f84daf8ffff410fb6078bcdd3e041ffce49ffc74489b424980000004403e04c897c243883c50883fd0e72d1418bcc83c5f241c1ec0583e11f418bd481c10101000041c1ec0583e21f418bc4894b7483e00f41c1ec0483c004ffc289537889437081f91e0100000f877e8a060083fa1e0f87758a06004489537cc703110000008b437c3b4370733c0f1f44000083fd030f82470200008b437c410fb7cc6683e10741c1ec0383c5fd410fb7844168e1160066898c4388000000ff437c8b437c3b437072c983f813731e8b437c410fb7844168e11600664489944388000000ff437c837b7c1372e2488d4b68488d8348050000c701070000004c8d8b8000000048894358498901488d9388000000488d8308030000488944242848894c242033c9448d4113e8a41b0000898424a000000085c00f85c98906004533d2c703120000004489537c8d50124c8d1dae5d14008b437803437439437c0f83900000000f1f40006666660f1f8400000000008b4b6841b8010000004c8b4b5841d3e041ffc8418bc4418bc84823c8418b14898bcac1e908899424a80000000fb6c1c1ea103bc50f876b0100006683fa100f83b40100000fb6d13bea0f82638906000fb68c24a90000000fb78424aa0000002be941d3ec8b4b7c6689844b88000000ff437c8b4b7c8b43780343743bc872818b13448b8424900000004c8d0d80b6fcff83fa1d0f845bf6ffff6683bb88020000000f845c890600448b4374488d8348050000488983800000004c8dbb0803000048894358488d9388000000488d43684c897c24284c8d8b80000000c70009000000b9010000004889442420e8701a0000898424a000000085c00f851a890600488b8380000000488d4b6c448b43784c8d8b80000000488943608b43744883c044c701060000004c897c242848894c2420b902000000488d1443e8221a00004c8b7c2438448bb42498000000448b842490000000898424a000000085c00f85e28806004533d2c70314000000e990f5ffff4585f60f84faf5ffff410fb6078bcdd3e041ffce49ffc74489b424980000004403e04c897c243883c50883fd030f8386fdffffebcb4585f60f84c5f5ffff410fb6078bcdd3e041ffce4403e04489b42498000000418bcc49ffc7418bc083c5084823c14c897c2438418b14818bcac1e908899424a80000000fb6c1c1ea103bc50f8644feffffebad0fb6c174726683fa110f85dd0000008d50033bea0f829e0000000fb68c24a9000000b8fdffffff41d3ec458bc2418bd483e20783c20341c1ec032bc103e88b4b7c8b437803ca0343743bc80f879c8706000f1f80000000008b437c6644898443880000008b4b7c8d4901894b7c83c2ff75e6e906feffff8d50023bea0f82c60000000fb68c24a90000008b437c2be941d3ec85c00f8453870600418bd483c5fe83e20341c1ec0283c203ffc8440fb7844388000000eb874585f60f84baf4ffff410fb6078bcdd3e041ffce49ffc74489b424980000004403e04c897c243883c5083bea0f8330ffffffebcc8d50073bea732e4585f60f847ff4ffff410fb6078bcdd3e041ffce49ffc74489b424980000004403e04c897c243883c5083bea72d20fb68c24a9000000b8f9ffffff41d3ec450fb7c2418bd483e27f83c20b41c1ec07e9f3feffff4585f60f842af4ffff410fb6078bcdd3e041ffce49ffc74489b424980000004403e04c897c243883c5083bea0f8308ffffffebcc8bc8898424a8000000440fb69c24a900000041b801000000c1e9088bd0440fb6c90fb6c84103c9c1e81041d3e0418bc941ffc84523c441d3e84403c0438b04828bc8c1e908440fb6c14503c1443bc57772418bcb41d3ec412beb898bdc1b0000e975f5ffffc7030b000000e9fef2ffff4585f60f8474f3ffff410fb6078bcdd3e041ffce49ffc74489b424980000004403e04c897c243883c5083bea0f83b7f8ffffebcc448bb42498000000e93cf3ffff4585f60f8433f3ffff410fb6078bcdd3e041b8010000004403e00fb6ca0fb78424aa0000004103cb41d3e041ffce41ffc84489b424980000004523c4418bcb41d3e849ffc74403c04c897c243883c508438b04828bc8c1e908440fb6c14503c3443bc50f8625ffffffeb958bc8898424a8000000440fb69c24a900000041b801000000c1e9088bd0440fb6c90fb6c84103c9c1e81041d3e0418bc941ffc84523c441d3e84403c0438b04828bc8c1e908440fb6c14503c1443bc57714418bcb412beb41d3ec018bdc1b0000e9d7f4ffff4585f60f8463f2ffff410fb6078bcdd3e041b8010000004403e00fb6ca0fb78424aa0000004103cb41d3e041ffce41ffc84489b424980000004523c4418bcb41d3e849ffc74403c04c897c243883c508438b04828bc8c1e908440fb6c14503c3443bc57687eb99b8feffffffe94170f9ffc7030c000000e9f66ef9ff83bbe41b000001753f8b4b28b801000000d3e04533c033c989431433d2e8bc8cf9ff448b8424900000004c8d0de12ef6ff8943184c8d1d57d50d0089474c4533d2b80b000000eb10488d056b5e0e0048894720b81d0000008903e9976ef9ff488d05845e0e0048894720c7031d000000e9816ef9ff894b28e9d472f9ff488d054e5e0e0048894720c7031d000000e9636ef9ffb809000000e9e072f9ff83fd20732f4585f60f84ca6ef9ff410fb6078bcdd3e041ffce49ffc74489b424980000004403e04c897c243883c50883fd2072d1418bcc418bc4c1e01081e100ff000003c8418bea418bc4c1e108c1e8082500ff000041c1ec1803c14103c4458be289431889474cc7030a000000837b0c000f849c0100004533c033d233c9e8bd8bf9ff448b8424900000004c8d0de22df6ff8943184c8d1d58d40d0089474c4533d2c7030b000000e9006ff9ff488d05d15d0e0048894720c7031d000000e9766df9ff488d05135e0e0048894720c7031d000000e9606df9ff448b842490000000488d05d55d0e0048894720c7031d000000e9fb70f9ff4585f60f84b86df9ff410fb6078bcdd3e041ffce49ffc74489b424980000004403e04c897c243883c5083bea72d2e96a76f9ff448b842490000000488d05f45d0e0048894720c7031d000000e9ea6cf9ff488d05b65d0e0048894720c7031d000000e9d46cf9ff4c8b7c2438488d05fb5d0e00448bb42498000000448b84249000000048894720c7031d000000e96970f9ff488d05bd5d0e0048894720c7031d000000e95370f9ffe8f1adf9ff90e99a71f9ff488d050c5e0e0048894720c7031d000000e9796cf9ff448b842490000000488d05ce5d0e0048894720c7031d000000e91470f9ff488d05a05d0e0048894720c7031d000000e9fe6ff9ff48897710b802000000448947184c893f4489770844896340896b44e94e6df9ffc78424a0000000fdffffffe9946cf9ffb8fcffffffe9346df9ffe862adf9ff90e9df6cf9ffb880000000e9086df9ffb800010000e9fe6cf9ff"
+    },
+    {
+      "name": "WICSerializeMetadataContent",
+      "offset": 6442681744,
+      "size": 1174,
+      "instr_count": 231,
+      "source": "IMPORTED",
+      "bytes": "48895c241044894424185556574154415541564157488bec4883ec6033db33c048895dd84d8bf948895de84c8bea48895df04c8be1895d40448bf3895dd0488945e0488945f84885c90f847d5d06004885d20f84745d06004d85c90f846b5d0600488b02498bcd488d55e8488b4020ff15a3a612008bf085c00f88645d06008bfe85f60f884f020000488b4de84c8d45d8488d1568201300488b01488b00ff1574a612008bf085c00f884e5d06008bfe85f60f8820020000488b4dd8488d554048895424204533c94533c0498bd4488b01488b8090000000ff153aa612008bf085c00f882d5d06008bfe85f60f88e60100008b4d4048ff15c4a512000f1f4400004c8bf04885c00f84c65c0600488b4dd8488d55d0448b45404d8bce4889542420498bd4488b01488b8090000000ff15e4a512008bf085c00f88f05c06008bfe85f60f889001000049837e18ff0f8485010000498b074c8d4df841b801000000488bd3498bcf488b4028ff15a8a512008b150e3616008bf085c00f88c75c06008bfe85f60f884e01000049bcffffffffffffff7f41395e0874704d8b164c0355f84c3b55f80f82e85c06004c8955e04d3bd40f87e05c0600498b074c8d4de04533c0498bd2498bcf488b4028ff1546a512008bf085c00f88855c06008bfe85f60f88f2000000458b4608498bcf498b5610e87a49feff8bf085c00f887a5c06008bfe85f60f88ce000000498b45004c8d45f0488d15771e1300498bcd488b00ff15f3a412008b15593516008bf085c00f887d5c06008bfe85f60f88990000004d8b56184c0355f84c3b55f80f82475c06004d3bd40f873e5c0600498b074c8d4de04533c0498bd2498bcf488b4028ff15a4a412008bf085c00f884e5c06008bfe85f67854488b4df041bc01000000448b4550458bcc498bd7488b01488b4048ff1573a412008bf085c00f88365c06008bfe85f67823498b074533c9458bc4488bd3498bcf488b4028ff154aa412008bf885c00f88265c0600488b4dd84885c97411488b01488b4010ff152aa4120048895dd8488b4de84885c97411488b01488b4010ff1510a4120048895de8488b4df04885c97411488b01488b4010ff15f6a3120048895df04d85f6740f498bce48ff1533a312000f1f440000488b9c24a80000008bc74883c460415f415e415d415c5f5e5dc3bf57000780eb05bf0e000780391da6d90f00e9bc000000391d9bd90f000f8490a2f9ff8bcee8de5dfeff90e983a2f9ff391d82d90f000f84a6a2f9ff8bcee8c55dfeff90e999a2f9ff391d69d90f000f84c7a2f9ff8bcee8ac5dfeff90e9baa2f9ff391d50d90f000f8404a3f9ff8bcee8935dfeff90e9f7a2f9ff85d20f8431a3f9ff8bcee87e5dfeff8b1528d90f00e91fa3f9ff391d1dd90f000f846fa3f9ff8bcee8605dfeff90e962a3f9ff391d04d90f000f847aa3f9ff8bcee8475dfeff90e96da3f9ff48834de0ff85d2bf160207800f8433a4f9ff8bcfe8285dfeff90e926a4f9ff85d20f847ba3f9ff8bcee8135dfeff8b15bdd80f00e969a3f9ff391db2d80f000f84a6a3f9ff8bcee8f55cfeff90e999a3f9ff391d99d80f000f84bea3f9ff8bcee8dc5cfeff90e9b1a3f9ff391d80d80f000f84cea3f9ff8bc8eb99"
+    },
+    {
+      "name": "WICGetMetadataContentSize",
+      "offset": 6442684480,
+      "size": 859,
+      "instr_count": 170,
+      "source": "IMPORTED",
+      "bytes": "48895c24105556574154415541564157488bec4883ec604533ed33c04c896dd84d8be04c896de04c8bf24c896de84c8bf944896d40418bfd44896d58488945d04885c90f84ed5906004885d20f84e45906004d85c00f84db590600488b02498bce488d55e0488b4020ff15f99b12008bf085c00f88d55906008bde85f60f886a010000488b4de04c8d45d8488d15be151300488b01488b00ff15ca9b12008bf085c00f88c05906008bde85f60f883b010000488b4dd8488d554048895424204533c94533c0498bd7488b01488b8090000000ff15909b12008bf085c00f88a05906008bde85f60f88010100008b4d4048ff151a9b12000f1f440000488bf84885c00f8436590600488b4dd8488d5558448b45404c8bcf4889542420498bd7488b01488b8090000000ff153a9b12008bf085c00f88645906008bde85f60f88ab0000004983cfff4c397f180f846659060033c04c8d45e88945f4488d1580141300498b06498bce488b00ff15f99a12008bf085c00f88555906008bde85f6786e488b4de8488d55d0488b01488b4038ff15d49a1200448b05392b16008bf085c00f88435906008bde85f67842488b4dd048034f18483b4f180f824c59060048894dd08b47088945f044896df44c8b4df04c030f4c3b0f0f82295906004c3bc9490f47c948894dd0418bdd49890c24488b4dd84885c97411488b01488b4010ff15659a12004c896dd8488b4de04885c97411488b01488b4010ff154b9a12004c896de0488b4de84885c97411488b01488b4010ff15319a12004c896de84885ff740f488bcf48ff156e9912000f1f4400008bc3488b9c24a80000004883c460415f415e415d415c5f5e5dc3bb57000780eb05bb0e00078044392d8bd20f00e9c700000044392d7fd20f000f841ea6f9ff8bcee8c256feff90e911a6f9ff44392d65d20f000f8433a6f9ff8bcee8a856feff90e926a6f9ff44392d4bd20f000f8453a6f9ff8bcee88e56feff90e946a6f9ff44392d31d20f000f848fa6f9ff8bcee87456feff90e982a6f9ff8b4f0848030f483b0f0f831da7f9ff44392d08d20f00eb3e44392dffd10f000f849ea6f9ff8bcee84256feff90e991a6f9ff4585c00f84b4a6f9ff8bcee82c56feff448b05d5d10f00e9a1a6f9ff4585c0eb074585c04c897dd0bb160207800f84d2a6f9ff8bcbe80256feff90e9c5a6f9ff"
+    },
+    {
+      "name": "`scalar_deleting_destructor'",
+      "offset": 6442706240,
+      "size": 47,
+      "instr_count": 15,
+      "source": "ANALYSIS",
+      "bytes": "48895c2408574883ec208bda488bf9e824000000f6c3017408488bcfe84f8c0300488b5c2430488bc74883c4205fc3"
+    },
+    {
+      "name": "thunk_FUN_18003fb5c",
+      "offset": 6442711888,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e907000000"
+    },
+    {
+      "name": "thunk_FUN_18003fba0",
+      "offset": 6442711952,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e90b000000"
+    },
+    {
+      "name": "thunk_FUN_18003fbec",
+      "offset": 6442712032,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e907000000"
+    },
+    {
+      "name": "thunk_FUN_1800483b0",
+      "offset": 6442746784,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e90b000000"
+    },
+    {
+      "name": "Release",
+      "offset": 6442783824,
+      "size": 48,
+      "instr_count": 16,
+      "source": "ANALYSIS",
+      "bytes": "40534883ec2083cbfff00fc1590883eb0175154885c97410488b11488b42108d5301ff15301811008bc34883c4205bc3"
+    },
+    {
+      "name": "thunk_FUN_1800543f0",
+      "offset": 6442796000,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e90b000000"
+    },
+    {
+      "name": "thunk_FUN_180057840",
+      "offset": 6442809392,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e90b000000"
+    },
+    {
+      "name": "`scalar_deleting_destructor'",
+      "offset": 6442809440,
+      "size": 57,
+      "instr_count": 17,
+      "source": "ANALYSIS",
+      "bytes": "48895c2408574883ec20488d050fa20f008bda488901488bf9e862000000f6c3017408488bcfe825f90100488b5c2430488bc74883c4205fc3"
+    },
+    {
+      "name": "`scalar_deleting_destructor'",
+      "offset": 6442809504,
+      "size": 57,
+      "instr_count": 17,
+      "source": "ANALYSIS",
+      "bytes": "48895c2408574883ec20488d0507a20f008bda488901488bf9e886000000f6c3017408488bcfe8e5f80100488b5c2430488bc74883c4205fc3"
+    },
+    {
+      "name": "`scalar_deleting_destructor'",
+      "offset": 6442809776,
+      "size": 57,
+      "instr_count": 17,
+      "source": "ANALYSIS",
+      "bytes": "48895c2408574883ec20488d05af9f0f008bda488901488bf9e862000000f6c3017408488bcfe8d5f70100488b5c2430488bc74883c4205fc3"
+    },
+    {
+      "name": "`scalar_deleting_destructor'",
+      "offset": 6442809840,
+      "size": 57,
+      "instr_count": 17,
+      "source": "ANALYSIS",
+      "bytes": "48895c2408574883ec20488d05f79f0f008bda488901488bf9e886000000f6c3017408488bcfe895f70100488b5c2430488bc74883c4205fc3"
+    },
+    {
+      "name": "_tlgWriteTransfer_EtwWriteTransfer",
+      "offset": 6442812068,
+      "size": 148,
+      "instr_count": 35,
+      "source": "ANALYSIS",
+      "bytes": "4883ec480fb6024c8d5201488b5424784c8bd9c1e01889442430410fb70289442434498b42024983c20a4889442438488b4108488902488b410848895424280fb708894a08488d0df01c1200c7420c020000004c895210410fb702894218488d050a2112002bc1c7421c01000000498b4b20488d542430894424788b4424708944242048ff1552a710000f1f4400004883c448c3"
+    },
+    {
+      "name": "thunk_FUN_18005a390",
+      "offset": 6442820480,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e90b000000"
+    },
+    {
+      "name": "WICCreateImagingFactory_Proxy",
+      "offset": 6442820528,
+      "size": 283,
+      "instr_count": 48,
+      "source": "IMPORTED",
+      "bytes": "48895c24084889742410574883ec20488bf24885d20f84a90d050081f9360200000f84a40d050081f9370200000f85c30d0500bb02000000b928000000c6051c19140000e877cd0100488bf84885c0747683672000488d052c431000488907488d053a42100048894708488d05e741100048894710488d05bc41100048894718895f244885ff0f84490d0500f0ff47204c8bc6488d1556f91000488bcfe8de81fcff8bd885c00f88300d0500488bcfe8fc33fcff488b7424388bc3488b5c24304883c4205fc333ffebb8bb57000780eb30bb01000000e963f2faffbb0e000780eb1f833d810b0f00000f84c3f2faff8bc8e8c48ffdff90e9b6f2faffbb0b2f9888833d620b0f00000f84acf2faff8bcbe8a58ffdff90e99ff2faff"
+    },
+    {
+      "name": "thunk_FUN_18005b890",
+      "offset": 6442825856,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e90b000000"
+    },
+    {
+      "name": "WICConvertBitmapSource",
+      "offset": 6442851744,
+      "size": 363,
+      "instr_count": 77,
+      "source": "IMPORTED",
+      "bytes": "488bc448895808488968104889701857415641574883ec50488360d8004c8bf94883602000488d48d84d8bf0488beae8e8bafbff8bf885c00f881ac20400488b7424408bdf85ff0f8885000000488b06488d942488000000488bce488b4050ff15a30e10008bf885c00f8803c204008bdf85ff785d488b8c24880000000f57c0c7442430010000004533c9f20f114424284d8bc7488364242000488bd5488b01488b4040ff155e0e10008bf885c00f88d8c104008bdf85ff7818488b8c248800000049890e488b01488b4008ff15360e10004885f67410488b06488bce488b4010ff15210e1000488b8c24880000004885c9740d488b11488b4210ff15070e10004c8d5c24508bc3498b5b20498b6b28498b7330498be3415f415e5fc3833d15dd0e00000f84d93dfbff8bcfe85861fdff90e9cc3dfbff833dfbdc0e00000f84f03dfbff8bcfe83e61fdff90e9e33dfbff833de1dc0e00000f841b3efbff8bcfe82461fdff90e90e3efbff"
+    },
+    {
+      "name": "thunk_FUN_180022de0",
+      "offset": 6442853072,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e90b0bfcff"
+    },
+    {
+      "name": "VariantClear",
+      "offset": 6442855888,
+      "size": 7,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "48ff25a9f60f00"
+    },
+    {
+      "name": "thunk_FUN_180065c5c",
+      "offset": 6442867792,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e907000000"
+    },
+    {
+      "name": "thunk_FUN_18004e0d0",
+      "offset": 6442921328,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e95bb3fdff"
+    },
+    {
+      "name": "thunk_FUN_18004f2a0",
+      "offset": 6442921344,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e91bc5fdff"
+    },
+    {
+      "name": "thunk_FUN_18004d070",
+      "offset": 6442935024,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e97b6dfdff"
+    },
+    {
+      "name": "free",
+      "offset": 6442938800,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e93d060000"
+    },
+    {
+      "name": "entry",
+      "offset": 6442939456,
+      "size": 61,
+      "instr_count": 18,
+      "source": "IMPORTED",
+      "bytes": "48895c24084889742410574883ec20498bf88bda488bf183fa017505e8b30400004c8bc78bd3488bce488b5c2430488b7424384883c4205fe907000000"
+    },
+    {
+      "name": "__security_check_cookie",
+      "offset": 6442940128,
+      "size": 30,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "483b0d21361200751048c1c11066f7c1ffff7501c348c1c910e912040000"
+    },
+    {
+      "name": "_Init_thread_footer",
+      "offset": 6442940164,
+      "size": 105,
+      "instr_count": 21,
+      "source": "ANALYSIS",
+      "bytes": "40534883ec20488bd9488d0df4471200ff156eb20e008b05e0351200488d0de14712008b15634d1200ffc08905cb351200890365488b04255800000041b9040000004c8b04d08b05b035120043890401ff153eb20e00488d0daf4712004883c4205b48ff258bb20e00"
+    },
+    {
+      "name": "free",
+      "offset": 6442940402,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2500b40e00"
+    },
+    {
+      "name": "malloc",
+      "offset": 6442940414,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff254cb40e00"
+    },
+    {
+      "name": "_callnewh",
+      "offset": 6442940426,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2538b40e00"
+    },
+    {
+      "name": "_XcptFilter",
+      "offset": 6442940438,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2524b40e00"
+    },
+    {
+      "name": "_amsg_exit",
+      "offset": 6442940450,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2510b40e00"
+    },
+    {
+      "name": "_FindPESection",
+      "offset": 6442940464,
+      "size": 68,
+      "instr_count": 23,
+      "source": "ANALYSIS",
+      "bytes": "4c63413c4533c94c03c14c8bd2410fb74014450fb758064883c0184903c04585db741e8b500c4c3bd2720a8b480803ca4c3bd1720e41ffc14883c028453bcb72e233c0c3"
+    },
+    {
+      "name": "_IsNonwritableInCurrentImage",
+      "offset": 6442940544,
+      "size": 75,
+      "instr_count": 24,
+      "source": "ANALYSIS",
+      "bytes": "48895c2408574883ec20488bd9488d3d6c87f8ff488bcfe84400000085c07422482bdf488bd3488bcfe882ffffff4885c0740f8b4024c1e81ff7d083e001eb02488b5c24304883c4205fc3"
+    },
+    {
+      "name": "_ValidateImageBase",
+      "offset": 6442940640,
+      "size": 45,
+      "instr_count": 14,
+      "source": "ANALYSIS",
+      "bytes": "b84d5a000066390175204863413c4803c18138504500007511b90b020000663948187506b801000000c333c0c3"
+    },
+    {
+      "name": "_initterm",
+      "offset": 6442940910,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff253cb20e00"
+    },
+    {
+      "name": "_guard_check_icall",
+      "offset": 6442941120,
+      "size": 3,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "c20000"
+    },
+    {
+      "name": "__raise_securityfailure",
+      "offset": 6442941132,
+      "size": 52,
+      "instr_count": 13,
+      "source": "ANALYSIS",
+      "bytes": "40534883ec20488bd933c9ff155bab0e00488bcbff155aab0e00ff1594ad0e00488bc8ba090400c04883c4205b48ff25a0ad0e00"
+    },
+    {
+      "name": "_lock",
+      "offset": 6442941829,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2595ae0e00"
+    },
+    {
+      "name": "_unlock",
+      "offset": 6442941841,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2581ae0e00"
+    },
+    {
+      "name": "__dllonexit",
+      "offset": 6442941853,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2565ae0e00"
+    },
+    {
+      "name": "BSTR_UserSize",
+      "offset": 6442941888,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25daa60e00"
+    },
+    {
+      "name": "HICON_UserUnmarshal",
+      "offset": 6442941904,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25f2a90e00"
+    },
+    {
+      "name": "CStdStubBuffer_Invoke",
+      "offset": 6442941920,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25caa60e00"
+    },
+    {
+      "name": "HPALETTE_UserUnmarshal",
+      "offset": 6442941936,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25caa90e00"
+    },
+    {
+      "name": "NdrStubForwardingFunction",
+      "offset": 6442941952,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25baa60e00"
+    },
+    {
+      "name": "NdrStubCall2",
+      "offset": 6442941968,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25b2a60e00"
+    },
+    {
+      "name": "BSTR_UserFree",
+      "offset": 6442941984,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2562a60e00"
+    },
+    {
+      "name": "LPSAFEARRAY_UserSize",
+      "offset": 6442942000,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff253aa60e00"
+    },
+    {
+      "name": "HBITMAP_UserSize",
+      "offset": 6442942016,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25baa90e00"
+    },
+    {
+      "name": "IUnknown_AddRef_Proxy",
+      "offset": 6442942032,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff259aa60e00"
+    },
+    {
+      "name": "CStdStubBuffer_DebugServerQueryInterface",
+      "offset": 6442942048,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2592a60e00"
+    },
+    {
+      "name": "HICON_UserMarshal",
+      "offset": 6442942064,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff255aa90e00"
+    },
+    {
+      "name": "LPSAFEARRAY_UserFree",
+      "offset": 6442942080,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25daa50e00"
+    },
+    {
+      "name": "LPSAFEARRAY_UserUnmarshal",
+      "offset": 6442942096,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25c2a50e00"
+    },
+    {
+      "name": "HBITMAP_UserMarshal",
+      "offset": 6442942112,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2512a90e00"
+    },
+    {
+      "name": "NdrOleFree",
+      "offset": 6442942128,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2562a60e00"
+    },
+    {
+      "name": "HICON_UserFree",
+      "offset": 6442942144,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25daa80e00"
+    },
+    {
+      "name": "HBITMAP_UserUnmarshal",
+      "offset": 6442942160,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25d2a80e00"
+    },
+    {
+      "name": "HICON_UserSize",
+      "offset": 6442942176,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff250aa90e00"
+    },
+    {
+      "name": "CStdStubBuffer_AddRef",
+      "offset": 6442942192,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff253aa60e00"
+    },
+    {
+      "name": "HPALETTE_UserSize",
+      "offset": 6442942208,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2502a90e00"
+    },
+    {
+      "name": "IUnknown_Release_Proxy",
+      "offset": 6442942224,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff252aa60e00"
+    },
+    {
+      "name": "HPALETTE_UserMarshal",
+      "offset": 6442942240,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2572a80e00"
+    },
+    {
+      "name": "BSTR_UserUnmarshal",
+      "offset": 6442942256,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff255aa50e00"
+    },
+    {
+      "name": "HPALETTE_UserFree",
+      "offset": 6442942272,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25b2a80e00"
+    },
+    {
+      "name": "BSTR_UserMarshal",
+      "offset": 6442942288,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25f2a40e00"
+    },
+    {
+      "name": "CStdStubBuffer_CountRefs",
+      "offset": 6442942304,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25c2a50e00"
+    },
+    {
+      "name": "CStdStubBuffer_QueryInterface",
+      "offset": 6442942320,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25aaa50e00"
+    },
+    {
+      "name": "NdrOleAllocate",
+      "offset": 6442942336,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff258aa50e00"
+    },
+    {
+      "name": "LPSAFEARRAY_UserMarshal",
+      "offset": 6442942352,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25d2a40e00"
+    },
+    {
+      "name": "CStdStubBuffer_DebugServerRelease",
+      "offset": 6442942368,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2542a50e00"
+    },
+    {
+      "name": "HBITMAP_UserFree",
+      "offset": 6442942384,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff252aa80e00"
+    },
+    {
+      "name": "CStdStubBuffer_Disconnect",
+      "offset": 6442942400,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25f2a40e00"
+    },
+    {
+      "name": "IUnknown_QueryInterface_Proxy",
+      "offset": 6442942416,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2562a50e00"
+    },
+    {
+      "name": "CStdStubBuffer_IsIIDSupported",
+      "offset": 6442942432,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25eaa40e00"
+    },
+    {
+      "name": "CStdStubBuffer_Connect",
+      "offset": 6442942448,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25e2a40e00"
+    },
+    {
+      "name": "CLIPFORMAT_UserUnmarshal",
+      "offset": 6442942464,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff250aa80e00"
+    },
+    {
+      "name": "CLIPFORMAT_UserSize",
+      "offset": 6442942480,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25c2a70e00"
+    },
+    {
+      "name": "CLIPFORMAT_UserMarshal",
+      "offset": 6442942496,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff258aa70e00"
+    },
+    {
+      "name": "CLIPFORMAT_UserFree",
+      "offset": 6442942512,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25b2a70e00"
+    },
+    {
+      "name": "ObjectStublessClient3",
+      "offset": 6442942528,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff259aa50e00"
+    },
+    {
+      "name": "ObjectStublessClient4",
+      "offset": 6442942544,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2592a50e00"
+    },
+    {
+      "name": "EventUnregister",
+      "offset": 6442942556,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff250eaa0e00"
+    },
+    {
+      "name": "EventRegister",
+      "offset": 6442942568,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2522aa0e00"
+    },
+    {
+      "name": "ReleaseSRWLockExclusive",
+      "offset": 6442942580,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff251ea90e00"
+    },
+    {
+      "name": "AcquireSRWLockExclusive",
+      "offset": 6442942592,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2502a90e00"
+    },
+    {
+      "name": "GetCurrentProcessId",
+      "offset": 6442942604,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25f6a70e00"
+    },
+    {
+      "name": "GetCurrentThreadId",
+      "offset": 6442942616,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25faa70e00"
+    },
+    {
+      "name": "GetCurrentProcess",
+      "offset": 6442942628,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25d6a70e00"
+    },
+    {
+      "name": "_purecall",
+      "offset": 6442942640,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25d2aa0e00"
+    },
+    {
+      "name": "DelayLoad_GetDC",
+      "offset": 6442942796,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d053d5f1300e900000000"
+    },
+    {
+      "name": "DelayLoad_ReleaseDC",
+      "offset": 6442942935,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05ba5e1300e975ffffff"
+    },
+    {
+      "name": "DelayLoad_GetIconInfo",
+      "offset": 6442943040,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05095e1300e900000000"
+    },
+    {
+      "name": "DelayLoad_GetGuiResources",
+      "offset": 6442943264,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05395d1300e900000000"
+    },
+    {
+      "name": "DelayLoad_CreateCompatibleDC",
+      "offset": 6442943488,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05f95b1300e900000000"
+    },
+    {
+      "name": "DelayLoad_DeleteDC",
+      "offset": 6442943627,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05765b1300e975ffffff"
+    },
+    {
+      "name": "DelayLoad_GetPaletteEntries",
+      "offset": 6442943732,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d051d5b1300e900000000"
+    },
+    {
+      "name": "DelayLoad_GetObjectW",
+      "offset": 6442943871,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d059a5a1300e975ffffff"
+    },
+    {
+      "name": "DelayLoad_GetDeviceCaps",
+      "offset": 6442943976,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05815a1300e900000000"
+    },
+    {
+      "name": "DelayLoad_GetDIBits",
+      "offset": 6442944200,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0561591300e900000000"
+    },
+    {
+      "name": "DelayLoad_CreateDIBSection",
+      "offset": 6442944339,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05de581300e975ffffff"
+    },
+    {
+      "name": "DelayLoad_SetDIBits",
+      "offset": 6442944357,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05d4581300e963ffffff"
+    },
+    {
+      "name": "DelayLoad_DeleteObject",
+      "offset": 6442944460,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05ad581300e900000000"
+    },
+    {
+      "name": "ApiSetQueryApiSetPresence",
+      "offset": 6442984640,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25aa000e00"
+    },
+    {
+      "name": "thunk_FUN_18001a858",
+      "offset": 6442984924,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e97782f9ff"
+    },
+    {
+      "name": "thunk_FUN_180041d28",
+      "offset": 6442985104,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e993f6fbff"
+    },
+    {
+      "name": "__GSHandlerCheck",
+      "offset": 6442995184,
+      "size": 29,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4883ec284d8b4138488bca498bd1e811000000b8010000004883c428c3"
+    },
+    {
+      "name": "__GSHandlerCheckCommon",
+      "offset": 6442995220,
+      "size": 91,
+      "instr_count": 28,
+      "source": "ANALYSIS",
+      "bytes": "4053458b18488bda4183e3f84c8bc941f600044c8bd17413418b40084d635004f7d84c03d14863c84c23d14963c34a8b1410488b43108b4808488b4308f64401030f740b0fb644010383e0f04c03c84c33ca498bc95be97128ffff"
+    },
+    {
+      "name": "_setjmp",
+      "offset": 6442995462,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff259cdc0d00"
+    },
+    {
+      "name": "atan2",
+      "offset": 6442995474,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2588dc0d00"
+    },
+    {
+      "name": "ceilf",
+      "offset": 6442995486,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2574dc0d00"
+    },
+    {
+      "name": "exp",
+      "offset": 6442995498,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25d8db0d00"
+    },
+    {
+      "name": "floorf",
+      "offset": 6442995510,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2524dc0d00"
+    },
+    {
+      "name": "log",
+      "offset": 6442995522,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2528dc0d00"
+    },
+    {
+      "name": "memcmp",
+      "offset": 6442995534,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff252cdc0d00"
+    },
+    {
+      "name": "memcpy",
+      "offset": 6442995546,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25f8db0d00"
+    },
+    {
+      "name": "memmove",
+      "offset": 6442995558,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25bcdb0d00"
+    },
+    {
+      "name": "memset",
+      "offset": 6442995570,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2560db0d00"
+    },
+    {
+      "name": "powf",
+      "offset": 6442995582,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff252cdc0d00"
+    },
+    {
+      "name": "sqrt",
+      "offset": 6442995594,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2528dc0d00"
+    },
+    {
+      "name": "strcmp",
+      "offset": 6442995606,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff253cdc0d00"
+    },
+    {
+      "name": "wcscmp",
+      "offset": 6442995618,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25b8dc0d00"
+    },
+    {
+      "name": "_guard_dispatch_icall",
+      "offset": 6442995648,
+      "size": 2,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "ffe0"
+    },
+    {
+      "name": "thunk_FUN_1800588f8",
+      "offset": 6443014144,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e9f3f0fcff"
+    },
+    {
+      "name": "thunk_FUN_180064024",
+      "offset": 6443014160,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e90fa8fdff"
+    },
+    {
+      "name": "thunk_FUN_1800638ec",
+      "offset": 6443014272,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e967a0fdff"
+    },
+    {
+      "name": "thunk_FUN_180062e74",
+      "offset": 6443014288,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e9df95fdff"
+    },
+    {
+      "name": "thunk_FUN_180062e38",
+      "offset": 6443014304,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e99395fdff"
+    },
+    {
+      "name": "thunk_FUN_180064228",
+      "offset": 6443014320,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e973a9fdff"
+    },
+    {
+      "name": "thunk_FUN_180062284",
+      "offset": 6443014336,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e9bf89fdff"
+    },
+    {
+      "name": "caseD_1",
+      "offset": 6443069500,
+      "size": 10,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "bd01000000e9d1fdf8ff"
+    },
+    {
+      "name": "IEnumString_Next_WIC_Proxy",
+      "offset": 6443200992,
+      "size": 32,
+      "instr_count": 9,
+      "source": "IMPORTED",
+      "bytes": "4883ec38b8570007804885c9740d488b01488b4018ff15adba0a004883c438c3"
+    },
+    {
+      "name": "IEnumString_Reset_WIC_Proxy",
+      "offset": 6443201040,
+      "size": 32,
+      "instr_count": 9,
+      "source": "IMPORTED",
+      "bytes": "4883ec28b8570007804885c9740d488b01488b4028ff157dba0a004883c428c3"
+    },
+    {
+      "name": "IPropertyBag2_Write_Proxy",
+      "offset": 6443201088,
+      "size": 32,
+      "instr_count": 9,
+      "source": "IMPORTED",
+      "bytes": "4883ec38b8570007804885c9740d488b01488b4020ff154dba0a004883c438c3"
+    },
+    {
+      "name": "IWICBitmapClipper_Initialize_Proxy",
+      "offset": 6443201136,
+      "size": 32,
+      "instr_count": 9,
+      "source": "IMPORTED",
+      "bytes": "4883ec28b8570007804885c9740d488b01488b4040ff151dba0a004883c428c3"
+    },
+    {
+      "name": "IWICBitmapCodecInfo_DoesSupportAnimation_Proxy",
+      "offset": 6443201184,
+      "size": 35,
+      "instr_count": 9,
+      "source": "IMPORTED",
+      "bytes": "4883ec28b8570007804885c97410488b01488b8090000000ff15eab90a004883c428c3"
+    },
+    {
+      "name": "IWICBitmapCodecInfo_DoesSupportLossless_Proxy",
+      "offset": 6443201232,
+      "size": 35,
+      "instr_count": 9,
+      "source": "IMPORTED",
+      "bytes": "4883ec28b8570007804885c97410488b01488b80a0000000ff15bab90a004883c428c3"
+    },
+    {
+      "name": "IWICBitmapCodecInfo_DoesSupportMultiframe_Proxy",
+      "offset": 6443201280,
+      "size": 35,
+      "instr_count": 9,
+      "source": "IMPORTED",
+      "bytes": "4883ec28b8570007804885c97410488b01488b80a8000000ff158ab90a004883c428c3"
+    },
+    {
+      "name": "IWICBitmapCodecInfo_GetContainerFormat_Proxy",
+      "offset": 6443201328,
+      "size": 32,
+      "instr_count": 9,
+      "source": "IMPORTED",
+      "bytes": "4883ec28b8570007804885c9740d488b01488b4058ff155db90a004883c428c3"
+    },
+    {
+      "name": "IWICBitmapCodecInfo_GetDeviceManufacturer_Proxy",
+      "offset": 6443201376,
+      "size": 32,
+      "instr_count": 9,
+      "source": "IMPORTED",
+      "bytes": "4883ec38b8570007804885c9740d488b01488b4070ff152db90a004883c438c3"
+    },
+    {
+      "name": "IWICBitmapCodecInfo_GetDeviceModels_Proxy",
+      "offset": 6443201424,
+      "size": 32,
+      "instr_count": 9,
+      "source": "IMPORTED",
+      "bytes": "4883ec38b8570007804885c9740d488b01488b4078ff15fdb80a004883c438c3"
+    },
+    {
+      "name": "IWICBitmapCodecInfo_GetFileExtensions_Proxy",
+      "offset": 6443201472,
+      "size": 35,
+      "instr_count": 9,
+      "source": "IMPORTED",
+      "bytes": "4883ec38b8570007804885c97410488b01488b8088000000ff15cab80a004883c438c3"
+    },
+    {
+      "name": "IWICBitmapCodecInfo_GetMimeTypes_Proxy",
+      "offset": 6443201520,
+      "size": 35,
+      "instr_count": 9,
+      "source": "IMPORTED",
+      "bytes": "4883ec38b8570007804885c97410488b01488b8080000000ff159ab80a004883c438c3"
+    },
+    {
+      "name": "IWICBitmapDecoder_CopyPalette_Proxy",
+      "offset": 6443201568,
+      "size": 32,
+      "instr_count": 9,
+      "source": "IMPORTED",
+      "bytes": "4883ec28b8570007804885c9740d488b01488b4038ff156db80a004883c428c3"
+    },
+    {
+      "name": "IWICBitmapDecoder_GetColorContexts_Proxy",
+      "offset": 6443201616,
+      "size": 32,
+      "instr_count": 9,
+      "source": "IMPORTED",
+      "bytes": "4883ec38b8570007804885c9740d488b01488b4050ff153db80a004883c438c3"
+    },
+    {
+      "name": "IWICBitmapDecoder_GetDecoderInfo_Proxy",
+      "offset": 6443201664,
+      "size": 32,
+      "instr_count": 9,
+      "source": "IMPORTED",
+      "bytes": "4883ec28b8570007804885c9740d488b01488b4030ff150db80a004883c428c3"
+    },
+    {
+      "name": "IWICBitmapDecoder_GetFrameCount_Proxy",
+      "offset": 6443201712,
+      "size": 32,
+      "instr_count": 9,
+      "source": "IMPORTED",
+      "bytes": "4883ec28b8570007804885c9740d488b01488b4060ff15ddb70a004883c428c3"
+    },
+    {
+      "name": "IWICBitmapDecoder_GetFrame_Proxy",
+      "offset": 6443201760,
+      "size": 32,
+      "instr_count": 9,
+      "source": "IMPORTED",
+      "bytes": "4883ec28b8570007804885c9740d488b01488b4068ff15adb70a004883c428c3"
+    },
+    {
+      "name": "IWICBitmapDecoder_GetPreview_Proxy",
+      "offset": 6443201808,
+      "size": 32,
+      "instr_count": 9,
+      "source": "IMPORTED",
+      "bytes": "4883ec28b8570007804885c9740d488b01488b4048ff157db70a004883c428c3"
+    },
+    {
+      "name": "IWICBitmapEncoder_CreateNewFrame_Proxy",
+      "offset": 6443201856,
+      "size": 37,
+      "instr_count": 11,
+      "source": "IMPORTED",
+      "bytes": "4883ec28b8570007804885c974124885d2740d488b01488b4050ff1548b70a004883c428c3"
+    },
+    {
+      "name": "IWICBitmapEncoder_GetEncoderInfo_Proxy",
+      "offset": 6443201904,
+      "size": 37,
+      "instr_count": 11,
+      "source": "IMPORTED",
+      "bytes": "4883ec28b8570007804885c974124885d2740d488b01488b4028ff1518b70a004883c428c3"
+    },
+    {
+      "name": "IWICBitmapEncoder_Initialize_Proxy",
+      "offset": 6443201952,
+      "size": 37,
+      "instr_count": 11,
+      "source": "IMPORTED",
+      "bytes": "4883ec28b8570007804885c974124885d2740d488b01488b4018ff15e8b60a004883c428c3"
+    },
+    {
+      "name": "IWICBitmapEncoder_SetPalette_Proxy",
+      "offset": 6443202000,
+      "size": 37,
+      "instr_count": 11,
+      "source": "IMPORTED",
+      "bytes": "4883ec28b8570007804885c974124885d2740d488b01488b4038ff15b8b60a004883c428c3"
+    },
+    {
+      "name": "IWICBitmapEncoder_SetThumbnail_Proxy",
+      "offset": 6443202048,
+      "size": 37,
+      "instr_count": 11,
+      "source": "IMPORTED",
+      "bytes": "4883ec28b8570007804885c974124885d2740d488b01488b4040ff1588b60a004883c428c3"
+    },
+    {
+      "name": "IWICBitmapFrameDecode_GetColorContexts_Proxy",
+      "offset": 6443202096,
+      "size": 32,
+      "instr_count": 9,
+      "source": "IMPORTED",
+      "bytes": "4883ec38b8570007804885c9740d488b01488b4048ff155db60a004883c438c3"
+    },
+    {
+      "name": "IWICBitmapFrameDecode_GetThumbnail_Proxy",
+      "offset": 6443202144,
+      "size": 32,
+      "instr_count": 9,
+      "source": "IMPORTED",
+      "bytes": "4883ec28b8570007804885c9740d488b01488b4050ff152db60a004883c428c3"
+    },
+    {
+      "name": "IWICBitmapFrameEncode_Initialize_Proxy",
+      "offset": 6443202192,
+      "size": 32,
+      "instr_count": 9,
+      "source": "IMPORTED",
+      "bytes": "4883ec28b8570007804885c9740d488b01488b4018ff15fdb50a004883c428c3"
+    },
+    {
+      "name": "IWICBitmapFrameEncode_SetColorContexts_Proxy",
+      "offset": 6443202240,
+      "size": 37,
+      "instr_count": 11,
+      "source": "IMPORTED",
+      "bytes": "4883ec28b8570007804885c974124d85c0740d488b01488b4038ff15c8b50a004883c428c3"
+    },
+    {
+      "name": "IWICBitmapFrameEncode_SetResolution_Proxy",
+      "offset": 6443202288,
+      "size": 52,
+      "instr_count": 14,
+      "source": "IMPORTED",
+      "bytes": "4883ec28b8570007804885c97421f20f100552d00c00660f2fc87213660f2fd0720d488b01488b4028ff1589b50a004883c428c3"
+    },
+    {
+      "name": "IWICBitmapFrameEncode_SetSize_Proxy",
+      "offset": 6443202352,
+      "size": 41,
+      "instr_count": 13,
+      "source": "IMPORTED",
+      "bytes": "4883ec28b8570007804885c9741685d274124585c0740d488b01488b4020ff1554b50a004883c428c3"
+    },
+    {
+      "name": "IWICBitmapFrameEncode_SetThumbnail_Proxy",
+      "offset": 6443202400,
+      "size": 37,
+      "instr_count": 11,
+      "source": "IMPORTED",
+      "bytes": "4883ec28b8570007804885c974124885d2740d488b01488b4048ff1528b50a004883c428c3"
+    },
+    {
+      "name": "IWICBitmapFrameEncode_WriteSource_Proxy",
+      "offset": 6443202448,
+      "size": 93,
+      "instr_count": 32,
+      "source": "IMPORTED",
+      "bytes": "40534883ec204533db33db4533d24533c9b8570007804d85c0740f458b18418b5804458b5008458b480c4885c974284885d274234585db781e85db781a4585d27e054585c97f034533c0488b01488b4058ff15c1b40a004883c4205bc3"
+    },
+    {
+      "name": "IWICBitmapLock_GetStride_Proxy",
+      "offset": 6443202560,
+      "size": 32,
+      "instr_count": 9,
+      "source": "IMPORTED",
+      "bytes": "4883ec28b8570007804885c9740d488b01488b4020ff158db40a004883c428c3"
+    },
+    {
+      "name": "IWICBitmapScaler_Initialize_Proxy",
+      "offset": 6443202608,
+      "size": 43,
+      "instr_count": 12,
+      "source": "IMPORTED",
+      "bytes": "4883ec38b8570007804885c97418488b014c8b50408b44246089442420498bc2ff1552b40a004883c438c3"
+    },
+    {
+      "name": "IWICBitmapSource_CopyPixels_Proxy",
+      "offset": 6443202672,
+      "size": 45,
+      "instr_count": 12,
+      "source": "IMPORTED",
+      "bytes": "4883ec38b8570007804885c9741a488b014c8b5038488b4424604889442420498bc2ff1510b40a004883c438c3"
+    },
+    {
+      "name": "IWICBitmap_Lock_Proxy",
+      "offset": 6443202736,
+      "size": 32,
+      "instr_count": 9,
+      "source": "IMPORTED",
+      "bytes": "4883ec38b8570007804885c9740d488b01488b4040ff15ddb30a004883c438c3"
+    },
+    {
+      "name": "IWICComponentFactory_CreateMetadataWriterFromReader_Proxy",
+      "offset": 6443202784,
+      "size": 35,
+      "instr_count": 9,
+      "source": "IMPORTED",
+      "bytes": "4883ec38b8570007804885c97410488b01488b80f8000000ff15aab30a004883c438c3"
+    },
+    {
+      "name": "IWICComponentFactory_CreateQueryWriterFromBlockWriter_Proxy",
+      "offset": 6443202832,
+      "size": 35,
+      "instr_count": 9,
+      "source": "IMPORTED",
+      "bytes": "4883ec28b8570007804885c97410488b01488b8008010000ff157ab30a004883c428c3"
+    },
+    {
+      "name": "IWICComponentInfo_GetAuthor_Proxy",
+      "offset": 6443202880,
+      "size": 32,
+      "instr_count": 9,
+      "source": "IMPORTED",
+      "bytes": "4883ec38b8570007804885c9740d488b01488b4030ff154db30a004883c438c3"
+    },
+    {
+      "name": "IWICFormatConverter_Initialize_Proxy",
+      "offset": 6443202928,
+      "size": 68,
+      "instr_count": 16,
+      "source": "IMPORTED",
+      "bytes": "4883ec48b8570007804885c97431488b01f20f104424784c8b50408b84248000000089442430488b442470f20f114424284889442420498bc2ff15f9b20a004883c448c3"
+    },
+    {
+      "name": "IWICImagingFactory_CreateBitmapClipper_Proxy",
+      "offset": 6443203008,
+      "size": 37,
+      "instr_count": 11,
+      "source": "IMPORTED",
+      "bytes": "4883ec28b8570007804885c974124885d2740d488b01488b4060ff15c8b20a004883c428c3"
+    },
+    {
+      "name": "IWICImagingFactory_CreateBitmapFlipRotator_Proxy",
+      "offset": 6443203056,
+      "size": 37,
+      "instr_count": 11,
+      "source": "IMPORTED",
+      "bytes": "4883ec28b8570007804885c974124885d2740d488b01488b4068ff1598b20a004883c428c3"
+    },
+    {
+      "name": "IWICImagingFactory_CreateBitmapFromHBITMAP_Proxy",
+      "offset": 6443203104,
+      "size": 48,
+      "instr_count": 12,
+      "source": "IMPORTED",
+      "bytes": "4883ec38b8570007804885c9741d488b014c8b90a8000000488b4424604889442420498bc2ff155db20a004883c438c3"
+    },
+    {
+      "name": "IWICImagingFactory_CreateBitmapFromHICON_Proxy",
+      "offset": 6443203168,
+      "size": 35,
+      "instr_count": 9,
+      "source": "IMPORTED",
+      "bytes": "4883ec28b8570007804885c97410488b01488b80b0000000ff152ab20a004883c428c3"
+    },
+    {
+      "name": "IWICImagingFactory_CreateBitmapFromMemory_Proxy",
+      "offset": 6443203216,
+      "size": 86,
+      "instr_count": 18,
+      "source": "IMPORTED",
+      "bytes": "4883ec58b8570007804885c97443488b014c8b90a0000000488b8424980000004889442438488b84249000000048894424308b842488000000894424288b84248000000089442420498bc2ff15c7b10a004883c458c3"
+    },
+    {
+      "name": "IWICImagingFactory_CreateBitmapFromSource_Proxy",
+      "offset": 6443203312,
+      "size": 35,
+      "instr_count": 9,
+      "source": "IMPORTED",
+      "bytes": "4883ec38b8570007804885c97410488b01488b8090000000ff159ab10a004883c438c3"
+    },
+    {
+      "name": "IWICImagingFactory_CreateBitmapScaler_Proxy",
+      "offset": 6443203360,
+      "size": 37,
+      "instr_count": 11,
+      "source": "IMPORTED",
+      "bytes": "4883ec28b8570007804885c974124885d2740d488b01488b4058ff1568b10a004883c428c3"
+    },
+    {
+      "name": "IWICImagingFactory_CreateBitmap_Proxy",
+      "offset": 6443203408,
+      "size": 56,
+      "instr_count": 14,
+      "source": "IMPORTED",
+      "bytes": "4883ec48b8570007804885c97425488b014c8b9088000000488b44247848894424288b44247089442420498bc2ff1525b10a004883c448c3"
+    },
+    {
+      "name": "IWICImagingFactory_CreateComponentInfo_Proxy",
+      "offset": 6443203472,
+      "size": 37,
+      "instr_count": 11,
+      "source": "IMPORTED",
+      "bytes": "4883ec28b8570007804885c974124d85c0740d488b01488b4030ff15f8b00a004883c428c3"
+    },
+    {
+      "name": "IWICImagingFactory_CreateDecoderFromFileHandle_Proxy",
+      "offset": 6443203520,
+      "size": 53,
+      "instr_count": 15,
+      "source": "IMPORTED",
+      "bytes": "4883ec38b8570007804883faff74214c8b5424604d85d274174885c97412488b014c89542420488b4028ff15b8b00a004883c438c3"
+    },
+    {
+      "name": "IWICImagingFactory_CreateDecoderFromFilename_Proxy",
+      "offset": 6443203584,
+      "size": 63,
+      "instr_count": 18,
+      "source": "IMPORTED",
+      "bytes": "4883ec484c8b5c2478b8570007804d85db74274885c974224885d2741d488b014c895c24284c8b50188b44247089442420498bc2ff156eb00a004883c448c3"
+    },
+    {
+      "name": "IWICImagingFactory_CreateDecoderFromStream_Proxy",
+      "offset": 6443203664,
+      "size": 52,
+      "instr_count": 15,
+      "source": "IMPORTED",
+      "bytes": "4883ec38b8570007804885d274214c8b5424604d85d274174885c97412488b014c89542420488b4020ff1529b00a004883c438c3"
+    },
+    {
+      "name": "IWICImagingFactory_CreateEncoder_Proxy",
+      "offset": 6443203728,
+      "size": 66,
+      "instr_count": 22,
+      "source": "IMPORTED",
+      "bytes": "40534883ec30bb570007804885d2751139156e400e0074228bcbe8b5c4fcffeb194885c974144d85c9740f488b01488b4040ff15e0af0a008bd88bc34883c4305bc3"
+    },
+    {
+      "name": "IWICImagingFactory_CreateFastMetadataEncoderFromDecoder_Proxy",
+      "offset": 6443203808,
+      "size": 35,
+      "instr_count": 9,
+      "source": "IMPORTED",
+      "bytes": "4883ec28b8570007804885c97410488b01488b80c0000000ff15aaaf0a004883c428c3"
+    },
+    {
+      "name": "IWICImagingFactory_CreateFastMetadataEncoderFromFrameDecode_Proxy",
+      "offset": 6443203856,
+      "size": 35,
+      "instr_count": 9,
+      "source": "IMPORTED",
+      "bytes": "4883ec28b8570007804885c97410488b01488b80c8000000ff157aaf0a004883c428c3"
+    },
+    {
+      "name": "IWICImagingFactory_CreateQueryWriterFromReader_Proxy",
+      "offset": 6443203904,
+      "size": 35,
+      "instr_count": 9,
+      "source": "IMPORTED",
+      "bytes": "4883ec38b8570007804885c97410488b01488b80d8000000ff154aaf0a004883c438c3"
+    },
+    {
+      "name": "IWICImagingFactory_CreateQueryWriter_Proxy",
+      "offset": 6443203952,
+      "size": 35,
+      "instr_count": 9,
+      "source": "IMPORTED",
+      "bytes": "4883ec38b8570007804885c97410488b01488b80d0000000ff151aaf0a004883c438c3"
+    },
+    {
+      "name": "IWICImagingFactory_CreateStream_Proxy",
+      "offset": 6443204000,
+      "size": 37,
+      "instr_count": 11,
+      "source": "IMPORTED",
+      "bytes": "4883ec28b8570007804885c974124885d2740d488b01488b4070ff15e8ae0a004883c428c3"
+    },
+    {
+      "name": "IWICPalette_GetColorCount_Proxy",
+      "offset": 6443204048,
+      "size": 59,
+      "instr_count": 18,
+      "source": "IMPORTED",
+      "bytes": "40534883ec20488bdab8570007804885c974224885d2741d488b01488d5424308364243000488b4040ff15a9ae0a008b4c2430890b4883c4205bc3"
+    },
+    {
+      "name": "IWICPalette_InitializeFromBitmap_Proxy",
+      "offset": 6443204128,
+      "size": 32,
+      "instr_count": 9,
+      "source": "IMPORTED",
+      "bytes": "4883ec38b8570007804885c9740d488b01488b4028ff156dae0a004883c438c3"
+    },
+    {
+      "name": "IWICPixelFormatInfo_GetChannelCount_Proxy",
+      "offset": 6443204176,
+      "size": 32,
+      "instr_count": 9,
+      "source": "IMPORTED",
+      "bytes": "4883ec28b8570007804885c9740d488b01488b4070ff153dae0a004883c428c3"
+    },
+    {
+      "name": "IWICPixelFormatInfo_GetChannelMask_Proxy",
+      "offset": 6443204224,
+      "size": 45,
+      "instr_count": 12,
+      "source": "IMPORTED",
+      "bytes": "4883ec38b8570007804885c9741a488b014c8b5078488b4424604889442420498bc2ff1500ae0a004883c438c3"
+    },
+    {
+      "name": "IWICStream_InitializeFromMemory_Proxy",
+      "offset": 6443204288,
+      "size": 35,
+      "instr_count": 9,
+      "source": "IMPORTED",
+      "bytes": "4883ec28b8570007804885c97410488b01488b8080000000ff15caad0a004883c428c3"
+    },
+    {
+      "name": "WICCreateBitmapFromSection",
+      "offset": 6443204336,
+      "size": 51,
+      "instr_count": 11,
+      "source": "IMPORTED",
+      "bytes": "4883ec48488b84248000000048894424388b442478c744243001000000894424288b44247089442420e8120000004883c448c3"
+    },
+    {
+      "name": "WICCreateBitmapFromSectionEx",
+      "offset": 6443204400,
+      "size": 293,
+      "instr_count": 77,
+      "source": "IMPORTED",
+      "bytes": "488bc44889580848897010488978184c89702041574883ec504883bc249800000000498bd9498bf0448bf2448bf9751ebb57000780833da83d0e00000f84c60000008bcbe8ebc1fcffe9ba000000b9d8000000e8e8f1fbff4885c0740d488bc8e8a3f1ffff488bf8eb0233ff4885ff7507bb0e000780ebbd488bcfe82061f9ff8b8424900000004c8bce89442438458bc68b842488000000418bd789442430488bcf8b8424800000008944242848895c2420e8cda200008bf085c07910833d203d0e000074078bc8e867c1fcff8bde85f6782d4c8b842498000000488d15ae1b0b00488bcfe85650f9ff8bd885c07910833ded3c0e000074078bc8e834c1fcff488bcfe86872f9ff488b7424688bc3488b5c2460488b7c24704c8b7424784883c450415fc3"
+    },
+    {
+      "name": "WICCreateColorContext_Proxy",
+      "offset": 6443204704,
+      "size": 32,
+      "instr_count": 9,
+      "source": "IMPORTED",
+      "bytes": "4883ec28b8570007804885c9740d488b01488b4078ff152dac0a004883c428c3"
+    },
+    {
+      "name": "WICMapGuidToShortName",
+      "offset": 6443204752,
+      "size": 375,
+      "instr_count": 113,
+      "source": "IMPORTED",
+      "bytes": "488bc4488958104889681856574154415641574883ec30488360c8004d8bf9488360d0004d8bf04883600800488be9448be24885c9751d390d473c0e00bb570007800f84160100008bcbe885c0fcffe90a010000488d4c2420e882ecf5ff8bf885c07910833d193c0e000074078bc8e860c0fcff488b7424208bdf85ff0f88ce0000004c8d442460488bd5488bcee8fd8afbff8bf885c07910833de43b0e000074078bc8e82bc0fcff8bdf85ff0f889e000000488b4c24604c8d442428baffffff7fe85dedf5ff8bf885c07910833db03b0e000074078bc8e8f7bffcff8bdf85ff786e488b6c242848ffc54d85f6742c4c8b442460498bd4498bcee8f841f6ff8bf885c07910833d773b0e000074078bc8e8bebffcff8bdf85ff78354d85ff7430b9ffffffff483be98bc10f46c5483bcd4189071bdb81e316020780483be97610833d3c3b0e000074078bcbe883bffcff4885f67408488bcee8b270f9ff488b6c24708bc3488b5c24684883c430415f415e415c5f5ec3"
+    },
+    {
+      "name": "WICMapShortNameToGuid",
+      "offset": 6443205136,
+      "size": 199,
+      "instr_count": 59,
+      "source": "IMPORTED",
+      "bytes": "48895c2410555741564883ec20488364245000488bea4883642440004c8bf14885c9751b833dd93a0e0000bb570007800f84810000008bcbe817bffcffeb784885ed74e0488d4c2440e812ebf5ff8bf885c07910833da93a0e000074078bc8e8f0befcff8bdf85ff783b488b4c24404c8d442450498bd6e8dce8f5ff8bf885c07910833d7b3a0e000074078bc8e8c2befcff8bdf85ff780d488b5424500f1002f30f7f450048837c244000740a488b4c2440e8d96ff9ff8bc3488b5c24484883c420415e5f5dc3"
+    },
+    {
+      "name": "WICSetEncoderFormat_Proxy",
+      "offset": 6443205344,
+      "size": 5,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "e977720000"
+    },
+    {
+      "name": "thunk_FUN_1800b8aec",
+      "offset": 6443207392,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e907000000"
+    },
+    {
+      "name": "thunk_FUN_18005a390",
+      "offset": 6443253248,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e98b65f9ff"
+    },
+    {
+      "name": "thunk_FUN_18005b890",
+      "offset": 6443253264,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e97b7af9ff"
+    },
+    {
+      "name": "thunk_FUN_1800543f0",
+      "offset": 6443254800,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e9dbfff8ff"
+    },
+    {
+      "name": "thunk_FUN_1800d0594",
+      "offset": 6443305632,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e9effaffff"
+    },
+    {
+      "name": "`scalar_deleting_destructor'",
+      "offset": 6443322464,
+      "size": 57,
+      "instr_count": 17,
+      "source": "ANALYSIS",
+      "bytes": "48895c2408574883ec20488d0547ce07008bda488901488bf9e8c62cf8fff6c3017408488bcfe82525faff488b5c2430488bc74883c4205fc3"
+    },
+    {
+      "name": "`scalar_deleting_destructor'",
+      "offset": 6443322528,
+      "size": 57,
+      "instr_count": 17,
+      "source": "ANALYSIS",
+      "bytes": "48895c2408574883ec20488d05cfcd07008bda488901488bf9e8222cf8fff6c3017408488bcfe8e524faff488b5c2430488bc74883c4205fc3"
+    },
+    {
+      "name": "thunk_FUN_180058834",
+      "offset": 6443324480,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e9ef33f8ff"
+    },
+    {
+      "name": "thunk_FUN_180058834",
+      "offset": 6443324496,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e9df33f8ff"
+    },
+    {
+      "name": "thunk_FUN_1800e5c30",
+      "offset": 6443404160,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e9abd0ffff"
+    },
+    {
+      "name": "thunk_FUN_1800ff768",
+      "offset": 6443479840,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e943440000"
+    },
+    {
+      "name": "DebugBreak",
+      "offset": 6443484704,
+      "size": 7,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "48ff25e15f0600"
+    },
+    {
+      "name": "free",
+      "offset": 6443625460,
+      "size": 7,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "48ff25fd3f0400"
+    },
+    {
+      "name": "thunk_FUN_180121b10",
+      "offset": 6443637504,
+      "size": 7,
+      "instr_count": 2,
+      "source": "DEFAULT",
+      "bytes": "b201e909000000"
+    },
+    {
+      "name": "thunk_FUN_1801221e0",
+      "offset": 6443639248,
+      "size": 7,
+      "instr_count": 2,
+      "source": "DEFAULT",
+      "bytes": "b201e909000000"
+    },
+    {
+      "name": "thunk_FUN_180123a18",
+      "offset": 6443646992,
+      "size": 7,
+      "instr_count": 2,
+      "source": "DEFAULT",
+      "bytes": "b201e901faffff"
+    },
+    {
+      "name": "thunk_FUN_18012e2dc",
+      "offset": 6443688656,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e907000000"
+    },
+    {
+      "name": "thunk_FUN_180045ff0",
+      "offset": 6443694448,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e97b66f1ff"
+    }
+  ],
+  "total_functions": 6410,
+  "exported_functions": 230
+}

@@ -1,0 +1,6951 @@
+{
+  "binary": "dxgi.dll",
+  "functions": [
+    {
+      "name": "DXGIReportAdapterConfiguration",
+      "offset": 6442461232,
+      "size": 2969,
+      "instr_count": 545,
+      "source": "IMPORTED",
+      "bytes": "4c8bdc55534156498dab78f7ffff4881ec70090000488b050cbc0c004833c448898520080000488bc148894db033c948c7442470ffffffff48894c24408bd94885c00f8420de030049897310488d0d850c0a0049897b184533c033d24d896be048ff15f1e409000f1f4400004533c0488d0d22090a0033d24889442468488bf048ff15d1e409000f1f4400004889442450488bf84885f60f844ee003004885c00f8445e003004c89a424a8090000488d150b0c0a00488bce4c89bc246009000048ff1589e409000f1f440000488d15cd0b0a00488bce4c8be048ff1570e409000f1f440000488d158c0b0a00488bce4c8bf048ff1557e409000f1f440000488d15530b0a00488bce488bd848ff153ee409000f1f440000488d1532080a00488bcf488944245848ff1523e409000f1f440000488d155f070a00488bcf4c8bf848ff150ae409000f1f440000488d1516050a00488bcf488bf048ff15f1e309000f1f440000488d15c5070a00488bcf4c8be848ff15d8e309000f1f440000488b4c2450488d1557070a00488bf848ff15bde309000f1f44000048894424784d85e40f84e2dc03004d85f60f84d9dc03004885db0f84d0dc030048837c2458000f84c4dc03004d85ff0f84bbdc03004885f60f84b2dc03004d85ed0f84a9dc03004885ff0f84a0dc03004885c00f8497dc030041b912000000488d0d4a0a0a004533c033d2498bc4ff1534eb09004889442470488bc84883f8ff0f84dbde03000f57c0488d45e048894424204c8d05170a0a00488b45b033d20f1145e0c745e0200000000f1145f0448b08498bc6ff15eeea090085c00f849fde03004c8b742470488d4424604533e4488d55e04c896424284533c948894424204533c0488bc34489642460498bceff15b4ea090085c00f8549de030048ff15dde109000f1f44000083f87a0f8534de03008b4c2460e86681000048894424404885c00f84b2db0300448b44246033d2488bc8e84b970200488b442440488d55e04c8bc04c89642428498bce4c89642420c70008000000488bc3448b4c2460ff1544ea090085c0488b4424400f8474db03004883c004488d4d80488945800f57c0498bc7f30f7f4588ff151aea090085c00f885adb03004c8b75b04c8b7d884c897c24484963460483f8030f840d03000083f8040f856803000041817e10e40000004d8b66080f82e1dc03000f57c044897d98f30f7f45a0418b0424488d4d9889459c488bc7ff15bde9090085c00f88c4dc03008b4da8b82c00000048f7e148c7c1ffffffff480f40c1488bc8e86f800000488945b0488bd84885c00f84a1dc03008b45a833d24c6bc02c488bcbe850960200488d4d9848895da0488bc7ff1565e9090085c00f888adc0300448b7da84533ed418bd5418bfd4585ff0f84c1dc03004c8b5da04183ff080f826a010000660f6f25619d0a00418bf70f29b4245009000083e6f80f29bc24400900000f57f6440f298424300900000f57ff66440f6f05239d0a000f57ed41ba0200000066660f1f840000000000418d4a01418bc24c6bc92c4c6bc02c66430f6e4c1924418d4aff8bc7486bd12c66430f6e441824486bc82c66420f6e541a24660f62d183c70866420f6e5c1924418d4a05660f62d8660f6fc6660f62da660ffec4660fdbdc660f76df66410fdfd8660fdbc3660fdfde4c6bc92c660f6ff0660febf3418d4a044c6bc12c66430f6e4c1924418d4a03486bd12c66430f6e441824418d4a024183c208486bc12c66420f6e541a24660f62d166420f6e5c1824660f62d8660f6fc5660f62da660ffec4660fdbdc660f76df66410fdfd8660fdbc3660fdfdd660f6fe8660febeb3bfe0f821affffff440f28842430090000660ffeee0f28bc2440090000660f6fc50f28b42450090000660f73d808660ffee8660f6fc5660f73d804660ffee8660f7eea413bff73298bc74d8d4324486bc82c4c03c1442bff418bcf41f600018d42014d8d402c0f44c28bd04883e90175ea85d20f8413db030041895424048d4aff418b46104869d1dc0000004881c2e4000000483bc20f82c70200008b55a8458bfd458bf585d20f84bd010000bbdc000000418bc6486bf02c480375a0f64624010f8493010000418bc74c8bc34869f8dc00000033d24903fc488d4f08e80a940200c747480104010466895f4cc7475080007c208b4e1c83e9010f845d02000083e9010f842a02000083e9010f844202000083f9010f851f020000c7475c03000000e91302000041817e10e0000000498b5e080f856bda03000f57c048c745a830000000488d45b044897d98488945a0488d4d988b034533ed0f1145b08945b0488bc60f1145c0c7459c090000000f1145d0ff159ae6090085c00f89fb01000041bd05400080e9ec00000083f8070f874ad80300488d1507d1ffff8b8c82b83100004803caffe141837e1004498b5e080f851ad90300488d44244848c745a804000000488945a0488d4d984533ed44897d98488bc644896c2448c7459c0d000000ff1527e6090085c00f88ecd803008b4424488903eb7c83f8140f846dd9030083f8170f8455d9030083f8290f843dd90300c787b0000000200000008b462033d28947608b068987b40000008b46048987b80000008b4610f776148987c00000008b461883e80283f8010f862cd903008b55a841ffc741ffc6443bf20f824cfeffff488b5db0488bcbe8886900004c8b7c24484585ff7415488b442478488d4c244844897c2448ff1581e50900488b442440488b7c2450488b742468488b5c24584c8ba424a80900004c8bbc2460090000488bc8e83d690000488b4424704883f8ff740c488bc8488bc3ff153ee509004885ff740f488bcf48ff1567dd09000f1f440000488bbc24a00900004885f6740f488bce48ff154bdd09000f1f440000488bb42498090000418bc54c8bac2468090000488b8d200800004833cce88c3102004881c470090000415e5b5dc3c7475c010000008b460883f8180f8cb5feffff83f8290f8cc7feffffe9a7feffffc7475c02000000ebdd44896f5cebd7488bcb41bd7a000780e8896800004c8b7c2448e9fcfeffff488d5304488d4db4e8fa000000e9eafeffff41837e100c498b5e080f854ed7030033c048c745a80c000000488945b0488d4d988945b84533ed488d45b044897d98488945a0488bc6c7459c11000000ff1542e4090085c00f881dd703008b4db0e8920100008b4db48903e858010000836308c08943048b45b883e03f094308e978feffff41837e1004498b5e080f85f2d60300488d44244848c745a804000000488945a0488d4d984533ed44897d98488bc644896c2448c7459c16000000ff15d3e3090085c00f88c4d603008b4424488323f083e00f0903e91ffeffffb857000780e9d329fcff41bd0e000780e94729fcff41bd05400080e93c29fcff41bd05400080e92c29fcff41837e100c498b5e08740b41bd57000780e97828fcff33c048c745a80c000000488945b0488d4d988945b84533ed488d45b044897d98488945a0488bc6c7459c06000000ff15df0d060085c0790b41bd05400080e93528fcff8b45b089038b45b48943048b45b8894308e91f28fcff41817e1020080000498b5e08740b41bd57000780e90628fcff33d248c745a82008000041b820080000488d4d004533ede85fbafeff488d450044897d98488945a0488d4d98488bc6c7459c08000000ff15650d060085c0790b41bd05400080e9bb27fcff488bcb488d550041b820080000e8055ffeff90e9a327fcff41bd57000780e99827fcff41bd05400080e98d27fcff41bd57000780e98227fcff41bd05400080e97727fcff41bd57000780e96c27fcff41bd05400080e96127fcff41bd57000780e95627fcff41bd05400080e94b27fcff33c941bd0e000780e8c190fcff90e93827fcff488bcb41bd05400080e8ad90fcff90e92427fcffc787b000000008000000e9be26fcffc787b000000010000000e9af26fcffc787b000000018000000e9a026fcff838fbc00000002e9c826fcff488bcb41bd05400080e86090fcff4c8b7c2448e9d326fcff41bd57000780e9c826fcff41bd05400080498bc4e9d926fcff41bd05400080488bc3e9ea26fcff41bd02007a88e9bb26fcff"
+    },
+    {
+      "name": "CComPtr<struct_IMoniker>",
+      "offset": 6442477304,
+      "size": 42,
+      "instr_count": 14,
+      "source": "ANALYSIS",
+      "bytes": "40534883ec20488911488bd94885d27410488b02488bca488b4008ff1557ae0900488bc34883c4205bc3"
+    },
+    {
+      "name": "DXGIDeclareAdapterRemovalSupport",
+      "offset": 6442484384,
+      "size": 280,
+      "instr_count": 37,
+      "source": "IMPORTED",
+      "bytes": "4053574883ec58488d4c2470c64424700148ff15602e0d000f1f4400008bd885c00f887fc7020081fb010000c0744f81fb100500c074408bcbe8a27600008bd833ff488d0ddf8a0c0040387c2470400f95c733d2e84718000084c07410488b0dbc8a0c008339050f874dc702008bc34883c4585f5bc3bb36007a88ebc2bb01007a88ebbb4c8d05931607008bd3e82c49fdff90e96d38fdff48ba0000000000400000488551100f849f38fdff488b41184823c2483b41180f858e38fdff488d842480000000899c24800000004889442438488d15769c0700488d84248800000089bc24880000004889442430488d4424784889442428488d4424404889442420c644247800c744244001000000e8f005040090e93338fdff"
+    },
+    {
+      "name": "CompatValue",
+      "offset": 6442497504,
+      "size": 174,
+      "instr_count": 29,
+      "source": "IMPORTED",
+      "bytes": "48895c2418574881ecb0000000488b05642e0c004833c448898424a0000000488bfa488bd933d2488d4c2430448d4264e8350c02004533c948c7442420640000004c8d442430488bcb488d542420e88d03000033c985c00f85cda702008bc1488b8c24a00000004833cce8c1ab0100488b9c24d00000004881c4b00000005fc34885ff741f48837c2420647717488d4c243048ff1545b306000f1f4400004863c848890fb901000000e90558fdff"
+    },
+    {
+      "name": "CompatString",
+      "offset": 6442498496,
+      "size": 371,
+      "instr_count": 41,
+      "source": "IMPORTED",
+      "bytes": "40565741564883ec6048c7442428feffffff48899c2498000000488b05772a0c004833c44889442450410fb6f9498bd84c8bf2488bf14885db740441c6000048c74424480f00000033c04889442440884424304889442420440fb6c733d2488d4c2420e84800000085c00f85eaa50200488b4c24484c8b4c24304883f9100f8397a6020033c0488b4c24504833cce8bda70100488b9c24980000004883c460415e5f5ec3488b5424204885d20f84085afdff48ffca488b442440483bd0771c4889542440488d44243048837c244810480f43442430c6041000eb0d482bd0488d4c2430e8fe6b0200488d54243048837c244810480f43542430440fb6c7488d4c2420e8f359fdff488d4424304c8b4c2430488b4c24484883f910490f43c18038000f849d59fdff488b44242048ffc8483b4424400f858a59fdff4c8bcb4d8bc6488bd6488d4c2430e8055502008bd84533c0b201488d4c2430e8308afeff8bc3e96b59fdff498bc9e87538fdff90e95b59fdff"
+    },
+    {
+      "name": "ApplyCompatResolutionQuirking",
+      "offset": 6442572224,
+      "size": 654,
+      "instr_count": 29,
+      "source": "IMPORTED",
+      "bytes": "48895c2418555657488d6c24d04881ec30010000488b057d0a0b004833c448894520488bfa488bd9e81ba3000084c00f85d15f0200813b380400000f8449610200813b1c0200000f8463610200813ba00500000f848d610200488b4d204833cce8eb870000488b9c24600100004881c4300100005f5e5dc3833d9bd40800000f8422a0fdff83642430004c8d4424304533c9488d0d31ed080033d248ff15e8d505000f1f44000085c00f84f89ffdff837c2430000f8404010000bedc000000c6053ced080000448bc6488d4c244033d2e82788feff4c8d4424406689758483caff33c948ff15c87a09000f1f44000085c00f84af0000008b45ec488d15e1cc06008905ebec080041b9010000008b45f04533c08905ddec080048c7c102000080488d442438488944242048ff1551d405000f1f44000085c0756c488b4c24384c8d05b8ec0800488d15c1cc0600e87c85030084c0743f488b4c24384c8d0598ec0800488d15adcc0600e86085030084c074238b057aec080039057cec0800750e8b0570ec0800390572ec08007407c6056dec080001488b4c243848ff15b9d305000f1f4400004533c0488d0d1aec080033d248ff15d9d405000f1f440000803d3dec0800000f84dc9efdff8b0521ec080039030f85ce9efdff8b0517ec080039070f85c09efdff8b050dec080089038b0509ec08008907e9ab9efdff813f800700000f85ab9efdffb90000100048ff151ed305000f1f44000085c07560e9919efdff813fc00300000f85919efdffb90100100048ff15f8d205000f1f44000085c00f84789efdffc703e0010000c70720030000e9739efdff813f000a00000f85679efdffb90600100048ff15c2d205000f1f44000085c00f844e9efdffc703d0020000c70700050000e93d9efdff"
+    },
+    {
+      "name": "CreateDXGIFactory",
+      "offset": 6442573600,
+      "size": 338,
+      "instr_count": 34,
+      "source": "IMPORTED",
+      "bytes": "48895c241848897c242055488bec4883ec60488b051f050b004833c4488945f8833ddd000b0000488bda488bf9c645c0000f85b96002004c8d0512620800488d15eb610800488d0dc4a3feffe8a7000000488bd3488bcfff15f3350800807dc0008bd88945c40f850d6102008bc3488b4df84833cce8768200004c8d5c2460498b5b20498b7b28498be35dc348ba0000000000000040488515ef9f08000f84309ffdff488b05ea9f08004823c2483b05e09f08000f85199ffdff8365e4008365f400c645c00148897dd8c745e010000000c745f0080000004885db740648895de8eb08488d45c8488945e8488b0d8a9f08004c8d4dd841b802000000488d1551c2060048ff151ad405000f1f44000090e9be9efdff8365d400488d45c4488b0d589f08004c8d4dc841b801000000488945c8488d152bbc0600c745d00400000048ff15ddd305000f1f44000090e9b69efdff"
+    },
+    {
+      "name": "CreateDXGIFactory2",
+      "offset": 6442573760,
+      "size": 79,
+      "instr_count": 19,
+      "source": "IMPORTED",
+      "bytes": "48895c24084889742410574883ec20498bd8488bfa8bf14c8d05d2610800488d15ab610800488d0df4acfeffe8270000004c8bc3488bd78bce488b5c2430488b7424384883c4205f48ff2561350800"
+    },
+    {
+      "name": "CreateDXGIFactory1",
+      "offset": 6442574016,
+      "size": 338,
+      "instr_count": 34,
+      "source": "IMPORTED",
+      "bytes": "48895c241848897c242055488bec4883ec60488b057f030b004833c4488945f8833d3dff0a0000488bda488bf9c645c0000f85656102004c8d05f2600800488d15cb600800488d0d24c6feffe807ffffff488bd3488bcfff1553340800807dc0008bd88945c40f85b96102008bc3488b4df84833cce8d68000004c8d5c2460498b5b20498b7b28498be35dc348ba0000000000000040488515a39d08000f84849efdff488b059e9d08004823c2483b05949d08000f856d9efdff8365e4008365f400c645c00148897dd8c745e010000000c745f0080000004885db740648895de8eb08488d45c8488945e8488b0d3e9d08004c8d4dd841b802000000488d1505b9060048ff15ced105000f1f44000090e9129efdff8365d400488d45c4488b0d0c9d08004c8d4dc841b801000000488945c8488d15571b0600c745d00400000048ff1591d105000f1f44000090e90a9efdff"
+    },
+    {
+      "name": "DXGID3D10CreateDevice",
+      "offset": 6442583552,
+      "size": 6,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "b801400080c3"
+    },
+    {
+      "name": "PIXBeginCapture",
+      "offset": 6442583984,
+      "size": 3,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "33c0c3"
+    },
+    {
+      "name": "entry",
+      "offset": 6442606432,
+      "size": 61,
+      "instr_count": 18,
+      "source": "IMPORTED",
+      "bytes": "48895c24084889742410574883ec20498bf88bda488bf183fa017505e8e30800004c8bc78bd3488bce488b5c2430488b7424384883c4205fe907000000"
+    },
+    {
+      "name": "__CxxFrameHandler3",
+      "offset": 6442607094,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25ccaf0700"
+    },
+    {
+      "name": "__security_check_cookie",
+      "offset": 6442607120,
+      "size": 30,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "483b0d41820a00751048c1c11066f7c1ffff7501c348c1c910e942000000"
+    },
+    {
+      "name": "__raise_securityfailure",
+      "offset": 6442607156,
+      "size": 52,
+      "instr_count": 13,
+      "source": "ANALYSIS",
+      "bytes": "40534883ec20488bd933c9ff1553aa0700488bcbff1542aa0700ff15ccab0700488bc8ba090400c04883c4205b48ff25c8ab0700"
+    },
+    {
+      "name": "thunk_FUN_1800263f4",
+      "offset": 6442607592,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e907000000"
+    },
+    {
+      "name": "_purecall",
+      "offset": 6442607984,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff252aad0700"
+    },
+    {
+      "name": "~exception",
+      "offset": 6442607996,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2516ad0700"
+    },
+    {
+      "name": "exception",
+      "offset": 6442608008,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25daac0700"
+    },
+    {
+      "name": "Unwind@180026594",
+      "offset": 6442608020,
+      "size": 10,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "4883ec28ff150aac0700"
+    },
+    {
+      "name": "thunk_FUN_1800265f4",
+      "offset": 6442608104,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e907000000"
+    },
+    {
+      "name": "what",
+      "offset": 6442608256,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2542ac0700"
+    },
+    {
+      "name": "wcsspn",
+      "offset": 6442608268,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25deaa0700"
+    },
+    {
+      "name": "thunk_FUN_1800266a4",
+      "offset": 6442608280,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e907000000"
+    },
+    {
+      "name": "exception",
+      "offset": 6442608409,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25e1ab0700"
+    },
+    {
+      "name": "_CxxThrowException",
+      "offset": 6442608421,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25bdab0700"
+    },
+    {
+      "name": "memcpy",
+      "offset": 6442608433,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2579aa0700"
+    },
+    {
+      "name": "memmove",
+      "offset": 6442608445,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff256dab0700"
+    },
+    {
+      "name": "_guard_check_icall",
+      "offset": 6442608464,
+      "size": 3,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "c20000"
+    },
+    {
+      "name": "_XcptFilter",
+      "offset": 6442608473,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2559ab0700"
+    },
+    {
+      "name": "_amsg_exit",
+      "offset": 6442608485,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2525aa0700"
+    },
+    {
+      "name": "_FindPESection",
+      "offset": 6442608512,
+      "size": 68,
+      "instr_count": 23,
+      "source": "ANALYSIS",
+      "bytes": "4c63413c4533c94c03c14c8bd2410fb74014450fb758064883c0184903c04585db741e8b500c4c3bd2720a8b480803ca4c3bd1720e41ffc14883c028453bcb72e233c0c3"
+    },
+    {
+      "name": "_IsNonwritableInCurrentImage",
+      "offset": 6442608592,
+      "size": 75,
+      "instr_count": 24,
+      "source": "ANALYSIS",
+      "bytes": "48895c2408574883ec20488bd9488d3d1c98fdff488bcfe84400000085c07422482bdf488bd3488bcfe882ffffff4885c0740f8b4024c1e81ff7d083e001eb02488b5c24304883c4205fc3"
+    },
+    {
+      "name": "_ValidateImageBase",
+      "offset": 6442608688,
+      "size": 45,
+      "instr_count": 14,
+      "source": "ANALYSIS",
+      "bytes": "b84d5a000066390175204863413c4803c18138504500007511b90b020000663948187506b801000000c333c0c3"
+    },
+    {
+      "name": "_initterm",
+      "offset": 6442608958,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff253ca80700"
+    },
+    {
+      "name": "_lock",
+      "offset": 6442608970,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2530a90700"
+    },
+    {
+      "name": "_unlock",
+      "offset": 6442608982,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff255ca80700"
+    },
+    {
+      "name": "__dllonexit",
+      "offset": 6442608994,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2510a90700"
+    },
+    {
+      "name": "__GSHandlerCheck",
+      "offset": 6442609016,
+      "size": 29,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4883ec284d8b4138488bca498bd1e811000000b8010000004883c428c3"
+    },
+    {
+      "name": "__GSHandlerCheckCommon",
+      "offset": 6442609052,
+      "size": 91,
+      "instr_count": 28,
+      "source": "ANALYSIS",
+      "bytes": "4053458b18488bda4183e3f84c8bc941f600044c8bd17413418b40084d635004f7d84c03d14863c84c23d14963c34a8b1410488b43108b4808488b4308f64401030f740b0fb644010383e0f04c03c84c33ca498bc95be919f8ffff"
+    },
+    {
+      "name": "DelayLoad_DwmpDxgiIsThreadDesktopComposited",
+      "offset": 6442609320,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0501470b00e900000000"
+    },
+    {
+      "name": "DelayLoad_DwmpDxGetWindowSharedSurface",
+      "offset": 6442609459,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d056e460b00e975ffffff"
+    },
+    {
+      "name": "DelayLoad_DCompositionCreateSurfaceHandle",
+      "offset": 6442609564,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05f5450b00e900000000"
+    },
+    {
+      "name": "DelayLoad_SetRect",
+      "offset": 6442609703,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05b2460b00e900000000"
+    },
+    {
+      "name": "DelayLoad_IntersectRect",
+      "offset": 6442609842,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d051f460b00e975ffffff"
+    },
+    {
+      "name": "DelayLoad_EqualRect",
+      "offset": 6442609860,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0505460b00e963ffffff"
+    },
+    {
+      "name": "DelayLoad_UnionRect",
+      "offset": 6442609878,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05eb450b00e951ffffff"
+    },
+    {
+      "name": "DelayLoad_IsRectEmpty",
+      "offset": 6442609896,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05f9450b00e93fffffff"
+    },
+    {
+      "name": "DelayLoad_OffsetRect",
+      "offset": 6442609914,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05f7450b00e92dffffff"
+    },
+    {
+      "name": "DelayLoad_SubtractRect",
+      "offset": 6442609932,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05dd450b00e91bffffff"
+    },
+    {
+      "name": "DelayLoad_EnumDisplayDevicesW",
+      "offset": 6442609950,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05bb470b00e900000000"
+    },
+    {
+      "name": "DelayLoad_GetMonitorInfoW",
+      "offset": 6442610089,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0560470b00e975ffffff"
+    },
+    {
+      "name": "DelayLoad_EnumDisplayMonitors",
+      "offset": 6442610107,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0516470b00e963ffffff"
+    },
+    {
+      "name": "DelayLoad_EnumDisplaySettingsW",
+      "offset": 6442610125,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d052c470b00e951ffffff"
+    },
+    {
+      "name": "DelayLoad_GetDisplayConfigBufferSizes",
+      "offset": 6442610143,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0512470b00e93fffffff"
+    },
+    {
+      "name": "DelayLoad_QueryDisplayConfig",
+      "offset": 6442610161,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05f8460b00e92dffffff"
+    },
+    {
+      "name": "DelayLoad_DisplayConfigGetDeviceInfo",
+      "offset": 6442610179,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05de460b00e91bffffff"
+    },
+    {
+      "name": "DelayLoad_MonitorFromWindow",
+      "offset": 6442610197,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05b4460b00e909ffffff"
+    },
+    {
+      "name": "DelayLoad_SystemParametersInfoA",
+      "offset": 6442610215,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d059a460b00e9f7feffff"
+    },
+    {
+      "name": "DelayLoad_MonitorFromRect",
+      "offset": 6442610233,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05d8460b00e9e5feffff"
+    },
+    {
+      "name": "DelayLoad_ChangeDisplaySettingsExW",
+      "offset": 6442610251,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05b6460b00e9d3feffff"
+    },
+    {
+      "name": "DelayLoad_Ordinal_2521",
+      "offset": 6442610269,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05a4440b00e900000000"
+    },
+    {
+      "name": "DelayLoad_CreateCompatibleDC",
+      "offset": 6442610492,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d059d420b00e900000000"
+    },
+    {
+      "name": "DelayLoad_DeleteDC",
+      "offset": 6442610631,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d050a420b00e975ffffff"
+    },
+    {
+      "name": "DelayLoad_CreateDCW",
+      "offset": 6442610736,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0599410b00e90cffffff"
+    },
+    {
+      "name": "DelayLoad_SelectObject",
+      "offset": 6442610754,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05a7410b00e900000000"
+    },
+    {
+      "name": "DelayLoad_GetDeviceCaps",
+      "offset": 6442610893,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d055c430b00e900000000"
+    },
+    {
+      "name": "DelayLoad_CreateDIBSection",
+      "offset": 6442611032,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05b9400b00e900000000"
+    },
+    {
+      "name": "DelayLoad_SetStretchBltMode",
+      "offset": 6442611171,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d053e400b00e900000000"
+    },
+    {
+      "name": "DelayLoad_StretchBlt",
+      "offset": 6442611310,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d058b3f0b00e9eafeffff"
+    },
+    {
+      "name": "DelayLoad_BitBlt",
+      "offset": 6442611328,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05813f0b00e9d8feffff"
+    },
+    {
+      "name": "DelayLoad_CreateCompatibleBitmap",
+      "offset": 6442611346,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05773f0b00e9c6feffff"
+    },
+    {
+      "name": "DelayLoad_DeleteObject",
+      "offset": 6442611364,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0595410b00e900000000"
+    },
+    {
+      "name": "DelayLoad_CreateRectRgnIndirect",
+      "offset": 6442611503,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0522410b00e900000000"
+    },
+    {
+      "name": "DelayLoad_SetRectRgn",
+      "offset": 6442611642,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05a7400b00e975ffffff"
+    },
+    {
+      "name": "DelayLoad_CombineRgn",
+      "offset": 6442611660,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d059d400b00e963ffffff"
+    },
+    {
+      "name": "DelayLoad_EqualRgn",
+      "offset": 6442611678,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d056b400b00e951ffffff"
+    },
+    {
+      "name": "DelayLoad_GetRegionData",
+      "offset": 6442611696,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0569400b00e93fffffff"
+    },
+    {
+      "name": "DelayLoad_GetDC",
+      "offset": 6442611714,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0597400b00e900000000"
+    },
+    {
+      "name": "DelayLoad_ReleaseDC",
+      "offset": 6442611853,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0504400b00e975ffffff"
+    },
+    {
+      "name": "DelayLoad_PeekMessageA",
+      "offset": 6442611871,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05c23d0b00e900000000"
+    },
+    {
+      "name": "DelayLoad_TranslateMessage",
+      "offset": 6442612010,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d052f3d0b00e975ffffff"
+    },
+    {
+      "name": "DelayLoad_DispatchMessageA",
+      "offset": 6442612028,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d052d3d0b00e963ffffff"
+    },
+    {
+      "name": "DelayLoad_PostMessageA",
+      "offset": 6442612046,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05233d0b00e951ffffff"
+    },
+    {
+      "name": "DelayLoad_LoadCursorA",
+      "offset": 6442612148,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05c53e0b00e900000000"
+    },
+    {
+      "name": "DelayLoad_IsWindow",
+      "offset": 6442612372,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05953c0b00e900000000"
+    },
+    {
+      "name": "DelayLoad_GetWindowInfo",
+      "offset": 6442612511,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d054a3c0b00e975ffffff"
+    },
+    {
+      "name": "DelayLoad_GetLayeredWindowAttributes",
+      "offset": 6442612529,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05a83c0b00e900000000"
+    },
+    {
+      "name": "DelayLoad_GetClientRect",
+      "offset": 6442612668,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05953b0b00e9d8feffff"
+    },
+    {
+      "name": "DelayLoad_GetWindowRect",
+      "offset": 6442612686,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d054b3b0b00e9c6feffff"
+    },
+    {
+      "name": "DelayLoad_GetWindow",
+      "offset": 6442612704,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05313b0b00e9b4feffff"
+    },
+    {
+      "name": "DelayLoad_IsWindowVisible",
+      "offset": 6442612722,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05df3b0b00e93fffffff"
+    },
+    {
+      "name": "DelayLoad_GetWindowThreadProcessId",
+      "offset": 6442612740,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d056d3b0b00e990feffff"
+    },
+    {
+      "name": "DelayLoad_SetWindowsHookExW",
+      "offset": 6442612758,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05633b0b00e97efeffff"
+    },
+    {
+      "name": "DelayLoad_UnhookWindowsHookEx",
+      "offset": 6442612776,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05593b0b00e96cfeffff"
+    },
+    {
+      "name": "DelayLoad_DefWindowProcA",
+      "offset": 6442612794,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d055f3b0b00e95afeffff"
+    },
+    {
+      "name": "DelayLoad_CreateWindowExA",
+      "offset": 6442612812,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05553b0b00e948feffff"
+    },
+    {
+      "name": "DelayLoad_SetWindowPos",
+      "offset": 6442612830,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d054b3b0b00e936feffff"
+    },
+    {
+      "name": "DelayLoad_SetWindowDisplayAffinity",
+      "offset": 6442612848,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05513b0b00e9c1feffff"
+    },
+    {
+      "name": "DelayLoad_GetWindowDisplayAffinity",
+      "offset": 6442612866,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05373b0b00e9affeffff"
+    },
+    {
+      "name": "DelayLoad_CallNextHookEx",
+      "offset": 6442612884,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05cd3a0b00e900feffff"
+    },
+    {
+      "name": "DelayLoad_GetForegroundWindow",
+      "offset": 6442612902,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05a33a0b00e9eefdffff"
+    },
+    {
+      "name": "DelayLoad_SetForegroundWindow",
+      "offset": 6442612920,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05893a0b00e9dcfdffff"
+    },
+    {
+      "name": "DelayLoad_GetDesktopWindow",
+      "offset": 6442612938,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d056f3a0b00e9cafdffff"
+    },
+    {
+      "name": "DelayLoad_GetAncestor",
+      "offset": 6442612956,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05ed3a0b00e955feffff"
+    },
+    {
+      "name": "DelayLoad_RemovePropW",
+      "offset": 6442612974,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05333a0b00e9a6fdffff"
+    },
+    {
+      "name": "DelayLoad_SetPropW",
+      "offset": 6442612992,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05593a0b00e994fdffff"
+    },
+    {
+      "name": "DelayLoad_AdjustWindowRectEx",
+      "offset": 6442613010,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d051f3a0b00e982fdffff"
+    },
+    {
+      "name": "DelayLoad_GetWindowLongA",
+      "offset": 6442613028,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05dd3a0b00e900000000"
+    },
+    {
+      "name": "DelayLoad_GetClassNameA",
+      "offset": 6442613167,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05623a0b00e975ffffff"
+    },
+    {
+      "name": "DelayLoad_RegisterClassA",
+      "offset": 6442613185,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05303a0b00e963ffffff"
+    },
+    {
+      "name": "DelayLoad_SetWindowLongA",
+      "offset": 6442613203,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05263a0b00e951ffffff"
+    },
+    {
+      "name": "DelayLoad_UnregisterClassA",
+      "offset": 6442613221,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05343a0b00e93fffffff"
+    },
+    {
+      "name": "DelayLoad_OpenClipboard",
+      "offset": 6442613239,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d059a380b00e900000000"
+    },
+    {
+      "name": "DelayLoad_EmptyClipboard",
+      "offset": 6442613378,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0517380b00e975ffffff"
+    },
+    {
+      "name": "DelayLoad_SetClipboardData",
+      "offset": 6442613396,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d050d380b00e963ffffff"
+    },
+    {
+      "name": "DelayLoad_CloseClipboard",
+      "offset": 6442613414,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05e3370b00e951ffffff"
+    },
+    {
+      "name": "DelayLoad_RegisterHotKey",
+      "offset": 6442613432,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0591370b00e900000000"
+    },
+    {
+      "name": "DelayLoad_UnregisterHotKey",
+      "offset": 6442613571,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05fe360b00e975ffffff"
+    },
+    {
+      "name": "DelayLoad_LoadIconA",
+      "offset": 6442613589,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05dc360b00e900000000"
+    },
+    {
+      "name": "DelayLoad_GetWindowCompositionAttribute",
+      "offset": 6442613728,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05d1360b00e900000000"
+    },
+    {
+      "name": "DelayLoad_GetProcessDpiAwarenessInternal",
+      "offset": 6442613867,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d053e380b00e900000000"
+    },
+    {
+      "name": "DelayLoad_SetProcessDpiAwarenessInternal",
+      "offset": 6442614006,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05bb370b00e975ffffff"
+    },
+    {
+      "name": "GetLastError",
+      "offset": 6442614108,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25468f0700"
+    },
+    {
+      "name": "DelayLoad_MsgWaitForMultipleObjects",
+      "offset": 6442614120,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05e1330b00e900000000"
+    },
+    {
+      "name": "DelayLoad_GdiEntry13",
+      "offset": 6442614259,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05c6320b00e900000000"
+    },
+    {
+      "name": "DelayLoad_D3DKMTOpenAdapterFromLuid",
+      "offset": 6442614398,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0553320b00e900000000"
+    },
+    {
+      "name": "DelayLoad_D3DKMTAdjustFullscreenGamma",
+      "offset": 6442614537,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05d8310b00e975ffffff"
+    },
+    {
+      "name": "DelayLoad_D3DKMTGetMultiPlaneOverlayCaps",
+      "offset": 6442614555,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05de310b00e900000000"
+    },
+    {
+      "name": "DelayLoad_D3DKMTGetPostCompositionCaps",
+      "offset": 6442614694,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d055b310b00e975ffffff"
+    },
+    {
+      "name": "DelayLoad_IsOneCoreTransformMode",
+      "offset": 6442614712,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0581310b00e900000000"
+    },
+    {
+      "name": "DelayLoad_RoGetActivationFactory",
+      "offset": 6442614851,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0536300b00e900000000"
+    },
+    {
+      "name": "DelayLoad_D3DKMTSetProcessDeviceRemovalSupport",
+      "offset": 6442614990,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0543300b00e900000000"
+    },
+    {
+      "name": "DelayLoad_WindowsCreateStringReference",
+      "offset": 6442615129,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05302f0b00e900000000"
+    },
+    {
+      "name": "DelayLoad_SetRestrictedErrorInfo",
+      "offset": 6442615268,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05752e0b00e900000000"
+    },
+    {
+      "name": "DelayLoad_RoGetMatchingRestrictedErrorInfo",
+      "offset": 6442615407,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05fa2d0b00e900000000"
+    },
+    {
+      "name": "DelayLoad_CoCreateFreeThreadedMarshaler",
+      "offset": 6442615546,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d052f2d0b00e900000000"
+    },
+    {
+      "name": "DelayLoad_D3DKMTEscape",
+      "offset": 6442615685,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05142d0b00e96efaffff"
+    },
+    {
+      "name": "DelayLoad_Ordinal_1004",
+      "offset": 6442615703,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d052a2d0b00e95cfaffff"
+    },
+    {
+      "name": "DelayLoad_D3DKMTQueryVidPnExclusiveOwnership",
+      "offset": 6442615721,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05402d0b00e9d5faffff"
+    },
+    {
+      "name": "DelayLoad_D3DKMTDispMgrSourceOperation",
+      "offset": 6442615739,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d055e2d0b00e913fdffff"
+    },
+    {
+      "name": "DelayLoad_GetCurrentDpiInfo",
+      "offset": 6442615757,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d055c2d0b00e900000000"
+    },
+    {
+      "name": "DelayLoad_ConvertStringSecurityDescriptorToSecurityDescriptorW",
+      "offset": 6442615896,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05092d0b00e900000000"
+    },
+    {
+      "name": "DelayLoad_D3DKMTSetVidPnSourceHwProtection",
+      "offset": 6442616035,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05f62b0b00e99bf9ffff"
+    },
+    {
+      "name": "DelayLoad_CoCreateInstance",
+      "offset": 6442616053,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05442b0b00e905feffff"
+    },
+    {
+      "name": "DelayLoad_D3DKMTQueryAdapterInfo",
+      "offset": 6442616071,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d059a2b0b00e9ecf8ffff"
+    },
+    {
+      "name": "ApiSetQueryApiSetPresence",
+      "offset": 6442616096,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2502870700"
+    },
+    {
+      "name": "DelayLoad_ConvertStringSidToSidW",
+      "offset": 6442616108,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d052d2c0b00e92cffffff"
+    },
+    {
+      "name": "DelayLoad_XboxGetMultiplaneOverlayPriority",
+      "offset": 6442616212,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05ed2b0b00e900000000"
+    },
+    {
+      "name": "DelayLoad_DCompositionCreateDevice3",
+      "offset": 6442616351,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05522b0b00e900000000"
+    },
+    {
+      "name": "DelayLoad_DwmpUpdateProxyWindowForCapture",
+      "offset": 6442616490,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d050f2b0b00e900000000"
+    },
+    {
+      "name": "DelayLoad_LoadCursorW",
+      "offset": 6442616629,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d054c2d0b00e97feeffff"
+    },
+    {
+      "name": "DelayLoad_GetPropW",
+      "offset": 6442616647,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d054a2c0b00e94defffff"
+    },
+    {
+      "name": "DelayLoad_DestroyWindow",
+      "offset": 6442616665,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05302c0b00e93befffff"
+    },
+    {
+      "name": "DelayLoad_SetWindowLongPtrA",
+      "offset": 6442616683,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d057e2c0b00e9b9f1ffff"
+    },
+    {
+      "name": "DelayLoad_GetWindowLongPtrA",
+      "offset": 6442616701,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d058c2c0b00e9a7f1ffff"
+    },
+    {
+      "name": "DelayLoad_AttachThreadInput",
+      "offset": 6442616719,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05f22a0b00e968f2ffff"
+    },
+    {
+      "name": "DelayLoad_SHGetKnownFolderPath",
+      "offset": 6442616737,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05802d0b00e900000000"
+    },
+    {
+      "name": "DelayLoad_CoUninitialize",
+      "offset": 6442616876,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d051d280b00e9cefaffff"
+    },
+    {
+      "name": "DelayLoad_CoInitializeEx",
+      "offset": 6442616894,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0503280b00e9bcfaffff"
+    },
+    {
+      "name": "DelayLoad_GetCurrentApplicationUserModelId",
+      "offset": 6442616912,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05c9270b00e900000000"
+    },
+    {
+      "name": "DelayLoad_GetPackageFamilyName",
+      "offset": 6442617051,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d051e270b00e975ffffff"
+    },
+    {
+      "name": "DelayLoad_D3DKMTCacheHybridQueryValue",
+      "offset": 6442617069,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05c4270b00e906f5ffff"
+    },
+    {
+      "name": "DelayLoad_GetApplicationUserModelId",
+      "offset": 6442617087,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0502270b00e951ffffff"
+    },
+    {
+      "name": "DelayLoad_GetCurrentPackageFamilyName",
+      "offset": 6442617105,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05f8260b00e93fffffff"
+    },
+    {
+      "name": "DelayLoad_GetCurrentPackageFullName",
+      "offset": 6442617123,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05ee260b00e92dffffff"
+    },
+    {
+      "name": "DelayLoad_D3DKMTGetCachedHybridQueryValue",
+      "offset": 6442617141,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d0574270b00e9bef4ffff"
+    },
+    {
+      "name": "DelayLoad_CoTaskMemFree",
+      "offset": 6442617159,
+      "size": 12,
+      "instr_count": 2,
+      "source": "IMPORTED",
+      "bytes": "488d05ea260b00e9b3f9ffff"
+    },
+    {
+      "name": "FindFirstFileW",
+      "offset": 6442617177,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2591830700"
+    },
+    {
+      "name": "FindNextFileW",
+      "offset": 6442617189,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff257d830700"
+    },
+    {
+      "name": "FindClose",
+      "offset": 6442617201,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2569830700"
+    },
+    {
+      "name": "thunk_FUN_18007e6e8",
+      "offset": 6442623984,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e9f3420500"
+    },
+    {
+      "name": "FID_conflict:__GSHandlerCheck_EH",
+      "offset": 6442631436,
+      "size": 127,
+      "instr_count": 37,
+      "source": "ANALYSIS",
+      "bytes": "488bc44889580848896810488970184889782041564883ec20498b5938488bf24d8bf0488be9498bd1488bce498bf94c8d4304e858a8ffff8b45042466f6d8b801000000451bc041f7d84403c04485430474114c8bcf4d8bc6488bd6488bcde886a0ffff488b5c2430488b6c2438488b742440488b7c24484883c420415ec3"
+    },
+    {
+      "name": "ceilf",
+      "offset": 6442631718,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25f4500700"
+    },
+    {
+      "name": "memchr",
+      "offset": 6442631730,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25d8500700"
+    },
+    {
+      "name": "memcmp",
+      "offset": 6442631742,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25b4500700"
+    },
+    {
+      "name": "memset",
+      "offset": 6442631754,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2588500700"
+    },
+    {
+      "name": "pow",
+      "offset": 6442631766,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2574500700"
+    },
+    {
+      "name": "powf",
+      "offset": 6442631778,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25c0500700"
+    },
+    {
+      "name": "_guard_dispatch_icall",
+      "offset": 6442631808,
+      "size": 2,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "ffe0"
+    },
+    {
+      "name": "Unwind@18002c50b",
+      "offset": 6442632459,
+      "size": 24,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "40554883ec20488bea488d4d40e84335ffff4883c4205dc3"
+    },
+    {
+      "name": "Catch@18002c524",
+      "offset": 6442632484,
+      "size": 50,
+      "instr_count": 14,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b4d68e8bace0100488d15c79a07008bc8e83ce9020090488d0594ffffff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@18002fb80",
+      "offset": 6442646400,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a48000000e948f20200"
+    },
+    {
+      "name": "Catch@18002fb92",
+      "offset": 6442646418,
+      "size": 242,
+      "instr_count": 57,
+      "source": "ANALYSIS",
+      "bytes": "4889542410535556574883ec28488bea488b5d704883bbd8000000000f84b00000008b8b4c0e0000e83193feff84c00f849d000000488b7520817e0805000780740d817e0836007a880f858700000033ff488d152e120a00488d4d30e8217afdff90488b0d75120a004885c9742683bbf000000003750e488b9300010000e8dbad0200eb0c488b93f8000000e881ad0200488bf8807d38007410488b4d3048ff15891307000f1f4400004885ff7427488b07488bcf488b4010ff151f190700ba29010000488b8bd8000000e85a08ffffeb04488b7520488bd6488d4d40e880ef0200488d1525920900488d4d40e8a16affff"
+    },
+    {
+      "name": "Unwind@18002fc8b",
+      "offset": 6442646667,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a30000000e955b70100"
+    },
+    {
+      "name": "Unwind@18002fc9d",
+      "offset": 6442646685,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488b8a70000000e94ff40200"
+    },
+    {
+      "name": "Unwind@18002fcaf",
+      "offset": 6442646703,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a78000000e9b917fdff"
+    },
+    {
+      "name": "Unwind@18002fcc1",
+      "offset": 6442646721,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a28000000e94b17fdff"
+    },
+    {
+      "name": "Unwind@18002fcd3",
+      "offset": 6442646739,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488b8a70000000e969ef0200"
+    },
+    {
+      "name": "Unwind@18002fce5",
+      "offset": 6442646757,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a78000000e93720ffff"
+    },
+    {
+      "name": "Unwind@18002fcf7",
+      "offset": 6442646775,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a40000000e9dda4feff"
+    },
+    {
+      "name": "Unwind@18002fd09",
+      "offset": 6442646793,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a28010000e9d7b60100"
+    },
+    {
+      "name": "Unwind@18002fd20",
+      "offset": 6442646816,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a40000000e95c9a0200"
+    },
+    {
+      "name": "Unwind@18002fd32",
+      "offset": 6442646834,
+      "size": 39,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a20000000e90613ffff488b0dcdb50900488d15ced207004533c94533c048ff2561ea0600"
+    },
+    {
+      "name": "Unwind@18002fd44",
+      "offset": 6442646852,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a58000000e9388c0100"
+    },
+    {
+      "name": "Unwind@18002fd56",
+      "offset": 6442646870,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a28000000e98ab60100"
+    },
+    {
+      "name": "Unwind@18002fd68",
+      "offset": 6442646888,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a50000000e9149a0200"
+    },
+    {
+      "name": "Catch@18002fd7a",
+      "offset": 6442646906,
+      "size": 50,
+      "instr_count": 15,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec40488bea488b45488b500885d2790d4c8d0597190800e8e295fdff90488d05dd2f00004883c4405dc3"
+    },
+    {
+      "name": "Catch@18002fdb3",
+      "offset": 6442646963,
+      "size": 62,
+      "instr_count": 17,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b4570448b4008488d5538488d4d20e8bb20ffff488d4d20e8ea20ffff89452c894540488d052f3500004883c4205dc3"
+    },
+    {
+      "name": "Unwind@18002fdf8",
+      "offset": 6442647032,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a28000000e9e820ffff"
+    },
+    {
+      "name": "Unwind@18002fe0a",
+      "offset": 6442647050,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a50000000e9caa3feff"
+    },
+    {
+      "name": "Unwind@18002fe1c",
+      "offset": 6442647068,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a48000000e9b8a3feff"
+    },
+    {
+      "name": "Unwind@18002fe2e",
+      "offset": 6442647086,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a30000000e94e990200"
+    },
+    {
+      "name": "Unwind@18002fe40",
+      "offset": 6442647104,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a28000000e994a3feff"
+    },
+    {
+      "name": "Unwind@18002fe52",
+      "offset": 6442647122,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a38000000e982a3feff"
+    },
+    {
+      "name": "Unwind@18002fe64",
+      "offset": 6442647140,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a20000000e970a3feff"
+    },
+    {
+      "name": "Unwind@18002fe76",
+      "offset": 6442647158,
+      "size": 46,
+      "instr_count": 12,
+      "source": "ANALYSIS",
+      "bytes": "40554883ec20488bea488b4d704883c1104c8d0d7218ffff41b811000000ba08000000e84a65ffff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@18002feab",
+      "offset": 6442647211,
+      "size": 19,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a700000004881c198000000e94218ffff"
+    },
+    {
+      "name": "Unwind@18002fec4",
+      "offset": 6442647236,
+      "size": 49,
+      "instr_count": 12,
+      "source": "ANALYSIS",
+      "bytes": "40554883ec20488bea488b4d704881c1a00000004c8d0d2118ffff41b811000000ba08000000e8f964ffff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@18002fefc",
+      "offset": 6442647292,
+      "size": 49,
+      "instr_count": 12,
+      "source": "ANALYSIS",
+      "bytes": "40554883ec20488bea488b4d704881c1280100004c8d0de917ffff41b811000000ba08000000e8c164ffff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@18002ff34",
+      "offset": 6442647348,
+      "size": 19,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a700000004881c1b0010000e9c113ffff"
+    },
+    {
+      "name": "Unwind@18002ff4d",
+      "offset": 6442647373,
+      "size": 19,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a700000004881c1d0010000e9a813ffff"
+    },
+    {
+      "name": "Unwind@18002ff66",
+      "offset": 6442647398,
+      "size": 49,
+      "instr_count": 12,
+      "source": "ANALYSIS",
+      "bytes": "40554883ec20488bea488b4d704881c1f00100004c8d0dcf16ffff41b811000000ba08000000e85764ffff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@18002ff9e",
+      "offset": 6442647454,
+      "size": 49,
+      "instr_count": 12,
+      "source": "ANALYSIS",
+      "bytes": "40554883ec20488bea488b4d704881c1780200004c8d0d4717ffff41b811000000ba08000000e81f64ffff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@18002ffd6",
+      "offset": 6442647510,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488b8a70000000e9a6ec0200"
+    },
+    {
+      "name": "Unwind@18002ffe8",
+      "offset": 6442647528,
+      "size": 19,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a700000004881c1a8000000e9e5a1feff"
+    },
+    {
+      "name": "Unwind@180030001",
+      "offset": 6442647553,
+      "size": 19,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a700000004881c1b8000000e9cca1feff"
+    },
+    {
+      "name": "Unwind@18003001a",
+      "offset": 6442647578,
+      "size": 19,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a700000004881c1e8000000e9b3a1feff"
+    },
+    {
+      "name": "Unwind@180030033",
+      "offset": 6442647603,
+      "size": 19,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a700000004881c128020000e9aa890100"
+    },
+    {
+      "name": "Unwind@18003004c",
+      "offset": 6442647628,
+      "size": 19,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a700000004881c138020000e98dc10400"
+    },
+    {
+      "name": "Unwind@180030065",
+      "offset": 6442647653,
+      "size": 19,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a700000004881c180020000e98818ffff"
+    },
+    {
+      "name": "Unwind@18003007e",
+      "offset": 6442647678,
+      "size": 19,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a700000004881c188020000e9eb880100"
+    },
+    {
+      "name": "Unwind@180030097",
+      "offset": 6442647703,
+      "size": 19,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a700000004881c1d8040000e99eed0200"
+    },
+    {
+      "name": "Unwind@1800300b0",
+      "offset": 6442647728,
+      "size": 19,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a700000004881c1e8040000e9b9880100"
+    },
+    {
+      "name": "Unwind@1800300c9",
+      "offset": 6442647753,
+      "size": 49,
+      "instr_count": 12,
+      "source": "ANALYSIS",
+      "bytes": "40554883ec20488bea488b4d704881c1000500004c8d0d1c18ffff41b810000000ba08000000e8f462ffff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@180030101",
+      "offset": 6442647809,
+      "size": 19,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a700000004881c170070000e99c03ffff"
+    },
+    {
+      "name": "Unwind@18003011a",
+      "offset": 6442647834,
+      "size": 49,
+      "instr_count": 12,
+      "source": "ANALYSIS",
+      "bytes": "40554883ec20488bea488b4d704881c1400800004c8d0dbb18ffff41b810000000ba08000000e8a362ffff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@180030152",
+      "offset": 6442647890,
+      "size": 19,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a700000004881c1c0080000e93f10ffff"
+    },
+    {
+      "name": "Unwind@18003016b",
+      "offset": 6442647915,
+      "size": 19,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a700000004881c1e00c0000e95a12ffff"
+    },
+    {
+      "name": "Unwind@180030184",
+      "offset": 6442647940,
+      "size": 19,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a700000004881c1200e0000e959880100"
+    },
+    {
+      "name": "Unwind@18003019d",
+      "offset": 6442647965,
+      "size": 19,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a700000004881c1280e0000e930a0feff"
+    },
+    {
+      "name": "Unwind@1800301b6",
+      "offset": 6442647990,
+      "size": 19,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a700000004881c1300e0000e917a0feff"
+    },
+    {
+      "name": "Catch@1800301cf",
+      "offset": 6442648015,
+      "size": 33,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec40488beac745400e000780488d05cf15fdff4883c4405dc3"
+    },
+    {
+      "name": "Catch@1800301f1",
+      "offset": 6442648049,
+      "size": 36,
+      "instr_count": 11,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec40488bea488b45588b4808894d40488d05af15fdff4883c4405dc3"
+    },
+    {
+      "name": "Unwind@18003021c",
+      "offset": 6442648092,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488b8a60000000e9b89ffeff"
+    },
+    {
+      "name": "Unwind@18003022e",
+      "offset": 6442648110,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a68000000e9a69ffeff"
+    },
+    {
+      "name": "Unwind@180030240",
+      "offset": 6442648128,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a60000000e9949ffeff"
+    },
+    {
+      "name": "Unwind@180030260",
+      "offset": 6442648160,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a58000000e9749ffeff"
+    },
+    {
+      "name": "Catch@180030272",
+      "offset": 6442648178,
+      "size": 30,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488beac6455800488d05e864fdff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@180030297",
+      "offset": 6442648215,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a70010000e93d9ffeff"
+    },
+    {
+      "name": "Catch@1800302a9",
+      "offset": 6442648233,
+      "size": 26,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488d05c069fdff4883c4205dc3"
+    },
+    {
+      "name": "Catch@1800302c4",
+      "offset": 6442648260,
+      "size": 36,
+      "instr_count": 11,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b45388b4808894d20488d05a269fdff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@1800302ef",
+      "offset": 6442648303,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488b8a20000000e95d96fdff"
+    },
+    {
+      "name": "Unwind@180030301",
+      "offset": 6442648321,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a50000000e99782fdff"
+    },
+    {
+      "name": "Unwind@180030313",
+      "offset": 6442648339,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a20000000e98582fdff"
+    },
+    {
+      "name": "Unwind@180030325",
+      "offset": 6442648357,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a60000000e9ffaf0100"
+    },
+    {
+      "name": "Unwind@180030337",
+      "offset": 6442648375,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488b8a20000000e9a9850100"
+    },
+    {
+      "name": "Unwind@180030349",
+      "offset": 6442648393,
+      "size": 16,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a200000004883c110e997f7feff"
+    },
+    {
+      "name": "Unwind@18003035f",
+      "offset": 6442648415,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a28000000e9a9ee0200"
+    },
+    {
+      "name": "Catch@180030371",
+      "offset": 6442648433,
+      "size": 33,
+      "instr_count": 10,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b4558832000488d05276cfdff4883c4205dc3"
+    },
+    {
+      "name": "Catch_All@180030399",
+      "offset": 6442648473,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b4d40e8a995fdff33d233c9e86d63ffff"
+    },
+    {
+      "name": "Catch_All@1800303c0",
+      "offset": 6442648512,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b4d50e88295fdff33d233c9e84663ffff"
+    },
+    {
+      "name": "Catch_All@1800303e6",
+      "offset": 6442648550,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488b4d58e85c95fdff33d233c9e82063ffff"
+    },
+    {
+      "name": "Catch_All@18003040c",
+      "offset": 6442648588,
+      "size": 22,
+      "instr_count": 7,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea33d233c9e80363ffff"
+    },
+    {
+      "name": "Unwind@180030429",
+      "offset": 6442648617,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a58000000e9b7af0100"
+    },
+    {
+      "name": "Unwind@18003043b",
+      "offset": 6442648635,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a68000000e9d9130200"
+    },
+    {
+      "name": "Unwind@18003044d",
+      "offset": 6442648653,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a20000000e987080400"
+    },
+    {
+      "name": "Catch_All@18003045f",
+      "offset": 6442648671,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b4d40e8e394fdff33d233c9e8a762ffff"
+    },
+    {
+      "name": "Unwind@180030485",
+      "offset": 6442648709,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a58000000e98f130200"
+    },
+    {
+      "name": "Catch_All@180030497",
+      "offset": 6442648727,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488b4d50e843f6feff33d233c9e86f62ffff"
+    },
+    {
+      "name": "Catch_All@1800304bd",
+      "offset": 6442648765,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488b4d50e81df6feff33d233c9e84962ffff"
+    },
+    {
+      "name": "Catch_All@1800304e3",
+      "offset": 6442648803,
+      "size": 38,
+      "instr_count": 12,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b4558483b454074064883c048ebf433d233c9e81c62ffff"
+    },
+    {
+      "name": "Catch_All@180030510",
+      "offset": 6442648848,
+      "size": 38,
+      "instr_count": 12,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b4558483b454074064883c040ebf433d233c9e8ef61ffff"
+    },
+    {
+      "name": "Catch_All@18003053d",
+      "offset": 6442648893,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488b4d58e80594fdff33d233c9e8c961ffff"
+    },
+    {
+      "name": "Catch_All@180030563",
+      "offset": 6442648931,
+      "size": 22,
+      "instr_count": 7,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea33d233c9e8ac61ffff"
+    },
+    {
+      "name": "Catch_All@180030580",
+      "offset": 6442648960,
+      "size": 34,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488b8d80000000e8bf93fdff33d233c9e88361ffff"
+    },
+    {
+      "name": "Catch_All@1800305a9",
+      "offset": 6442649001,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b4d48e89993fdff33d233c9e85d61ffff"
+    },
+    {
+      "name": "Catch_All@1800305cf",
+      "offset": 6442649039,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b4d48e87393fdff33d233c9e83761ffff"
+    },
+    {
+      "name": "Catch@1800305f5",
+      "offset": 6442649077,
+      "size": 26,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488d05887ffdff4883c4205dc3"
+    },
+    {
+      "name": "Catch@180030610",
+      "offset": 6442649104,
+      "size": 36,
+      "instr_count": 11,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b45388b4808894d20488d056a7ffdff4883c4205dc3"
+    },
+    {
+      "name": "Catch_All@18003063b",
+      "offset": 6442649147,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488b4d70e80793fdff33d233c9e8cb60ffff"
+    },
+    {
+      "name": "Catch_All@180030678",
+      "offset": 6442649208,
+      "size": 22,
+      "instr_count": 7,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea33d233c9e89760ffff"
+    },
+    {
+      "name": "Catch_All@180030695",
+      "offset": 6442649237,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488b4d58e8ad92fdff33d233c9e87160ffff"
+    },
+    {
+      "name": "Catch_All@1800306bb",
+      "offset": 6442649275,
+      "size": 22,
+      "instr_count": 7,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea33d233c9e85460ffff"
+    },
+    {
+      "name": "Catch_All@1800306d8",
+      "offset": 6442649304,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b4d40e86a92fdff33d233c9e82e60ffff"
+    },
+    {
+      "name": "Unwind@1800306fe",
+      "offset": 6442649342,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488b8a58000000e9a6fdfeff"
+    },
+    {
+      "name": "Catch_All@180030710",
+      "offset": 6442649360,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b4d40e83292fdff33d233c9e8f65fffff"
+    },
+    {
+      "name": "Catch_All@180030736",
+      "offset": 6442649398,
+      "size": 45,
+      "instr_count": 11,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea4c8b8588000000488d9580000000488b4d70e8fabc010033d233c9e8c25fffff"
+    },
+    {
+      "name": "Catch@180030798",
+      "offset": 6442649496,
+      "size": 76,
+      "instr_count": 25,
+      "source": "ANALYSIS",
+      "bytes": "48895424105355574883ec20488bea488b7d40488b1f483bdf0f94c184c97516488b4b10488b01488b4010ff15a70d0700488b1bebe0c745240e000780488d05d24800004883c4205f5d5bc3"
+    },
+    {
+      "name": "Catch@1800307e5",
+      "offset": 6442649573,
+      "size": 33,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488beac745240e000780488d05624900004883c4205dc3"
+    },
+    {
+      "name": "Unwind@18003080d",
+      "offset": 6442649613,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a20000000e9cf85fdff"
+    },
+    {
+      "name": "Unwind@18003081f",
+      "offset": 6442649631,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a40000000e9a18c0200"
+    },
+    {
+      "name": "Unwind@180030831",
+      "offset": 6442649649,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a30000000e94b810100"
+    },
+    {
+      "name": "Unwind@180030843",
+      "offset": 6442649667,
+      "size": 16,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a500000004883c110e9d58d0200"
+    },
+    {
+      "name": "Unwind@180030859",
+      "offset": 6442649689,
+      "size": 16,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a500000004883c150e9638c0200"
+    },
+    {
+      "name": "Unwind@18003086f",
+      "offset": 6442649711,
+      "size": 16,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a500000004883c160e9518d0200"
+    },
+    {
+      "name": "Unwind@180030885",
+      "offset": 6442649733,
+      "size": 19,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a500000004881c1a0000000e9348c0200"
+    },
+    {
+      "name": "Unwind@18003089e",
+      "offset": 6442649758,
+      "size": 19,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a500000004881c1b0000000e91b8c0200"
+    },
+    {
+      "name": "Unwind@1800308b7",
+      "offset": 6442649783,
+      "size": 19,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a500000004881c1c8000000e94a8d0200"
+    },
+    {
+      "name": "Unwind@1800308d0",
+      "offset": 6442649808,
+      "size": 19,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a500000004881c100010000e9658c0200"
+    },
+    {
+      "name": "Unwind@1800308e9",
+      "offset": 6442649833,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488b8a58000000e92f8c0200"
+    },
+    {
+      "name": "Unwind@1800308fb",
+      "offset": 6442649851,
+      "size": 16,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a580000004883c110e9e5f1feff"
+    },
+    {
+      "name": "Catch_All@180030911",
+      "offset": 6442649873,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b4d40e83190fdff33d233c9e8f55dffff"
+    },
+    {
+      "name": "Unwind@180030937",
+      "offset": 6442649911,
+      "size": 16,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a400000004883c108e925f6feff"
+    },
+    {
+      "name": "Unwind@18003094d",
+      "offset": 6442649933,
+      "size": 16,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a400000004883c130e9278c0200"
+    },
+    {
+      "name": "Catch@180030963",
+      "offset": 6442649955,
+      "size": 26,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488d055291fdff4883c4305dc3"
+    },
+    {
+      "name": "Unwind@180030984",
+      "offset": 6442649988,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8ac8000000e9dcf5feff"
+    },
+    {
+      "name": "Catch_All@180030996",
+      "offset": 6442650006,
+      "size": 26,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488d05845100004883c4205dc3"
+    },
+    {
+      "name": "Unwind@1800309b7",
+      "offset": 6442650039,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488b8a68000000e9958ffdff"
+    },
+    {
+      "name": "Unwind@1800309c9",
+      "offset": 6442650057,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488b8a40000000e977a90100"
+    },
+    {
+      "name": "Unwind@1800309db",
+      "offset": 6442650075,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488b8a40000000e9a995fdff"
+    },
+    {
+      "name": "Unwind@1800309f0",
+      "offset": 6442650096,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488b8a40000000e9c497fdff"
+    },
+    {
+      "name": "Unwind@180030a10",
+      "offset": 6442650128,
+      "size": 19,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a400000004881c1d0000000e94de40200"
+    },
+    {
+      "name": "Unwind@180030a30",
+      "offset": 6442650160,
+      "size": 19,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a400000004881c1e8000000e92de40200"
+    },
+    {
+      "name": "Unwind@180030a50",
+      "offset": 6442650192,
+      "size": 19,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a400000004881c100010000e9698a0200"
+    },
+    {
+      "name": "Unwind@180030a70",
+      "offset": 6442650224,
+      "size": 19,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a400000004881c110010000e9498a0200"
+    },
+    {
+      "name": "Unwind@180030a90",
+      "offset": 6442650256,
+      "size": 19,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a400000004881c120010000e9298a0200"
+    },
+    {
+      "name": "Unwind@180030ab0",
+      "offset": 6442650288,
+      "size": 19,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a400000004881c130010000e9098a0200"
+    },
+    {
+      "name": "Unwind@180030ad0",
+      "offset": 6442650320,
+      "size": 19,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a400000004881c170010000e905b60400"
+    },
+    {
+      "name": "Unwind@180030af0",
+      "offset": 6442650352,
+      "size": 19,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a400000004881c1b0020000e921e70200"
+    },
+    {
+      "name": "Unwind@180030b10",
+      "offset": 6442650384,
+      "size": 19,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a400000004881c1d0020000e901e70200"
+    },
+    {
+      "name": "Catch_All@180030b29",
+      "offset": 6442650409,
+      "size": 26,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488d05c95000004883c4205dc3"
+    },
+    {
+      "name": "Catch@180030b70",
+      "offset": 6442650480,
+      "size": 26,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488d05e55000004883c4205dc3"
+    },
+    {
+      "name": "Catch@180030b8b",
+      "offset": 6442650507,
+      "size": 36,
+      "instr_count": 11,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b45388b4808894d20488d05d75000004883c4205dc3"
+    },
+    {
+      "name": "Catch@180030bb0",
+      "offset": 6442650544,
+      "size": 26,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488d05d85000004883c4205dc3"
+    },
+    {
+      "name": "Unwind@180030bd1",
+      "offset": 6442650577,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a40000000e90fa80100"
+    },
+    {
+      "name": "Catch_All@180030be3",
+      "offset": 6442650595,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488b4d78e85f8dfdff33d233c9e8235bffff"
+    },
+    {
+      "name": "Catch_All@180030c09",
+      "offset": 6442650633,
+      "size": 77,
+      "instr_count": 20,
+      "source": "ANALYSIS",
+      "bytes": "488954241053554883ec28488bea488b5d58483b5d50742c4881c348010000488d4b18e87f06feff488bcbe87706feff4881c3c0010000488d83b8feffff483b455075db33d233c9e8cf5affff"
+    },
+    {
+      "name": "Catch_All@180030c5d",
+      "offset": 6442650717,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b4d40e8e58cfdff33d233c9e8a95affff"
+    },
+    {
+      "name": "Catch_All@180030c83",
+      "offset": 6442650755,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b4d40e8bf8cfdff33d233c9e8835affff"
+    },
+    {
+      "name": "Catch@180030cb0",
+      "offset": 6442650800,
+      "size": 26,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488d05a1adfdff4883c4205dc3"
+    },
+    {
+      "name": "Catch@180030ccb",
+      "offset": 6442650827,
+      "size": 26,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488d0588adfdff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@180030cf0",
+      "offset": 6442650864,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a30000000e9f8ddfeff"
+    },
+    {
+      "name": "Unwind@180030d10",
+      "offset": 6442650896,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a38000000e9d0a60100"
+    },
+    {
+      "name": "Catch@180030d22",
+      "offset": 6442650914,
+      "size": 26,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488d052e5600004883c4305dc3"
+    },
+    {
+      "name": "Catch@180030d3d",
+      "offset": 6442650941,
+      "size": 39,
+      "instr_count": 11,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488b45388b4808898da8000000488d05435600004883c4305dc3"
+    },
+    {
+      "name": "Unwind@180030d6b",
+      "offset": 6442650987,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8ab8000000e9f5f1feff"
+    },
+    {
+      "name": "Unwind@180030d7d",
+      "offset": 6442651005,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8ab0000000e987e10200"
+    },
+    {
+      "name": "Catch@180030d90",
+      "offset": 6442651024,
+      "size": 106,
+      "instr_count": 29,
+      "source": "ANALYSIS",
+      "bytes": "488954241053554883ec48488bea488b5d404885db7420488b03488bcb488b4008ff15b9070700488b03488bcb488b4010ff15a9070700f605f2170a0002741241b804000000488d154bf00700e8b2bb0100488b45708b4808894d40488d054d5700004883c4485d5bc3"
+    },
+    {
+      "name": "Catch@180030dfb",
+      "offset": 6442651131,
+      "size": 54,
+      "instr_count": 14,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec40488beaf605b1170a0002741341b804000000488d150af00700e871bb010090488d05385700004883c4405dc3"
+    },
+    {
+      "name": "Unwind@180030e40",
+      "offset": 6442651200,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a50000000e93c7b0100"
+    },
+    {
+      "name": "Catch_All@180030e52",
+      "offset": 6442651218,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b4d40e8f08afdff33d233c9e8b458ffff"
+    },
+    {
+      "name": "Catch_All@180030e80",
+      "offset": 6442651264,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b4d50e8c28afdff33d233c9e88658ffff"
+    },
+    {
+      "name": "Catch_All@180030eb0",
+      "offset": 6442651312,
+      "size": 26,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488d05ea6400004883c4205dc3"
+    },
+    {
+      "name": "Unwind@180030ee0",
+      "offset": 6442651360,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488b8a98000000e96c8afdff"
+    },
+    {
+      "name": "Unwind@180030f00",
+      "offset": 6442651392,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488b8a98000000e938e00200"
+    },
+    {
+      "name": "Unwind@180030f20",
+      "offset": 6442651424,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488b8a98000000e9ece00200"
+    },
+    {
+      "name": "Unwind@180030f40",
+      "offset": 6442651456,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488b8a98000000e9f0dc0200"
+    },
+    {
+      "name": "Unwind@180030f60",
+      "offset": 6442651488,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488b8a28000000e9b8e20200"
+    },
+    {
+      "name": "Unwind@180030f72",
+      "offset": 6442651506,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a60000000e9d6790100"
+    },
+    {
+      "name": "Unwind@180030f84",
+      "offset": 6442651524,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a40000000e9c4790100"
+    },
+    {
+      "name": "Unwind@180030f96",
+      "offset": 6442651542,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a30000000e9a6e20200"
+    },
+    {
+      "name": "Unwind@180030fa8",
+      "offset": 6442651560,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a28000000e9d4790100"
+    },
+    {
+      "name": "Catch@180030fc0",
+      "offset": 6442651584,
+      "size": 73,
+      "instr_count": 19,
+      "source": "ANALYSIS",
+      "bytes": "488954241053554883ec48488bea4c8b85c8030000488d5558e85eeb0200488b5d78488d8bd0000000e8ea360300488d8be8000000e8de36030090488d05c86b00004883c4485d5bc3"
+    },
+    {
+      "name": "Catch@18003100a",
+      "offset": 6442651658,
+      "size": 85,
+      "instr_count": 21,
+      "source": "ANALYSIS",
+      "bytes": "488954241053554883ec48488bea4c8b85c8030000488d5558e814eb0200488b5d78488d8bd0000000e8a0360300488d8be8000000e894360300488b85d80000008b4808894d48488d05896b00004883c4485d5bc3"
+    },
+    {
+      "name": "Unwind@180031070",
+      "offset": 6442651760,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a98000000e988de0200"
+    },
+    {
+      "name": "Unwind@180031090",
+      "offset": 6442651792,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a80000000e9d4dd0200"
+    },
+    {
+      "name": "Unwind@1800310b0",
+      "offset": 6442651824,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a10010000e98ce10200"
+    },
+    {
+      "name": "Unwind@1800310d0",
+      "offset": 6442651856,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a50000000e9d43c0300"
+    },
+    {
+      "name": "Unwind@1800310f0",
+      "offset": 6442651888,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a68000000e98c860200"
+    },
+    {
+      "name": "Unwind@180031102",
+      "offset": 6442651906,
+      "size": 19,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a400000004881c148010000e92ba20100"
+    },
+    {
+      "name": "Catch_All@18003111b",
+      "offset": 6442651931,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488b4d60e87f01feff33d233c9e8eb55ffff"
+    },
+    {
+      "name": "Catch@180031141",
+      "offset": 6442651969,
+      "size": 26,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488d05d5dbfdff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@180031162",
+      "offset": 6442652002,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a50000000e932850200"
+    },
+    {
+      "name": "Unwind@180031180",
+      "offset": 6442652032,
+      "size": 19,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a600000004881c148010000e9ada10100"
+    },
+    {
+      "name": "Unwind@1800311a0",
+      "offset": 6442652064,
+      "size": 19,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a600000004881c160010000e98da10100"
+    },
+    {
+      "name": "Catch_All@1800311b9",
+      "offset": 6442652089,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488b4d78e88987fdff33d233c9e84d55ffff"
+    },
+    {
+      "name": "Catch_All@1800311df",
+      "offset": 6442652127,
+      "size": 34,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488b8d28010000e86087fdff33d233c9e82455ffff"
+    },
+    {
+      "name": "Catch@18003121f",
+      "offset": 6442652191,
+      "size": 55,
+      "instr_count": 15,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b4d284885c9740d488b01488b4010ff152e030700c745200e000780488d0525eefdff4883c4205dc3"
+    },
+    {
+      "name": "Catch@180031257",
+      "offset": 6442652247,
+      "size": 36,
+      "instr_count": 11,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b45608b4808894d20488d05fbedfdff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@180031282",
+      "offset": 6442652290,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a40000000e9fa760100"
+    },
+    {
+      "name": "Unwind@1800312a0",
+      "offset": 6442652320,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a58000000e9a0f6fdff"
+    },
+    {
+      "name": "Unwind@1800312c0",
+      "offset": 6442652352,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a80000000e924e8feff"
+    },
+    {
+      "name": "Unwind@1800312e0",
+      "offset": 6442652384,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a80000000e960f6fdff"
+    },
+    {
+      "name": "Catch_All@1800312f2",
+      "offset": 6442652402,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488b4d78e85086fdff33d233c9e81454ffff"
+    },
+    {
+      "name": "Catch_All@180031318",
+      "offset": 6442652440,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488b4d50e81ef6fdff33d233c9e8ee53ffff"
+    },
+    {
+      "name": "Catch_All@180031340",
+      "offset": 6442652480,
+      "size": 38,
+      "instr_count": 12,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b4558483b454074064883c014ebf433d233c9e8bf53ffff"
+    },
+    {
+      "name": "Catch_All@18003136d",
+      "offset": 6442652525,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488b4d58e8d585fdff33d233c9e89953ffff"
+    },
+    {
+      "name": "Catch_All@180031393",
+      "offset": 6442652563,
+      "size": 22,
+      "instr_count": 7,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea33d233c9e87c53ffff"
+    },
+    {
+      "name": "Catch_All@1800313b0",
+      "offset": 6442652592,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b4d40e89285fdff33d233c9e85653ffff"
+    },
+    {
+      "name": "Catch_All@1800313e0",
+      "offset": 6442652640,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b4d50e86285fdff33d233c9e82653ffff"
+    },
+    {
+      "name": "Catch@180031406",
+      "offset": 6442652678,
+      "size": 39,
+      "instr_count": 11,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec60488bea488b85880000008b4808894d60488d05b002feff4883c4605dc3"
+    },
+    {
+      "name": "Catch@18003142e",
+      "offset": 6442652718,
+      "size": 33,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec60488beac745600e000780488d059302feff4883c4605dc3"
+    },
+    {
+      "name": "Unwind@180031456",
+      "offset": 6442652758,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a68000000e9b602feff"
+    },
+    {
+      "name": "Unwind@180031468",
+      "offset": 6442652776,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a80000000e9f8eafeff"
+    },
+    {
+      "name": "Unwind@18003147a",
+      "offset": 6442652794,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a38000000e94a3ffeff"
+    },
+    {
+      "name": "Unwind@18003148c",
+      "offset": 6442652812,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488b8ad8000000e9bc38feff"
+    },
+    {
+      "name": "Unwind@18003149e",
+      "offset": 6442652830,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a30000000e90617feff"
+    },
+    {
+      "name": "Unwind@1800314b0",
+      "offset": 6442652848,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a40000000e93438feff"
+    },
+    {
+      "name": "Unwind@1800314c2",
+      "offset": 6442652866,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a50000000e92238feff"
+    },
+    {
+      "name": "Unwind@1800314d4",
+      "offset": 6442652884,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a28000000e91038feff"
+    },
+    {
+      "name": "Unwind@1800314e6",
+      "offset": 6442652902,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a50000000e992420100"
+    },
+    {
+      "name": "Unwind@1800314f8",
+      "offset": 6442652920,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a30000000e9f4410100"
+    },
+    {
+      "name": "Unwind@18003150a",
+      "offset": 6442652938,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a40000000e90a420100"
+    },
+    {
+      "name": "Unwind@18003151c",
+      "offset": 6442652956,
+      "size": 20,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a80000000e98c3efeff488bc8e93c51feff"
+    },
+    {
+      "name": "Catch@18003152e",
+      "offset": 6442652974,
+      "size": 43,
+      "instr_count": 11,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec60488bea0f57c00f1185880000000f118598000000488d05189900004883c4605dc3"
+    },
+    {
+      "name": "Unwind@180031560",
+      "offset": 6442653024,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a50000000e98c070200"
+    },
+    {
+      "name": "Unwind@180031580",
+      "offset": 6442653056,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a78010000e9fc730100"
+    },
+    {
+      "name": "Unwind@1800315a0",
+      "offset": 6442653088,
+      "size": 41,
+      "instr_count": 13,
+      "source": "ANALYSIS",
+      "bytes": "40554883ec20488bea8b457c83e00185c0741083657cfe488d8df0000000e83d01ffff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@1800315d0",
+      "offset": 6442653136,
+      "size": 41,
+      "instr_count": 13,
+      "source": "ANALYSIS",
+      "bytes": "40554883ec20488bea8b457c83e00285c0741083657cfd488d8df8000000e80d01ffff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@180031600",
+      "offset": 6442653184,
+      "size": 41,
+      "instr_count": 13,
+      "source": "ANALYSIS",
+      "bytes": "40554883ec20488bea8b457c83e00485c0741083657cfb488d8d10010000e8dd00ffff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@180031630",
+      "offset": 6442653232,
+      "size": 41,
+      "instr_count": 13,
+      "source": "ANALYSIS",
+      "bytes": "40554883ec20488bea8b457c83e00885c0741083657cf7488d8d18010000e8ad00ffff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@180031660",
+      "offset": 6442653280,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a88000000e9748bfeff"
+    },
+    {
+      "name": "Unwind@180031680",
+      "offset": 6442653312,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8aa8000000e9548bfeff"
+    },
+    {
+      "name": "Unwind@1800316a0",
+      "offset": 6442653344,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a80000000e9348bfeff"
+    },
+    {
+      "name": "Catch@1800316c0",
+      "offset": 6442653376,
+      "size": 26,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488d055dab00004883c4305dc3"
+    },
+    {
+      "name": "Unwind@1800316e1",
+      "offset": 6442653409,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8aa0000000e9f38afeff"
+    },
+    {
+      "name": "Catch@180031700",
+      "offset": 6442653440,
+      "size": 36,
+      "instr_count": 11,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec50488bea488b45788b4808894d50488d05b20ffdff4883c4505dc3"
+    },
+    {
+      "name": "Unwind@18003172b",
+      "offset": 6442653483,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a40000000e9f1d60200"
+    },
+    {
+      "name": "Unwind@18003173d",
+      "offset": 6442653501,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a50000000e9a3edfeff"
+    },
+    {
+      "name": "Catch@18003174f",
+      "offset": 6442653519,
+      "size": 26,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488d0588be00004883c4305dc3"
+    },
+    {
+      "name": "Unwind@180031770",
+      "offset": 6442653552,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488b8a40000000e9f0e7feff"
+    },
+    {
+      "name": "Catch@180031782",
+      "offset": 6442653570,
+      "size": 26,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488d053190feff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@1800317a3",
+      "offset": 6442653603,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a70000000e9d97f0200"
+    },
+    {
+      "name": "Unwind@1800317b5",
+      "offset": 6442653621,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a78000000e91f8afeff"
+    },
+    {
+      "name": "Unwind@1800317c7",
+      "offset": 6442653639,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a70000000e90d8afeff"
+    },
+    {
+      "name": "Unwind@1800317d9",
+      "offset": 6442653657,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a30000000e9fb89feff"
+    },
+    {
+      "name": "Catch@1800317eb",
+      "offset": 6442653675,
+      "size": 54,
+      "instr_count": 14,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488beaf605c10d0a0002741341b802000000488d151ae60700e881b1010090488d052dc400004883c4305dc3"
+    },
+    {
+      "name": "Catch@180031822",
+      "offset": 6442653730,
+      "size": 63,
+      "instr_count": 16,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488beaf6058a0d0a0002741241b802000000488d15e3e50700e84ab10100488b45788b4808894d30488d05e99dfeff4883c4305dc3"
+    },
+    {
+      "name": "Unwind@180031868",
+      "offset": 6442653800,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a48000000e950d50200"
+    },
+    {
+      "name": "Unwind@18003187a",
+      "offset": 6442653818,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a60000000e902710100"
+    },
+    {
+      "name": "Unwind@18003188c",
+      "offset": 6442653836,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488b8a50000000e9c080fdff"
+    },
+    {
+      "name": "Unwind@18003189e",
+      "offset": 6442653854,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a40000000e94601ffff"
+    },
+    {
+      "name": "Catch@1800318b0",
+      "offset": 6442653872,
+      "size": 82,
+      "instr_count": 21,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488b45508b50088995e800000085d2740c4c8d05f3190700e8a67afdffb201488b8de0000000e8f016ffff488b8de0000000e8b015ffff90488d05f412ffff4883c4305dc3"
+    },
+    {
+      "name": "Catch@180031903",
+      "offset": 6442653955,
+      "size": 80,
+      "instr_count": 18,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488beac785e80000000e0007804c8d05a7190700ba0e000780e8557afdffb201488b8de0000000e89f16ffff488b8de0000000e85f15ffff90488d05a812ffff4883c4305dc3"
+    },
+    {
+      "name": "Unwind@18003195a",
+      "offset": 6442654042,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a30000000e9921cffff"
+    },
+    {
+      "name": "Unwind@18003196c",
+      "offset": 6442654060,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a38000000e910700100"
+    },
+    {
+      "name": "Catch@18003197e",
+      "offset": 6442654078,
+      "size": 56,
+      "instr_count": 16,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec50488bea488b85100100008b500889555485d2740d4c8d0525190700e8d879fdff90488d05521bffff4883c4505dc3"
+    },
+    {
+      "name": "Catch@1800319b7",
+      "offset": 6442654135,
+      "size": 51,
+      "instr_count": 13,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec50488beac745540e0007804c8d05f6180700ba0e000780e8a479fdff90488d05231bffff4883c4505dc3"
+    },
+    {
+      "name": "Unwind@1800319f1",
+      "offset": 6442654193,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8aa0000000e98b7d0200"
+    },
+    {
+      "name": "Unwind@180031a03",
+      "offset": 6442654211,
+      "size": 41,
+      "instr_count": 13,
+      "source": "ANALYSIS",
+      "bytes": "40554883ec20488bea8b455483e00185c07410836554fe488d8d88000000e8ba87feff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@180031a33",
+      "offset": 6442654259,
+      "size": 41,
+      "instr_count": 13,
+      "source": "ANALYSIS",
+      "bytes": "40554883ec20488bea8b455483e00285c07410836554fd488d8d80000000e88a87feff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@180031a63",
+      "offset": 6442654307,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8ae0000000e9cd1affff"
+    },
+    {
+      "name": "Unwind@180031a75",
+      "offset": 6442654325,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8ac0000000e9077d0200"
+    },
+    {
+      "name": "Unwind@180031a87",
+      "offset": 6442654343,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8ac8000000e9651bffff"
+    },
+    {
+      "name": "Catch@180031a99",
+      "offset": 6442654361,
+      "size": 26,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec40488bea488d05cd1affff4883c4405dc3"
+    },
+    {
+      "name": "Unwind@180031aba",
+      "offset": 6442654394,
+      "size": 16,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a600000004883c118e91687feff"
+    },
+    {
+      "name": "Catch@180031ad0",
+      "offset": 6442654416,
+      "size": 26,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488d05391bffff4883c4305dc3"
+    },
+    {
+      "name": "Catch@180031aeb",
+      "offset": 6442654443,
+      "size": 26,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488d05201bffff4883c4305dc3"
+    },
+    {
+      "name": "Unwind@180031b0c",
+      "offset": 6442654476,
+      "size": 38,
+      "instr_count": 13,
+      "source": "ANALYSIS",
+      "bytes": "40554883ec20488bea8b455083e00185c0740d836550fe488d4d60e8d4fbfeff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@180031b39",
+      "offset": 6442654521,
+      "size": 38,
+      "instr_count": 13,
+      "source": "ANALYSIS",
+      "bytes": "40554883ec20488bea8b455083e00285c0740d836550fd488d4d58e8a7fbfeff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@180031b66",
+      "offset": 6442654566,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a20000000e97a980100"
+    },
+    {
+      "name": "Unwind@180031b78",
+      "offset": 6442654584,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a98000000e9046e0100"
+    },
+    {
+      "name": "Catch@180031b8a",
+      "offset": 6442654602,
+      "size": 33,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488beac745300e000780488d05a91ffdff4883c4305dc3"
+    },
+    {
+      "name": "Catch@180031bac",
+      "offset": 6442654636,
+      "size": 36,
+      "instr_count": 11,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488b45508b4808894d30488d05891ffdff4883c4305dc3"
+    },
+    {
+      "name": "Unwind@180031bd7",
+      "offset": 6442654679,
+      "size": 38,
+      "instr_count": 13,
+      "source": "ANALYSIS",
+      "bytes": "40554883ec20488bea8b452883e00185c0740d836528fe488b4d40e8e985feff4883c4205dc3"
+    },
+    {
+      "name": "Catch@180031c04",
+      "offset": 6442654724,
+      "size": 36,
+      "instr_count": 11,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b45288b4808894d58488d053226fdff4883c4205dc3"
+    },
+    {
+      "name": "Catch@180031c2f",
+      "offset": 6442654767,
+      "size": 26,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec40488bea488d052f28fdff4883c4405dc3"
+    },
+    {
+      "name": "Unwind@180031c50",
+      "offset": 6442654800,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a50000000e990970100"
+    },
+    {
+      "name": "Unwind@180031c62",
+      "offset": 6442654818,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a20000000e982fdfeff"
+    },
+    {
+      "name": "Catch@180031c74",
+      "offset": 6442654836,
+      "size": 45,
+      "instr_count": 13,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea8b45308985480c0000488d4d28e88997010090488d0541a5feff4883c4205dc3"
+    },
+    {
+      "name": "Catch_All@180031ca8",
+      "offset": 6442654888,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b4d48e89a7cfdff33d233c9e85e4affff"
+    },
+    {
+      "name": "Catch_All@180031cce",
+      "offset": 6442654926,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b4d40e8747cfdff33d233c9e8384affff"
+    },
+    {
+      "name": "Catch@180031cf4",
+      "offset": 6442654964,
+      "size": 109,
+      "instr_count": 30,
+      "source": "ANALYSIS",
+      "bytes": "488954241053554883ec28488bea488b5d284885db7420488b03488bcb488b4008ff1555f80600488b03488bcb488b4010ff1545f80600f6058e080a0002741241b804000000488d15e7e00700e84eac0100488b45588b4808894d24894d28488d05472a01004883c4285d5bc3"
+    },
+    {
+      "name": "Catch@180031d62",
+      "offset": 6442655074,
+      "size": 60,
+      "instr_count": 14,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488beaf6054a080a0002741241b804000000488d15a3e00700e80aac0100c745240e000780488d052a2a01004883c4205dc3"
+    },
+    {
+      "name": "Unwind@180031da5",
+      "offset": 6442655141,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a20000000e9d7d2feff"
+    },
+    {
+      "name": "Unwind@180031db7",
+      "offset": 6442655159,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a58000000e9c5790200"
+    },
+    {
+      "name": "Catch_All@180031dc9",
+      "offset": 6442655177,
+      "size": 26,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488d053b3201004883c4205dc3"
+    },
+    {
+      "name": "Unwind@180031dea",
+      "offset": 6442655210,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488b8a30000000e9627bfdff"
+    },
+    {
+      "name": "Unwind@180031dfc",
+      "offset": 6442655228,
+      "size": 16,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a400000004883c108e9a4e6feff"
+    },
+    {
+      "name": "fin$0",
+      "offset": 6442656051,
+      "size": 43,
+      "instr_count": 14,
+      "source": "ANALYSIS",
+      "bytes": "40554883ec20488bea837d200075164c8b4d78448b4570488b5568488b4d60e80d43ffff904883c4205dc3"
+    },
+    {
+      "name": "thunk_FUN_180020148",
+      "offset": 6442656464,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e973defeff"
+    },
+    {
+      "name": "thunk_FUN_18001f214",
+      "offset": 6442656480,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e92fcffeff"
+    },
+    {
+      "name": "thunk_FUN_180025b2c",
+      "offset": 6442656512,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e92738ffff"
+    },
+    {
+      "name": "thunk_FUN_18001fed4",
+      "offset": 6442656560,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e99fdbfeff"
+    },
+    {
+      "name": "thunk_FUN_18001f710",
+      "offset": 6442656576,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e9cbd3feff"
+    },
+    {
+      "name": "thunk_FUN_18001fb48",
+      "offset": 6442656592,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e9f3d7feff"
+    },
+    {
+      "name": "thunk_FUN_180020224",
+      "offset": 6442656608,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e9bfdefeff"
+    },
+    {
+      "name": "caseD_0",
+      "offset": 6442714819,
+      "size": 132,
+      "instr_count": 32,
+      "source": "ANALYSIS",
+      "bytes": "41837e1010498b5e08740b41bd57000780e9fc28fcff33c048c745c018000000488945a8488d4db0488d459844897db0488945b80f57c0488bc6c745b4030000000f114598ff15620e060085c0782a4c8d4598418bd7498bcde8bb6d0300488b4da048034d98488b45a84533ed48890b48894308e99928fcff41bd05400080e98e28fcff"
+    },
+    {
+      "name": "thunk_FUN_180046c10",
+      "offset": 6442734224,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e97b190000"
+    },
+    {
+      "name": "basic_string<>",
+      "offset": 6442734664,
+      "size": 39,
+      "instr_count": 11,
+      "source": "ANALYSIS",
+      "bytes": "40534883ec204883611000488bd948c741180f000000c60100e8fe280000488bc34883c4205bc3"
+    },
+    {
+      "name": "Unwind@1800459dd",
+      "offset": 6442736093,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a30000000e90ffdffff"
+    },
+    {
+      "name": "Unwind@1800459e9",
+      "offset": 6442736105,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a40000000e92bfdffff"
+    },
+    {
+      "name": "DebugBreak",
+      "offset": 6442736928,
+      "size": 7,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "48ff2531af0500"
+    },
+    {
+      "name": "Catch_All@180047ae6",
+      "offset": 6442744550,
+      "size": 48,
+      "instr_count": 14,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b4d6848894d6848ffc133d2e89fd8ffff48894578488d0573ffffff4883c4205dc3"
+    },
+    {
+      "name": "Catch_All@180047b17",
+      "offset": 6442744599,
+      "size": 36,
+      "instr_count": 11,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea4533c0b201488b4d60e8d26ffdff33d233c9e8eaebfdff"
+    },
+    {
+      "name": "_Inside",
+      "offset": 6442744868,
+      "size": 61,
+      "instr_count": 23,
+      "source": "ANALYSIS",
+      "bytes": "4c8bc24885d2743348837918107205488b01eb03488bc14c3bc0721f48837918107205488b11eb03488bd1488b49104803ca493bc87604b001c332c0c3"
+    },
+    {
+      "name": "default_error_condition",
+      "offset": 6442745648,
+      "size": 63,
+      "instr_count": 18,
+      "source": "ANALYSIS",
+      "bytes": "48895c2408574883ec20418bc8418bd8488bfae830ddfdff4885c0891f488d053c6108007507488d0523610800488b5c243048894708488bc74883c4205fc3"
+    },
+    {
+      "name": "equivalent",
+      "offset": 6442745792,
+      "size": 58,
+      "instr_count": 20,
+      "source": "ANALYSIS",
+      "bytes": "40534883ec30488b01498bd8448bc2488d542420488b4018ff1592950500488b4b0848394808750a8b0b39087504b001eb0232c04883c4305bc3"
+    },
+    {
+      "name": "Unwind@18004882a",
+      "offset": 6442747946,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488b8a50000000e96e000000"
+    },
+    {
+      "name": "Unwind@180048836",
+      "offset": 6442747958,
+      "size": 19,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a500000004881c1b8000000e99719fdff"
+    },
+    {
+      "name": "Unwind@180048849",
+      "offset": 6442747977,
+      "size": 19,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a500000004881c1c0000000e98419fdff"
+    },
+    {
+      "name": "Unwind@18004885c",
+      "offset": 6442747996,
+      "size": 19,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a500000004881c1c8000000e97119fdff"
+    },
+    {
+      "name": "thunk_FUN_18001fab8",
+      "offset": 6442748284,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e93771fdff"
+    },
+    {
+      "name": "thunk_FUN_18001ff3c",
+      "offset": 6442748400,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e94775fdff"
+    },
+    {
+      "name": "Unwind@18004924b",
+      "offset": 6442750539,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a80000000e931f7ffff"
+    },
+    {
+      "name": "Unwind@180049257",
+      "offset": 6442750551,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a98000000e961f7ffff"
+    },
+    {
+      "name": "Unwind@180049263",
+      "offset": 6442750563,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a80000000e919f7ffff"
+    },
+    {
+      "name": "Unwind@18004926f",
+      "offset": 6442750575,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a68000000e98584fdff"
+    },
+    {
+      "name": "Unwind@18004927b",
+      "offset": 6442750587,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a78000000e97984fdff"
+    },
+    {
+      "name": "Unwind@180049287",
+      "offset": 6442750599,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a70000000e94d0ffdff"
+    },
+    {
+      "name": "Catch@180049293",
+      "offset": 6442750611,
+      "size": 92,
+      "instr_count": 22,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec60488bea488b8d900000008b81d4000000488b8cc1d8000000488b0133d2488b4048ff15ac82050041b80e000780488d5560488d4d64e80dc2fbff488bc8e8bdf7ffff894560488d055ffeffff4883c4605dc3"
+    },
+    {
+      "name": "Catch@1800492f0",
+      "offset": 6442750704,
+      "size": 97,
+      "instr_count": 23,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec60488bea488b8d900000008b81d4000000488b8cc1d8000000488b0133d2488b4048ff154f820500488b85b0000000448b4008488d5560488d4d64e8abc1fbff488bc8e85bf7ffff894560488d053efeffff4883c4605dc3"
+    },
+    {
+      "name": "Unwind@180049706",
+      "offset": 6442751750,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a28000000e976f2ffff"
+    },
+    {
+      "name": "Unwind@18004a0aa",
+      "offset": 6442754218,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a58000000e92a01fdff"
+    },
+    {
+      "name": "Unwind@18004a0b6",
+      "offset": 6442754230,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a48000000e91e01fdff"
+    },
+    {
+      "name": "Unwind@18004a0c2",
+      "offset": 6442754242,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a50000000e91201fdff"
+    },
+    {
+      "name": "Unwind@18004a0ce",
+      "offset": 6442754254,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a40000000e90601fdff"
+    },
+    {
+      "name": "Unwind@18004a0da",
+      "offset": 6442754266,
+      "size": 45,
+      "instr_count": 11,
+      "source": "ANALYSIS",
+      "bytes": "40554883ec20488bea4c8d0d06e9ffff41b803000000ba08000000488d8d50030000e8e7c2fdff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@18004a108",
+      "offset": 6442754312,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a30000000e9cc00fdff"
+    },
+    {
+      "name": "Unwind@18004a114",
+      "offset": 6442754324,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a38000000e9c000fdff"
+    },
+    {
+      "name": "Unwind@18004a120",
+      "offset": 6442754336,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a38000000e9b400fdff"
+    },
+    {
+      "name": "Catch@18004a12c",
+      "offset": 6442754348,
+      "size": 36,
+      "instr_count": 11,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488b45708b4808894d30488d052fffffff4883c4305dc3"
+    },
+    {
+      "name": "Unwind@18004a50a",
+      "offset": 6442755338,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a28000000e972e4ffff"
+    },
+    {
+      "name": "Catch@18004a516",
+      "offset": 6442755350,
+      "size": 58,
+      "instr_count": 16,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b4540448b4008488d5520488d4d24e8acaffbff488bc8e8a4e5ffff894520488d054dffffff4883c4205dc3"
+    },
+    {
+      "name": "Catch_All@18004a787",
+      "offset": 6442755975,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b4d48e8bbf1fbff33d233c9e87fbffdff"
+    },
+    {
+      "name": "Catch_All@18004a916",
+      "offset": 6442756374,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b4d40e88c51fdff33d233c9e8f0bdfdff"
+    },
+    {
+      "name": "Catch_All@18004b193",
+      "offset": 6442758547,
+      "size": 22,
+      "instr_count": 7,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea33d233c9e87cb5fdff"
+    },
+    {
+      "name": "Unwind@18004b221",
+      "offset": 6442758689,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488b8a40000000e91f010000"
+    },
+    {
+      "name": "thunk_FUN_1800112b0",
+      "offset": 6442758976,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e96b5ffcff"
+    },
+    {
+      "name": "Unwind@18004b56b",
+      "offset": 6442759531,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488b8a68000000e9e1e3fbff"
+    },
+    {
+      "name": "Catch_All@18004b577",
+      "offset": 6442759543,
+      "size": 26,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488d05bcffffff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@18004bee6",
+      "offset": 6442761958,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488b8a20000000e966dafbff"
+    },
+    {
+      "name": "Unwind@18004bef2",
+      "offset": 6442761970,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488b8a20000000e9eec9ffff"
+    },
+    {
+      "name": "Unwind@18004befe",
+      "offset": 6442761982,
+      "size": 16,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a200000004883c110e9e23bfdff"
+    },
+    {
+      "name": "Unwind@18004bf0e",
+      "offset": 6442761998,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a50000000e98ac6fbff"
+    },
+    {
+      "name": "Unwind@18004bf1a",
+      "offset": 6442762010,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a20000000e97ec6fbff"
+    },
+    {
+      "name": "Unwind@18004bf26",
+      "offset": 6442762022,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a60000000e9fef3ffff"
+    },
+    {
+      "name": "Catch@18004bf32",
+      "offset": 6442762034,
+      "size": 26,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488d0571ffffff4883c4205dc3"
+    },
+    {
+      "name": "Catch@18004bf4d",
+      "offset": 6442762061,
+      "size": 36,
+      "instr_count": 11,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b45388b4808894d20488d0553ffffff4883c4205dc3"
+    },
+    {
+      "name": "Catch_All@18004c226",
+      "offset": 6442762790,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488b4d58e81cd7fbff33d233c9e8e0a4fdff"
+    },
+    {
+      "name": "Unwind@18004cd4d",
+      "offset": 6442765645,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a38000000e92fbcffff"
+    },
+    {
+      "name": "Unwind@18004cd59",
+      "offset": 6442765657,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a48000000e98b2dfdff"
+    },
+    {
+      "name": "Catch@18004cd65",
+      "offset": 6442765669,
+      "size": 36,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488beac785f80000000e000780488d0577ffffff4883c4305dc3"
+    },
+    {
+      "name": "Catch@18004cd8a",
+      "offset": 6442765706,
+      "size": 42,
+      "instr_count": 11,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488b85900000008b4808898df8000000488d054effffff4883c4305dc3"
+    },
+    {
+      "name": "Unwind@18004d02d",
+      "offset": 6442766381,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a60000000e94fb9ffff"
+    },
+    {
+      "name": "Unwind@18004d039",
+      "offset": 6442766393,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a70000000e9ab2afdff"
+    },
+    {
+      "name": "Catch@18004d045",
+      "offset": 6442766405,
+      "size": 36,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488beac785f80000000e000780488d0577ffffff4883c4305dc3"
+    },
+    {
+      "name": "Catch@18004d06a",
+      "offset": 6442766442,
+      "size": 42,
+      "instr_count": 11,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488b85900000008b4808898df8000000488d054effffff4883c4305dc3"
+    },
+    {
+      "name": "Catch_All@180050888",
+      "offset": 6442780808,
+      "size": 22,
+      "instr_count": 7,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea33d233c9e8875efdff"
+    },
+    {
+      "name": "Unwind@180050c03",
+      "offset": 6442781699,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488b8a40000000e91d0c0000"
+    },
+    {
+      "name": "Unwind@180050cf7",
+      "offset": 6442781943,
+      "size": 16,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a280000004883c108e9a9f7fcff"
+    },
+    {
+      "name": "Unwind@180051702",
+      "offset": 6442784514,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488b8a38000000e902f0fcff"
+    },
+    {
+      "name": "Unwind@180051786",
+      "offset": 6442784646,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488b8a40000000e97eeffcff"
+    },
+    {
+      "name": "Unwind@180051792",
+      "offset": 6442784658,
+      "size": 16,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a400000004883c108e95efffcff"
+    },
+    {
+      "name": "Unwind@1800517a2",
+      "offset": 6442784674,
+      "size": 16,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a400000004883c110e92e8afcff"
+    },
+    {
+      "name": "thunk_FUN_18001faf0",
+      "offset": 6442784800,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e9cbe2fcff"
+    },
+    {
+      "name": "Unwind@1800524f1",
+      "offset": 6442788081,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a30000000e9e37cfcff"
+    },
+    {
+      "name": "Unwind@180053ef1",
+      "offset": 6442794737,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a60000000e903d8fcff"
+    },
+    {
+      "name": "Unwind@180053efd",
+      "offset": 6442794749,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488b8a70000000e94f5afbff"
+    },
+    {
+      "name": "Unwind@180053fd3",
+      "offset": 6442794963,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488b8a78000000e97959fbff"
+    },
+    {
+      "name": "Catch_All@180053fdf",
+      "offset": 6442794975,
+      "size": 26,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488d0584ffffff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@180054378",
+      "offset": 6442795896,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a48000000e95c5efcff"
+    },
+    {
+      "name": "Catch@180054384",
+      "offset": 6442795908,
+      "size": 61,
+      "instr_count": 16,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec40488bea488b85a0000000448b4008488d5548488d4d44e83b11fbff488bc8e8fbd9ffff894540488d0576ffffff4883c4405dc3"
+    },
+    {
+      "name": "Catch@1800543c2",
+      "offset": 6442795970,
+      "size": 56,
+      "instr_count": 15,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec40488bea41b80e000780488d5548488d4d44e80211fbff488bc8e8c2d9ffff894540488d053dffffff4883c4405dc3"
+    },
+    {
+      "name": "Unwind@1800546b7",
+      "offset": 6442796727,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a60000000e95dd1ffff"
+    },
+    {
+      "name": "Unwind@1800546c3",
+      "offset": 6442796739,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a48000000e951d1ffff"
+    },
+    {
+      "name": "Catch@18005489a",
+      "offset": 6442797210,
+      "size": 36,
+      "instr_count": 11,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488b45408b4808894d30488d05c6ffffff4883c4305dc3"
+    },
+    {
+      "name": "Unwind@180054a6e",
+      "offset": 6442797678,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a30000000e9b2ceffff"
+    },
+    {
+      "name": "Catch@180054a7a",
+      "offset": 6442797690,
+      "size": 39,
+      "instr_count": 12,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488b45488b4808894d34894d38488d05a7ffffff4883c4305dc3"
+    },
+    {
+      "name": "Catch@180054b54",
+      "offset": 6442797908,
+      "size": 39,
+      "instr_count": 11,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488b45388b4808898d80000000488d05c0ffffff4883c4305dc3"
+    },
+    {
+      "name": "Unwind@180055281",
+      "offset": 6442799745,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a68000000e9534ffcff"
+    },
+    {
+      "name": "Unwind@18005528d",
+      "offset": 6442799757,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a80000000e957a8fcff"
+    },
+    {
+      "name": "Catch@180055299",
+      "offset": 6442799769,
+      "size": 86,
+      "instr_count": 21,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec60488beaf60513d30700027433836424500083642448008364244000836424380083642430008364242800836424200041b90e0007804c8b4570e8c737000090488d0569ffffff4883c4605dc3"
+    },
+    {
+      "name": "Catch@1800552f0",
+      "offset": 6442799856,
+      "size": 95,
+      "instr_count": 23,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec60488bea488b85f8000000448b480844894d68f605add2070002742d83642450008364244800836424400083642438008364243000836424280083642420004c8b4570e86737000090488d0510ffffff4883c4605dc3"
+    },
+    {
+      "name": "Unwind@180055fd4",
+      "offset": 6442803156,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a60000000e90042fcff"
+    },
+    {
+      "name": "Unwind@180055fe0",
+      "offset": 6442803168,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a80000000e9f441fcff"
+    },
+    {
+      "name": "Unwind@180055fec",
+      "offset": 6442803180,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8ad8000000e9cc29ffff"
+    },
+    {
+      "name": "Unwind@180055ff8",
+      "offset": 6442803192,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8ac0000000e98429ffff"
+    },
+    {
+      "name": "Unwind@180056004",
+      "offset": 6442803204,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8aa0000000e9e8bcffff"
+    },
+    {
+      "name": "Unwind@180056010",
+      "offset": 6442803216,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488b8a70000000e93c39fbff"
+    },
+    {
+      "name": "Catch@18005601c",
+      "offset": 6442803228,
+      "size": 39,
+      "instr_count": 11,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec60488bea488b85e00000008b4808894d70488d05d2feffff4883c4605dc3"
+    },
+    {
+      "name": "Catch@180056044",
+      "offset": 6442803268,
+      "size": 33,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec60488beac745700e000780488d05b2feffff4883c4605dc3"
+    },
+    {
+      "name": "Unwind@18005633f",
+      "offset": 6442804031,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a40000000e9953efcff"
+    },
+    {
+      "name": "Unwind@18005634b",
+      "offset": 6442804043,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a38000000e9893efcff"
+    },
+    {
+      "name": "Unwind@180056357",
+      "offset": 6442804055,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a60000000e92526ffff"
+    },
+    {
+      "name": "Catch@180056363",
+      "offset": 6442804067,
+      "size": 39,
+      "instr_count": 11,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488b85880000008b4808894d30488d050dffffff4883c4305dc3"
+    },
+    {
+      "name": "Catch@18005638b",
+      "offset": 6442804107,
+      "size": 33,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488beac745300e000780488d05edfeffff4883c4305dc3"
+    },
+    {
+      "name": "Catch@180057056",
+      "offset": 6442807382,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b4d60e8ec28fbff33d233c9e8b0f6fcff"
+    },
+    {
+      "name": "Unwind@18005723c",
+      "offset": 6442807868,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a28000000e94017ffff"
+    },
+    {
+      "name": "Unwind@180057472",
+      "offset": 6442808434,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a40000000e9622dfcff"
+    },
+    {
+      "name": "Unwind@18005747e",
+      "offset": 6442808446,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a48000000e9562dfcff"
+    },
+    {
+      "name": "Catch@180057609",
+      "offset": 6442808841,
+      "size": 26,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488d05d1ffffff4883c4205dc3"
+    },
+    {
+      "name": "Catch@180057624",
+      "offset": 6442808868,
+      "size": 36,
+      "instr_count": 11,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b45308b4808894d20488d05a6ffffff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@1800579e9",
+      "offset": 6442809833,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a60000000e90b9dfcff"
+    },
+    {
+      "name": "Unwind@180057f36",
+      "offset": 6442811190,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488b8a20000000e9161afbff"
+    },
+    {
+      "name": "Unwind@180057f42",
+      "offset": 6442811202,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488b8a20000000e99e09ffff"
+    },
+    {
+      "name": "Unwind@180057f4e",
+      "offset": 6442811214,
+      "size": 16,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a200000004883c110e9927bfcff"
+    },
+    {
+      "name": "Unwind@180057f5e",
+      "offset": 6442811230,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a50000000e93a06fbff"
+    },
+    {
+      "name": "Unwind@180057f6a",
+      "offset": 6442811242,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a20000000e92e06fbff"
+    },
+    {
+      "name": "Unwind@180057f76",
+      "offset": 6442811254,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a60000000e9ae33ffff"
+    },
+    {
+      "name": "Catch@180057f82",
+      "offset": 6442811266,
+      "size": 26,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488d0571ffffff4883c4205dc3"
+    },
+    {
+      "name": "Catch@180057f9d",
+      "offset": 6442811293,
+      "size": 36,
+      "instr_count": 11,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b45388b4808894d20488d0553ffffff4883c4205dc3"
+    },
+    {
+      "name": "Catch_All@180058352",
+      "offset": 6442812242,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488b4d58e8f015fbff33d233c9e8b4e3fcff"
+    },
+    {
+      "name": "Catch_All@180058d55",
+      "offset": 6442814805,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b4d40e8ed0bfbff33d233c9e8b1d9fcff"
+    },
+    {
+      "name": "Catch_All@180058ea2",
+      "offset": 6442815138,
+      "size": 39,
+      "instr_count": 11,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea4c8b4578488d5570488b4d60e81443000033d233c9e85cd8fcff"
+    },
+    {
+      "name": "Catch_All@180059031",
+      "offset": 6442815537,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488b4d70e81109fbff33d233c9e8d5d6fcff"
+    },
+    {
+      "name": "thunk_FUN_180046538",
+      "offset": 6442816704,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e973d0feff"
+    },
+    {
+      "name": "DeleteCriticalSection",
+      "offset": 6442817044,
+      "size": 7,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "48ff250d790400"
+    },
+    {
+      "name": "thunk_FUN_18005aafc",
+      "offset": 6442818096,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e9c7100000"
+    },
+    {
+      "name": "Unwind@180059c27",
+      "offset": 6442818599,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a28000000e9b917ffff"
+    },
+    {
+      "name": "Unwind@180059ceb",
+      "offset": 6442818795,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a40000000e9c9f7ffff"
+    },
+    {
+      "name": "DXGIDumpJournal",
+      "offset": 6442819136,
+      "size": 116,
+      "instr_count": 31,
+      "source": "IMPORTED",
+      "bytes": "48895c24084889742418574883ec308b050b740700488d35d450070089442448488bf933db8b44244803c383e03f486bc878488d46384803c14889442428488b443110448b4c3108448b4431048b1431488bcf4889442420e80b010000ffc383fb407cc1488b5c2440488b7424504883c4305fc3"
+    },
+    {
+      "name": "Unwind@180059f94",
+      "offset": 6442819476,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a50000000e94002fcff"
+    },
+    {
+      "name": "Unwind@18005a142",
+      "offset": 6442819906,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a40000000e972f3ffff"
+    },
+    {
+      "name": "Unwind@18005a41b",
+      "offset": 6442820635,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a38000000e9c956fcff"
+    },
+    {
+      "name": "Unwind@18005a427",
+      "offset": 6442820647,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a50000000e9bd56fcff"
+    },
+    {
+      "name": "Unwind@18005a433",
+      "offset": 6442820659,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a68000000e9b156fcff"
+    },
+    {
+      "name": "Unwind@18005a43f",
+      "offset": 6442820671,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a28000000e9a10fffff"
+    },
+    {
+      "name": "Catch@18005a44b",
+      "offset": 6442820683,
+      "size": 147,
+      "instr_count": 45,
+      "source": "ANALYSIS",
+      "bytes": "488954241053554883ec28488bea488b5d38483b5d400f94c184c97516488b0b488b01488b4010ff15f87004004883c308ebdf488b5d50483b5d580f94c184c9751a488b0b4883c108488b01488b4020ff15cf7004004883c308ebdb488b5d68483b5d700f94c184c9751a488b0b4883c108488b01488b4020ff15a67004004883c308ebdb488d05eefeffff4883c4285d5bc3"
+    },
+    {
+      "name": "Unwind@18005a880",
+      "offset": 6442821760,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a50000000e934ecffff"
+    },
+    {
+      "name": "Unwind@18005b0cd",
+      "offset": 6442823885,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a40000000e9e7e3ffff"
+    },
+    {
+      "name": "Unwind@18005b318",
+      "offset": 6442824472,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a60000000e99ce1ffff"
+    },
+    {
+      "name": "Unwind@18005b560",
+      "offset": 6442825056,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a28000000e9b462ffff"
+    },
+    {
+      "name": "Catch@18005b56c",
+      "offset": 6442825068,
+      "size": 26,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488d05c2ffffff4883c4205dc3"
+    },
+    {
+      "name": "SetAppCompatStringPointer",
+      "offset": 6442825520,
+      "size": 55,
+      "instr_count": 10,
+      "source": "IMPORTED",
+      "bytes": "48890d696d0700488d05422d070033c9488915d96f070048833d492d07001048890d3a2d0700480f4305222d0700890dc03707008808c3"
+    },
+    {
+      "name": "Unwind@18005b906",
+      "offset": 6442825990,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a20000000e9aedbffff"
+    },
+    {
+      "name": "Unwind@18005b912",
+      "offset": 6442826002,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a68000000e9a2dbffff"
+    },
+    {
+      "name": "Unwind@18005b91e",
+      "offset": 6442826014,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a60000000e996dbffff"
+    },
+    {
+      "name": "Unwind@18005bf3e",
+      "offset": 6442827582,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a48000000e976d5ffff"
+    },
+    {
+      "name": "Unwind@18005bf4a",
+      "offset": 6442827594,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a30000000e96ad5ffff"
+    },
+    {
+      "name": "Unwind@18005bf56",
+      "offset": 6442827606,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a38000000e95ed5ffff"
+    },
+    {
+      "name": "Unwind@18005bf62",
+      "offset": 6442827618,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a30000000e952d5ffff"
+    },
+    {
+      "name": "Unwind@18005bf6e",
+      "offset": 6442827630,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a38000000e91ad5ffff"
+    },
+    {
+      "name": "Unwind@18005bf7a",
+      "offset": 6442827642,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a30000000e93ad5ffff"
+    },
+    {
+      "name": "Unwind@18005bf86",
+      "offset": 6442827654,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a38000000e92ed5ffff"
+    },
+    {
+      "name": "Unwind@18005bf92",
+      "offset": 6442827666,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a40000000e922d5ffff"
+    },
+    {
+      "name": "Unwind@18005c5b2",
+      "offset": 6442829234,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a90000000e906d1ffff"
+    },
+    {
+      "name": "Unwind@18005c5be",
+      "offset": 6442829246,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a40000000e9f6ceffff"
+    },
+    {
+      "name": "Unwind@18005c5ca",
+      "offset": 6442829258,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a60000000e9eaceffff"
+    },
+    {
+      "name": "Unwind@18005c5d6",
+      "offset": 6442829270,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a38000000e9deceffff"
+    },
+    {
+      "name": "Unwind@18005c5e2",
+      "offset": 6442829282,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a48000000e9d2ceffff"
+    },
+    {
+      "name": "Unwind@18005c5ee",
+      "offset": 6442829294,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a70000000e9c6ceffff"
+    },
+    {
+      "name": "Unwind@18005c5fa",
+      "offset": 6442829306,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a58000000e9baceffff"
+    },
+    {
+      "name": "Unwind@18005c606",
+      "offset": 6442829318,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a50000000e9aeceffff"
+    },
+    {
+      "name": "Unwind@18005c612",
+      "offset": 6442829330,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a48000000e9a2ceffff"
+    },
+    {
+      "name": "Unwind@18005c61e",
+      "offset": 6442829342,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a90000000e99ad0ffff"
+    },
+    {
+      "name": "UpdateHMDEmulationStatus",
+      "offset": 6442829360,
+      "size": 118,
+      "instr_count": 30,
+      "source": "IMPORTED",
+      "bytes": "40534883ec308ad9488d15d9470700488d4c2420e8cbaffaff488b05204807004885c07431488b5050488b02483bc27418488b48103a99680100007407c6816901000001488b00ebe3488b05f04707008898c0000000807c2428007411488b4c242048ff15274904000f1f44000033c04883c4305bc3"
+    },
+    {
+      "name": "Catch_All@18005c940",
+      "offset": 6442830144,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b4d48e802d0faff33d233c9e8c69dfcff"
+    },
+    {
+      "name": "Catch_All@18005ca1e",
+      "offset": 6442830366,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b4d48e824cffaff33d233c9e8e89cfcff"
+    },
+    {
+      "name": "Catch_All@18005d4fd",
+      "offset": 6442833149,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b4d40e8dd25fcff33d233c9e80992fcff"
+    },
+    {
+      "name": "DXGIGetDebugInterface1",
+      "offset": 6442833200,
+      "size": 79,
+      "instr_count": 19,
+      "source": "IMPORTED",
+      "bytes": "48895c24084889742410574883ec20498bd8488bfa8bf14c8d05d2320500488d15eb320500488d0d64c9ffffe8b70afcff4c8bc3488bd78bce488b5c2430488b7424384883c4205f48ff25f13f0400"
+    },
+    {
+      "name": "_tlgWriteTransfer_EtwWriteTransfer",
+      "offset": 6442834584,
+      "size": 148,
+      "instr_count": 35,
+      "source": "ANALYSIS",
+      "bytes": "4883ec480fb6024c8d5201488b5424784c8bd9c1e01889442430410fb70289442434498b42024983c20a4889442438488b4108488902488b410848895424280fb708894a08488d0d74090500c7420c020000004c895210410fb702894218488d05111e05002bc1c7421c01000000498b4b20488d542430894424788b4424708944242048ff157e3904000f1f4400004883c448c3"
+    },
+    {
+      "name": "Unwind@18005dd92",
+      "offset": 6442835346,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a30000000e9aa140000"
+    },
+    {
+      "name": "Unwind@18005deff",
+      "offset": 6442835711,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a30000000e93d130000"
+    },
+    {
+      "name": "Unwind@18005df0b",
+      "offset": 6442835723,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a30000000e931130000"
+    },
+    {
+      "name": "Unwind@18005df17",
+      "offset": 6442835735,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a30000000e925130000"
+    },
+    {
+      "name": "Unwind@18005e0bd",
+      "offset": 6442836157,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a30000000e97f110000"
+    },
+    {
+      "name": "Unwind@18005e6de",
+      "offset": 6442837726,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a30000000e95e0b0000"
+    },
+    {
+      "name": "Unwind@18005e6ea",
+      "offset": 6442837738,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a30000000e9520b0000"
+    },
+    {
+      "name": "Unwind@18005e6f6",
+      "offset": 6442837750,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a30000000e9460b0000"
+    },
+    {
+      "name": "Unwind@18005e702",
+      "offset": 6442837762,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a30000000e93a0b0000"
+    },
+    {
+      "name": "Unwind@18005e70e",
+      "offset": 6442837774,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a30000000e92e0b0000"
+    },
+    {
+      "name": "Unwind@18005e71a",
+      "offset": 6442837786,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a30000000e9220b0000"
+    },
+    {
+      "name": "Unwind@18005e726",
+      "offset": 6442837798,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a30000000e9160b0000"
+    },
+    {
+      "name": "Catch_All@18005e7c6",
+      "offset": 6442837958,
+      "size": 22,
+      "instr_count": 7,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea33d233c9e8497ffcff"
+    },
+    {
+      "name": "Catch_All@18005e844",
+      "offset": 6442838084,
+      "size": 73,
+      "instr_count": 19,
+      "source": "ANALYSIS",
+      "bytes": "488954241053554883ec28488bea488b5d584881c348010000488d83b8feffff483b4540741a488d4b18e83d2afbff488bcbe8352afbff4881c3c0010000ebd933d233c9e8987efcff"
+    },
+    {
+      "name": "Unwind@18005e9f7",
+      "offset": 6442838519,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488b8a70000000e9d1380100"
+    },
+    {
+      "name": "Unwind@18005ea03",
+      "offset": 6442838531,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a78000000e9cd070000"
+    },
+    {
+      "name": "Unwind@18005ea0f",
+      "offset": 6442838543,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a28000000e9fd29faff"
+    },
+    {
+      "name": "_com_error",
+      "offset": 6442839028,
+      "size": 65,
+      "instr_count": 19,
+      "source": "ANALYSIS",
+      "bytes": "40534883ec20488bd9488d056c0904004889018b4208894108488b4a10488363180048894b104885c9740d488b01488b4008ff1544290400488bc34883c4205bc3"
+    },
+    {
+      "name": "thunk_FUN_18000cc68",
+      "offset": 6442839100,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e927e0faff"
+    },
+    {
+      "name": "thunk_FUN_18001094c",
+      "offset": 6442839812,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e9431afbff"
+    },
+    {
+      "name": "thunk_FUN_180021438",
+      "offset": 6442840312,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e93b23fcff"
+    },
+    {
+      "name": "Catch_All@18005f4d5",
+      "offset": 6442841301,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488b4d60e8c51dfbff33d233c9e83172fcff"
+    },
+    {
+      "name": "Unwind@18005f7da",
+      "offset": 6442842074,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a40000000e9faa9fbff"
+    },
+    {
+      "name": "Unwind@18005fab6",
+      "offset": 6442842806,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a88000000e91ea7fbff"
+    },
+    {
+      "name": "Catch@18005fac2",
+      "offset": 6442842818,
+      "size": 53,
+      "instr_count": 14,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b45288b4808b805007a8881f9700876880f44c8898d88000000488d05a0ffffff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@1800600b6",
+      "offset": 6442844342,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a98000000e91ea1fbff"
+    },
+    {
+      "name": "Unwind@1800600c2",
+      "offset": 6442844354,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a90000000e912a1fbff"
+    },
+    {
+      "name": "Unwind@1800600ce",
+      "offset": 6442844366,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a48000000e9faecffff"
+    },
+    {
+      "name": "Catch@1800600da",
+      "offset": 6442844378,
+      "size": 26,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488d05a4ffffff4883c4305dc3"
+    },
+    {
+      "name": "Catch@1800600f5",
+      "offset": 6442844405,
+      "size": 45,
+      "instr_count": 13,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea8b4560898590000000488d4d58e808b3feff90488d057dffffff4883c4305dc3"
+    },
+    {
+      "name": "Unwind@18006037f",
+      "offset": 6442845055,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a28000000e9559efbff"
+    },
+    {
+      "name": "Unwind@18006038b",
+      "offset": 6442845067,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a20000000e9499efbff"
+    },
+    {
+      "name": "Unwind@180060397",
+      "offset": 6442845079,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a38000000e93d9efbff"
+    },
+    {
+      "name": "Catch@1800603a3",
+      "offset": 6442845091,
+      "size": 50,
+      "instr_count": 14,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b45688b4808b805007a8881f9700876880f44c8894d20488d0590ffffff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@18006109e",
+      "offset": 6442848414,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a50000000e93691fbff"
+    },
+    {
+      "name": "Unwind@1800610aa",
+      "offset": 6442848426,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a40000000e92a91fbff"
+    },
+    {
+      "name": "Unwind@1800610b6",
+      "offset": 6442848438,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a48000000e91e91fbff"
+    },
+    {
+      "name": "Unwind@1800610c2",
+      "offset": 6442848450,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a40000000e91291fbff"
+    },
+    {
+      "name": "Unwind@1800610ce",
+      "offset": 6442848462,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a48000000e90691fbff"
+    },
+    {
+      "name": "Unwind@180061418",
+      "offset": 6442849304,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a58000000e9bc8dfbff"
+    },
+    {
+      "name": "Unwind@180061424",
+      "offset": 6442849316,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a50000000e9b08dfbff"
+    },
+    {
+      "name": "Unwind@180061430",
+      "offset": 6442849328,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8ad8000000e9a48dfbff"
+    },
+    {
+      "name": "Catch@18006143c",
+      "offset": 6442849340,
+      "size": 36,
+      "instr_count": 10,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec40488bea48836568004883657000488d05d2feffff4883c4405dc3"
+    },
+    {
+      "name": "Catch@180061647",
+      "offset": 6442849863,
+      "size": 42,
+      "instr_count": 10,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec40488bea4883a598000000004883a5a800000000488d0536ffffff4883c4405dc3"
+    },
+    {
+      "name": "Unwind@180061941",
+      "offset": 6442850625,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a40000000e9ffeffaff"
+    },
+    {
+      "name": "Unwind@18006194d",
+      "offset": 6442850637,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a28000000e98788fbff"
+    },
+    {
+      "name": "Catch@180061959",
+      "offset": 6442850649,
+      "size": 39,
+      "instr_count": 11,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b45388b4808898da0000000488d05a9ffffff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@180061b2d",
+      "offset": 6442851117,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a20000000e9a786fbff"
+    },
+    {
+      "name": "Unwind@180061b39",
+      "offset": 6442851129,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a78000000e99b86fbff"
+    },
+    {
+      "name": "Catch@180061b45",
+      "offset": 6442851141,
+      "size": 36,
+      "instr_count": 11,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b45308b4808894d78488d05b1ffffff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@180061c3c",
+      "offset": 6442851388,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a58000000e99885fbff"
+    },
+    {
+      "name": "Catch@180061c48",
+      "offset": 6442851400,
+      "size": 36,
+      "instr_count": 11,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b45288b4808894d50488d05c1ffffff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@1800622bf",
+      "offset": 6442853055,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a88000000e90172ffff"
+    },
+    {
+      "name": "Unwind@1800622cb",
+      "offset": 6442853067,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8ab0000000e91591feff"
+    },
+    {
+      "name": "Unwind@1800622d7",
+      "offset": 6442853079,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a78000000e9e971ffff"
+    },
+    {
+      "name": "Catch@1800622e3",
+      "offset": 6442853091,
+      "size": 69,
+      "instr_count": 20,
+      "source": "ANALYSIS",
+      "bytes": "488954241053554883ec68488bea488b9d98000000488b4b48488b01488b4020ff1567f20300488b03488bcb488b4010ff1557f2030090488d055ffdffff4883c4685d5bc3"
+    },
+    {
+      "name": "Unwind@180062329",
+      "offset": 6442853161,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a60000000e9ab7efbff"
+    },
+    {
+      "name": "Unwind@180062335",
+      "offset": 6442853173,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a68000000e99f7efbff"
+    },
+    {
+      "name": "Unwind@1800625f3",
+      "offset": 6442853875,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8aa0000000e9a5caffff"
+    },
+    {
+      "name": "Catch@180062748",
+      "offset": 6442854216,
+      "size": 48,
+      "instr_count": 14,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b4578488b4848488b01488b4020ff1506ee030090488d05b7ffffff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@180062962",
+      "offset": 6442854754,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a60000000e97278fbff"
+    },
+    {
+      "name": "Unwind@18006296e",
+      "offset": 6442854766,
+      "size": 38,
+      "instr_count": 13,
+      "source": "ANALYSIS",
+      "bytes": "40554883ec20488bea8b452083e00185c0740d836520fe488b4d68e85278fbff4883c4205dc3"
+    },
+    {
+      "name": "thunk_FUN_180057250",
+      "offset": 6442855296,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e9cb46ffff"
+    },
+    {
+      "name": "thunk_FUN_180062a80",
+      "offset": 6442855312,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e9ebfeffff"
+    },
+    {
+      "name": "Unwind@1800631ff",
+      "offset": 6442856959,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a28000000e9c162ffff"
+    },
+    {
+      "name": "Unwind@18006320b",
+      "offset": 6442856971,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a38000000e97157feff"
+    },
+    {
+      "name": "Catch@180063217",
+      "offset": 6442856983,
+      "size": 47,
+      "instr_count": 13,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b8d98000000488b01488b4010ff1538e3030090488d05e3feffff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@1800636b7",
+      "offset": 6442858167,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a48000000e9095effff"
+    },
+    {
+      "name": "Unwind@1800636c3",
+      "offset": 6442858179,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a60000000e9b952feff"
+    },
+    {
+      "name": "Catch@1800636cf",
+      "offset": 6442858191,
+      "size": 44,
+      "instr_count": 13,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488b4d30488b01488b4010ff1583de030090488d058ffcffff4883c4305dc3"
+    },
+    {
+      "name": "Unwind@180063dd6",
+      "offset": 6442859990,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488b8a20000000e9765bfaff"
+    },
+    {
+      "name": "Unwind@180063de2",
+      "offset": 6442860002,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488b8a20000000e9fe4afeff"
+    },
+    {
+      "name": "Unwind@180063dee",
+      "offset": 6442860014,
+      "size": 16,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a200000004883c110e9f2bcfbff"
+    },
+    {
+      "name": "Unwind@180063dfe",
+      "offset": 6442860030,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a50000000e99a47faff"
+    },
+    {
+      "name": "Unwind@180063e0a",
+      "offset": 6442860042,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a20000000e98e47faff"
+    },
+    {
+      "name": "Unwind@180063e16",
+      "offset": 6442860054,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a60000000e90e75feff"
+    },
+    {
+      "name": "Catch@180063e22",
+      "offset": 6442860066,
+      "size": 26,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488d0571ffffff4883c4205dc3"
+    },
+    {
+      "name": "Catch@180063e3d",
+      "offset": 6442860093,
+      "size": 36,
+      "instr_count": 11,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b45388b4808894d20488d0553ffffff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@180064058",
+      "offset": 6442860632,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a48000000e98873feff"
+    },
+    {
+      "name": "Catch_All@180064526",
+      "offset": 6442861862,
+      "size": 147,
+      "instr_count": 40,
+      "source": "ANALYSIS",
+      "bytes": "488954241053555657415641574883ec38488bea448b7530488b7538488b5d404183fe017e3a4c69fec00100004c03fb493bdf742b488dbb48010000488d4f18e845cdfaff488bcfe83dcdfaff4881c7c0010000488d87b8feffff493bc775dc4585f67e1d4869d6c00100004803d3488d46014c69c0c00100004c03c3e890fbffff488bcbe8a853faff33d233c9e86c21fcff"
+    },
+    {
+      "name": "Catch_All@1800645c6",
+      "offset": 6442862022,
+      "size": 56,
+      "instr_count": 13,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488b95800200004881c2c0010000488b45384c8b40084981c0c0010000e843fbffff33d233c9e82721fcff"
+    },
+    {
+      "name": "Unwind@1800649fb",
+      "offset": 6442863099,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488b8a50000000e9d957fbff"
+    },
+    {
+      "name": "Unwind@180065455",
+      "offset": 6442865749,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a70000000e99fc2fbff"
+    },
+    {
+      "name": "Unwind@180065461",
+      "offset": 6442865761,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a68000000e9734dfbff"
+    },
+    {
+      "name": "Unwind@18006546d",
+      "offset": 6442865773,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a60000000e97b99ffff"
+    },
+    {
+      "name": "Unwind@1800659a6",
+      "offset": 6442867110,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a40000000e92e48fbff"
+    },
+    {
+      "name": "Unwind@180065a25",
+      "offset": 6442867237,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a40000000e9af47fbff"
+    },
+    {
+      "name": "Unwind@1800666a8",
+      "offset": 6442870440,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a40000000e9d430ffff"
+    },
+    {
+      "name": "Unwind@180066c48",
+      "offset": 6442871880,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a68000000e98c35fbff"
+    },
+    {
+      "name": "Unwind@180066c54",
+      "offset": 6442871892,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a60000000e9901dfeff"
+    },
+    {
+      "name": "Unwind@180066fad",
+      "offset": 6442872749,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a60000000e997a6fbff"
+    },
+    {
+      "name": "Unwind@180066fb9",
+      "offset": 6442872761,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a70000000e91b32fbff"
+    },
+    {
+      "name": "Unwind@180066fc5",
+      "offset": 6442872773,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a68000000e91f1afeff"
+    },
+    {
+      "name": "Unwind@180066fd1",
+      "offset": 6442872785,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a78000000e90332fbff"
+    },
+    {
+      "name": "Unwind@180067201",
+      "offset": 6442873345,
+      "size": 45,
+      "instr_count": 11,
+      "source": "ANALYSIS",
+      "bytes": "40554883ec20488bea4c8d0d3fa4fbff41b811000000ba08000000488d8d80000000e8c0f1fbff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@180067bc6",
+      "offset": 6442875846,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a20000000e90e26fbff"
+    },
+    {
+      "name": "Unwind@180067bd2",
+      "offset": 6442875858,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a20000000e90226fbff"
+    },
+    {
+      "name": "Unwind@180067bde",
+      "offset": 6442875870,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a28000000e9f625fbff"
+    },
+    {
+      "name": "Unwind@180067bea",
+      "offset": 6442875882,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a20000000e9ea25fbff"
+    },
+    {
+      "name": "Unwind@1800682ab",
+      "offset": 6442877611,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a68000000e9291ffbff"
+    },
+    {
+      "name": "Catch@1800682b7",
+      "offset": 6442877623,
+      "size": 77,
+      "instr_count": 17,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec60488bea8b4560488b95900000008982880c0000488b8cc2d0080000488b82b007000048898808320000488b85a00000008b4808894d60488d0585ffffff4883c4605dc3"
+    },
+    {
+      "name": "Unwind@18006880c",
+      "offset": 6442878988,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a20000000e9c819fbff"
+    },
+    {
+      "name": "Unwind@180068a79",
+      "offset": 6442879609,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a28000000e9030dffff"
+    },
+    {
+      "name": "Unwind@180068a85",
+      "offset": 6442879621,
+      "size": 41,
+      "instr_count": 13,
+      "source": "ANALYSIS",
+      "bytes": "40554883ec20488bea8b457083e00185c07410836570fe488d8d88000000e83817fbff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@180068aaf",
+      "offset": 6442879663,
+      "size": 41,
+      "instr_count": 13,
+      "source": "ANALYSIS",
+      "bytes": "40554883ec20488bea8b457083e00285c07410836570fd488d8d88000000e80e17fbff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@180068ad9",
+      "offset": 6442879705,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a20000000e9fb16fbff"
+    },
+    {
+      "name": "Unwind@1800693cf",
+      "offset": 6442881999,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a20000000e9050efbff"
+    },
+    {
+      "name": "Catch@180069485",
+      "offset": 6442882181,
+      "size": 26,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec40488bea488d05ceffffff4883c4405dc3"
+    },
+    {
+      "name": "Unwind@180069ac0",
+      "offset": 6442883776,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a30000000e91407fbff"
+    },
+    {
+      "name": "Unwind@180069c7e",
+      "offset": 6442884222,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a20000000e95605fbff"
+    },
+    {
+      "name": "Unwind@180069f9b",
+      "offset": 6442885019,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a50000000e9e1f7feff"
+    },
+    {
+      "name": "Unwind@18006a3c0",
+      "offset": 6442886080,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a60000000e914fefaff"
+    },
+    {
+      "name": "Unwind@18006aa62",
+      "offset": 6442887778,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a50000000e972f7faff"
+    },
+    {
+      "name": "Unwind@18006aa6e",
+      "offset": 6442887790,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a48000000e966f7faff"
+    },
+    {
+      "name": "Unwind@18006aa7a",
+      "offset": 6442887802,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a50000000e95af7faff"
+    },
+    {
+      "name": "Unwind@18006b5de",
+      "offset": 6442890718,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8ac0000000e99ed3fdff"
+    },
+    {
+      "name": "Unwind@18006bd78",
+      "offset": 6442892664,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a68000000e9888fffff"
+    },
+    {
+      "name": "Unwind@18006be8e",
+      "offset": 6442892942,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a40000000e98e2fffff"
+    },
+    {
+      "name": "Unwind@18006bf84",
+      "offset": 6442893188,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a48000000e950e2faff"
+    },
+    {
+      "name": "Unwind@18006bf90",
+      "offset": 6442893200,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a40000000e944e2faff"
+    },
+    {
+      "name": "Unwind@18006cf91",
+      "offset": 6442897297,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a88000000e9ebc7feff"
+    },
+    {
+      "name": "Unwind@18006cf9d",
+      "offset": 6442897309,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a78000000e937d2faff"
+    },
+    {
+      "name": "Unwind@18006cfa9",
+      "offset": 6442897321,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8af8000000e98765fbff"
+    },
+    {
+      "name": "Unwind@18006cfb5",
+      "offset": 6442897333,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a70000000e9c7c7feff"
+    },
+    {
+      "name": "Unwind@18006cfc1",
+      "offset": 6442897345,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8aa8000000e92b66fbff"
+    },
+    {
+      "name": "Catch@18006cfcd",
+      "offset": 6442897357,
+      "size": 56,
+      "instr_count": 16,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec70488bea488b85f00000008b500889557085d2740d4c8d05d6620300e889c3f9ff90488d05e2feffff4883c4705dc3"
+    },
+    {
+      "name": "Catch@18006d006",
+      "offset": 6442897414,
+      "size": 51,
+      "instr_count": 13,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec70488beac745700e0007804c8d05a7620300ba0e000780e855c3f9ff90488d05b0feffff4883c4705dc3"
+    },
+    {
+      "name": "Unwind@18006d490",
+      "offset": 6442898576,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a40000000e944cdfaff"
+    },
+    {
+      "name": "Unwind@18006dc8e",
+      "offset": 6442900622,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a70000000e946c5faff"
+    },
+    {
+      "name": "Unwind@18006dc9a",
+      "offset": 6442900634,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a78000000e93ac5faff"
+    },
+    {
+      "name": "FID_conflict:StringCchCatA",
+      "offset": 6442900832,
+      "size": 190,
+      "instr_count": 61,
+      "source": "ANALYSIS",
+      "bytes": "4533c94c8bd24d8bd8488bd141b857000780498d42ff483dfeffff7f450f47c84585c97835498bca488bc24d85d2740e803800740948ffc04883e90175f2488bc148f7d8451bc941f7d14523c84885c974084d8bc24c2bc1eb034533c04585c97858498bca498d1410492bc8742e488bc14d8d88feffff7f492bc24c03c84c2bda4d85c97416418a041384c0740e880249ffc948ffc24883e90175e54885c9488d42ff480f45c248f7d9451bc941f7d14181e17a000780c60000418bc1c3"
+    },
+    {
+      "name": "Unwind@18006e14b",
+      "offset": 6442901835,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a28000000e995d2fdff"
+    },
+    {
+      "name": "Unwind@18006e157",
+      "offset": 6442901847,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a28000000e989d2fdff"
+    },
+    {
+      "name": "Unwind@18006e163",
+      "offset": 6442901859,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a28000000e97dd2fdff"
+    },
+    {
+      "name": "thunk_FUN_180024984",
+      "offset": 6442908464,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e94f4efbff"
+    },
+    {
+      "name": "Unwind@18006fc21",
+      "offset": 6442908705,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a38000000e9a7f1feff"
+    },
+    {
+      "name": "Unwind@18006fc2d",
+      "offset": 6442908717,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488b8a78000000e93f810000"
+    },
+    {
+      "name": "Unwind@18006fc39",
+      "offset": 6442908729,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a70000000e98bfeffff"
+    },
+    {
+      "name": "Catch_All@18006fe97",
+      "offset": 6442909335,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b4d40e80bfcfaff33d233c9e86f68fbff"
+    },
+    {
+      "name": "Unwind@180070ed6",
+      "offset": 6442913494,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a28000000e90aa5fdff"
+    },
+    {
+      "name": "Unwind@18007136a",
+      "offset": 6442914666,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a30000000e976a0fdff"
+    },
+    {
+      "name": "Catch@180071376",
+      "offset": 6442914678,
+      "size": 26,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488d05c6ffffff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@1800713ee",
+      "offset": 6442914798,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a28000000e91adefeff"
+    },
+    {
+      "name": "Unwind@180071622",
+      "offset": 6442915362,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a20000000e9be9dfdff"
+    },
+    {
+      "name": "Catch_All@180071964",
+      "offset": 6442916196,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b4d48e8de7ff9ff33d233c9e8a24dfbff"
+    },
+    {
+      "name": "Catch_All@180071c88",
+      "offset": 6442917000,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488b4d70e8ba7cf9ff33d233c9e87e4afbff"
+    },
+    {
+      "name": "Catch_All@180071ce9",
+      "offset": 6442917097,
+      "size": 60,
+      "instr_count": 19,
+      "source": "ANALYSIS",
+      "bytes": "488954241053554883ec28488bea488b5d58483b5d40741b488b0b4885c9740d488b01488b4010ff155af802004883c308ebdf33d233c9e8004afbff"
+    },
+    {
+      "name": "Catch_All@180071da5",
+      "offset": 6442917285,
+      "size": 60,
+      "instr_count": 19,
+      "source": "ANALYSIS",
+      "bytes": "488954241053554883ec28488bea488b5d68eb19488b0b4885c9740d488b01488b4010ff15a2f702004883c308483b5d6075e133d233c9e84449fbff"
+    },
+    {
+      "name": "Unwind@180071e38",
+      "offset": 6442917432,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488b8a40000000e928050000"
+    },
+    {
+      "name": "Unwind@18007277e",
+      "offset": 6442919806,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a80000000e9567afaff"
+    },
+    {
+      "name": "Catch@18007278a",
+      "offset": 6442919818,
+      "size": 46,
+      "instr_count": 12,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488b8d8800000048ff1583e502000f1f44000090488d057affffff4883c4305dc3"
+    },
+    {
+      "name": "Catch@1800727b9",
+      "offset": 6442919865,
+      "size": 55,
+      "instr_count": 14,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488b8d8800000048ff1554e502000f1f440000488b45388b4808894d70488d0563ffffff4883c4305dc3"
+    },
+    {
+      "name": "Unwind@180072a7d",
+      "offset": 6442920573,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a00010000e95777faff"
+    },
+    {
+      "name": "Unwind@180072b83",
+      "offset": 6442920835,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a78000000e9d5f8ffff"
+    },
+    {
+      "name": "Unwind@180072b8f",
+      "offset": 6442920847,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a70000000e94576faff"
+    },
+    {
+      "name": "Unwind@180072c67",
+      "offset": 6442921063,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488b8a78000000e9e56cf9ff"
+    },
+    {
+      "name": "Catch_All@180072c73",
+      "offset": 6442921075,
+      "size": 26,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488d0584ffffff4883c4205dc3"
+    },
+    {
+      "name": "Catch@180072ec0",
+      "offset": 6442921664,
+      "size": 26,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488d05bbffffff4883c4205dc3"
+    },
+    {
+      "name": "Catch@180072edb",
+      "offset": 6442921691,
+      "size": 42,
+      "instr_count": 13,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea8b4550894520488d4d48e82585fdff90488d0597ffffff4883c4205dc3"
+    },
+    {
+      "name": "Catch_All@180072f9e",
+      "offset": 6442921886,
+      "size": 26,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488d05dbffffff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@180073210",
+      "offset": 6442922512,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a40000000e96c65feff"
+    },
+    {
+      "name": "Unwind@18007396a",
+      "offset": 6442924394,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a00010000e96a68faff"
+    },
+    {
+      "name": "Unwind@180073b48",
+      "offset": 6442924872,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a60000000e98c66faff"
+    },
+    {
+      "name": "Unwind@180074071",
+      "offset": 6442926193,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a50000000e9e7e3ffff"
+    },
+    {
+      "name": "Catch_All@18007407d",
+      "offset": 6442926205,
+      "size": 26,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488d05cfffffff4883c4205dc3"
+    },
+    {
+      "name": "Catch_All@1800745f1",
+      "offset": 6442927601,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b4d48e85153f9ff33d233c9e81521fbff"
+    },
+    {
+      "name": "Catch_All@18007480a",
+      "offset": 6442928138,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b4d48e83851f9ff33d233c9e8fc1efbff"
+    },
+    {
+      "name": "Catch_All@180074913",
+      "offset": 6442928403,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488b4d68e82f50f9ff33d233c9e8f31dfbff"
+    },
+    {
+      "name": "Catch_All@180074daf",
+      "offset": 6442929583,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b4d40e82badfaff33d233c9e85719fbff"
+    },
+    {
+      "name": "Catch_All@180074e73",
+      "offset": 6442929779,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b4d40e867acfaff33d233c9e89318fbff"
+    },
+    {
+      "name": "Catch_All@180074f2f",
+      "offset": 6442929967,
+      "size": 31,
+      "instr_count": 9,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488b4d50e8fffaffff33d233c9e8d717fbff"
+    },
+    {
+      "name": "Unwind@1800762aa",
+      "offset": 6442934954,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a88000000e92a3ffaff"
+    },
+    {
+      "name": "Unwind@1800762b6",
+      "offset": 6442934966,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a68000000e91e3ffaff"
+    },
+    {
+      "name": "Unwind@1800771d5",
+      "offset": 6442938837,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a38000000e96b97f9ff"
+    },
+    {
+      "name": "Unwind@18007767f",
+      "offset": 6442940031,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488b8a50000000e95d470000"
+    },
+    {
+      "name": "Unwind@18007768b",
+      "offset": 6442940043,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a60000000e995080000"
+    },
+    {
+      "name": "Unwind@180077697",
+      "offset": 6442940055,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a28000000e925090000"
+    },
+    {
+      "name": "Unwind@180077755",
+      "offset": 6442940245,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488b8a50000000e9cf420000"
+    },
+    {
+      "name": "Unwind@180077761",
+      "offset": 6442940257,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a28000000e93f080000"
+    },
+    {
+      "name": "Unwind@18007776d",
+      "offset": 6442940269,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a30000000e98f080000"
+    },
+    {
+      "name": "Unwind@180077a26",
+      "offset": 6442940966,
+      "size": 16,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8aa00000004883c118e9420efdff"
+    },
+    {
+      "name": "Unwind@180077a36",
+      "offset": 6442940982,
+      "size": 16,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8aa00000004883c150e99a27faff"
+    },
+    {
+      "name": "Unwind@180077a46",
+      "offset": 6442940998,
+      "size": 16,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8aa00000004883c158e98a27faff"
+    },
+    {
+      "name": "Unwind@180077a56",
+      "offset": 6442941014,
+      "size": 16,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8aa00000004883c160e98a9ffaff"
+    },
+    {
+      "name": "Unwind@180077a66",
+      "offset": 6442941030,
+      "size": 16,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8aa00000004883c168e96a27faff"
+    },
+    {
+      "name": "Unwind@180077a76",
+      "offset": 6442941046,
+      "size": 16,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8aa00000004883c170e95a27faff"
+    },
+    {
+      "name": "Unwind@180077a86",
+      "offset": 6442941062,
+      "size": 19,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8aa00000004881c198000000e94727faff"
+    },
+    {
+      "name": "Unwind@180077a99",
+      "offset": 6442941081,
+      "size": 19,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8aa00000004881c1b0000000e9c084faff"
+    },
+    {
+      "name": "Unwind@180077aac",
+      "offset": 6442941100,
+      "size": 19,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8aa00000004881c1b8000000e92127faff"
+    },
+    {
+      "name": "Unwind@180077abf",
+      "offset": 6442941119,
+      "size": 19,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8aa00000004881c1c0000000e9ca050000"
+    },
+    {
+      "name": "Unwind@180077ad2",
+      "offset": 6442941138,
+      "size": 19,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8aa00000004881c110030000e9b7050000"
+    },
+    {
+      "name": "Unwind@180077ae5",
+      "offset": 6442941157,
+      "size": 19,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8aa00000004881c1a8090000e960060000"
+    },
+    {
+      "name": "Unwind@180077af8",
+      "offset": 6442941176,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8aa8000000e9dc26faff"
+    },
+    {
+      "name": "Catch@18007870b",
+      "offset": 6442944267,
+      "size": 39,
+      "instr_count": 11,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec40488bea488b85800000008b4808894d40488d05b7ffffff4883c4405dc3"
+    },
+    {
+      "name": "Unwind@180078a71",
+      "offset": 6442945137,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a50000000e96317faff"
+    },
+    {
+      "name": "Catch@180078a7d",
+      "offset": 6442945149,
+      "size": 36,
+      "instr_count": 11,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488b45388b4808894d60488d058cffffff4883c4305dc3"
+    },
+    {
+      "name": "Catch@180078aa2",
+      "offset": 6442945186,
+      "size": 26,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488d058effffff4883c4305dc3"
+    },
+    {
+      "name": "Unwind@180078bc1",
+      "offset": 6442945473,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a38000000e90762feff"
+    },
+    {
+      "name": "Unwind@180078bcd",
+      "offset": 6442945485,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488b8a70000000e9572e0000"
+    },
+    {
+      "name": "Unwind@180078c64",
+      "offset": 6442945636,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a48000000e96461feff"
+    },
+    {
+      "name": "Unwind@180078d1c",
+      "offset": 6442945820,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a48000000e9ac60feff"
+    },
+    {
+      "name": "Unwind@1800794f8",
+      "offset": 6442947832,
+      "size": 45,
+      "instr_count": 11,
+      "source": "ANALYSIS",
+      "bytes": "40554883ec20488bea4c8d0dd80cfaff41b810000000ba08000000488d8df0010000e8c9cefaff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@180079526",
+      "offset": 6442947878,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a80000000e9ae0cfaff"
+    },
+    {
+      "name": "Unwind@180079532",
+      "offset": 6442947890,
+      "size": 41,
+      "instr_count": 13,
+      "source": "ANALYSIS",
+      "bytes": "40554883ec20488bea8b457483e00185c07410836574fe488d8d98000000e88b0cfaff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@18007955c",
+      "offset": 6442947932,
+      "size": 41,
+      "instr_count": 13,
+      "source": "ANALYSIS",
+      "bytes": "40554883ec20488bea8b457483e00285c07410836574fd488d8da8000000e8610cfaff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@180079586",
+      "offset": 6442947974,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a80000000e94e0cfaff"
+    },
+    {
+      "name": "Catch@180079592",
+      "offset": 6442947986,
+      "size": 26,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec70488bea488d0523ffffff4883c4705dc3"
+    },
+    {
+      "name": "Catch@1800795ad",
+      "offset": 6442948013,
+      "size": 39,
+      "instr_count": 11,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec70488bea488b85c80000008b4808894d70488d0502ffffff4883c4705dc3"
+    },
+    {
+      "name": "Unwind@180079927",
+      "offset": 6442948903,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a60000000e9bd80faff"
+    },
+    {
+      "name": "Catch@18007996f",
+      "offset": 6442948975,
+      "size": 51,
+      "instr_count": 14,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b4540488b4850488b01488b80d0010000ff15dc7b020090488d05cbffffff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@180079a09",
+      "offset": 6442949129,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a48000000e9cb07faff"
+    },
+    {
+      "name": "Unwind@180079c7f",
+      "offset": 6442949759,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a20000000e95505faff"
+    },
+    {
+      "name": "Unwind@180079c8b",
+      "offset": 6442949771,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a50000000e9b155feff"
+    },
+    {
+      "name": "Catch@180079c97",
+      "offset": 6442949783,
+      "size": 26,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488d056cffffff4883c4205dc3"
+    },
+    {
+      "name": "Catch@180079cb2",
+      "offset": 6442949810,
+      "size": 26,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488d0553ffffff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@18007a4b7",
+      "offset": 6442951863,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a40000000e965dcffff"
+    },
+    {
+      "name": "Unwind@18007a4c3",
+      "offset": 6442951875,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a40000000e959dcffff"
+    },
+    {
+      "name": "Unwind@18007a4cf",
+      "offset": 6442951887,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a40000000e94ddcffff"
+    },
+    {
+      "name": "Unwind@18007a4db",
+      "offset": 6442951899,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a40000000e941dcffff"
+    },
+    {
+      "name": "Unwind@18007a848",
+      "offset": 6442952776,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a68000000e98cf9f9ff"
+    },
+    {
+      "name": "Catch@18007a854",
+      "offset": 6442952788,
+      "size": 36,
+      "instr_count": 11,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488b45388b4808894d50488d0591ffffff4883c4305dc3"
+    },
+    {
+      "name": "Catch@18007a879",
+      "offset": 6442952825,
+      "size": 26,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec30488bea488d0593ffffff4883c4305dc3"
+    },
+    {
+      "name": "Unwind@18007a945",
+      "offset": 6442953029,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a60000000e98ff8f9ff"
+    },
+    {
+      "name": "Catch@18007a951",
+      "offset": 6442953041,
+      "size": 36,
+      "instr_count": 11,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec40488bea488b45488b4808894d60488d05baffffff4883c4405dc3"
+    },
+    {
+      "name": "Catch@18007a976",
+      "offset": 6442953078,
+      "size": 26,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec40488bea488d05a5ffffff4883c4405dc3"
+    },
+    {
+      "name": "Unwind@18007aa41",
+      "offset": 6442953281,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a60000000e993f7f9ff"
+    },
+    {
+      "name": "Catch@18007aa4d",
+      "offset": 6442953293,
+      "size": 36,
+      "instr_count": 11,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec40488bea488b45488b4808894d60488d05bfffffff4883c4405dc3"
+    },
+    {
+      "name": "Catch@18007aa72",
+      "offset": 6442953330,
+      "size": 26,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec40488bea488d05aaffffff4883c4405dc3"
+    },
+    {
+      "name": "Unwind@18007b1ae",
+      "offset": 6442955182,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8aa8000000e962cbffff"
+    },
+    {
+      "name": "Unwind@18007b1ba",
+      "offset": 6442955194,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8aa0000000e92a68faff"
+    },
+    {
+      "name": "Catch@18007b1c6",
+      "offset": 6442955206,
+      "size": 39,
+      "instr_count": 11,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec60488bea488b85b80000008b4808894d60488d0583faffff4883c4605dc3"
+    },
+    {
+      "name": "Unwind@18007b1ee",
+      "offset": 6442955246,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a68000000e9e6eff9ff"
+    },
+    {
+      "name": "Unwind@18007b1fa",
+      "offset": 6442955258,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a70000000e9daeff9ff"
+    },
+    {
+      "name": "Catch@18007b206",
+      "offset": 6442955270,
+      "size": 42,
+      "instr_count": 11,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec60488bea488b85c00000008b4808898d90010000488d0531ffffff4883c4605dc3"
+    },
+    {
+      "name": "Unwind@18007b6dc",
+      "offset": 6442956508,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a40000000e97c6dffff"
+    },
+    {
+      "name": "Catch@18007b906",
+      "offset": 6442957062,
+      "size": 36,
+      "instr_count": 11,
+      "source": "ANALYSIS",
+      "bytes": "4889542410554883ec20488bea488b45288b4808894d58488d05c7ffffff4883c4205dc3"
+    },
+    {
+      "name": "Unwind@18007ba19",
+      "offset": 6442957337,
+      "size": 16,
+      "instr_count": 3,
+      "source": "ANALYSIS",
+      "bytes": "488b8a400000004883c120e9874afaff"
+    },
+    {
+      "name": "thunk_FUN_1800098dc",
+      "offset": 6442959080,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e9efd7f8ff"
+    },
+    {
+      "name": "Unwind@18007c7fb",
+      "offset": 6442960891,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a60000000e9d9d9f9ff"
+    },
+    {
+      "name": "Unwind@18007c807",
+      "offset": 6442960903,
+      "size": 12,
+      "instr_count": 2,
+      "source": "ANALYSIS",
+      "bytes": "488d8a50000000e9cdd9f9ff"
+    },
+    {
+      "name": "_tlgWriteTransfer_EtwWriteTransfer",
+      "offset": 6442969888,
+      "size": 148,
+      "instr_count": 35,
+      "source": "ANALYSIS",
+      "bytes": "4883ec480fb6024c8d5201488b5424784c8bd9c1e01889442430410fb70289442434498b42024983c20a4889442438488b4108488902488b410848895424280fb708894a08488d0decf80200c7420c020000004c895210410fb702894218488d05890d03002bc1c7421c01000000498b4b20488d542430894424788b4424708944242048ff150e2502000f1f4400004883c448c3"
+    },
+    {
+      "name": "FID_conflict:RtlStringCchCopyA",
+      "offset": 6442995132,
+      "size": 114,
+      "instr_count": 36,
+      "source": "ANALYSIS",
+      "bytes": "4533c9488d42ff41bafeffff7f41bb0d0000c0493bc2450f47cb4585c978474885d274224c2bd24c2bc1498d04124885c07413418a040884c0740b880148ffc14883ea0175e44885d2488d41ff480f45c148f7da451bc941f7d14181e105000080c60000eb084885d27403c60100418bc1c3"
+    },
+    {
+      "name": "RtlStringCchCopyNW",
+      "offset": 6443005488,
+      "size": 143,
+      "instr_count": 42,
+      "source": "ANALYSIS",
+      "bytes": "48895c24084533db488d42ff483dfeffff7f458bd3bb0d0000c0440f47d34585d2785a4981f9feffff7f7605448bd3eb514885d274264c2bca4c2bc1498d04114885c07417410fb704086685c0740d6689014883c1024883ea0175e04885d2488d41fe480f45c148f7da451bd241f7d24181e20500008066448918eb094885d2740466448919488b5c2408418bc2c3"
+    },
+    {
+      "name": "RtlWideCharArrayCopyStringWorker",
+      "offset": 6443006280,
+      "size": 102,
+      "instr_count": 32,
+      "source": "ANALYSIS",
+      "bytes": "48895c240833c04d8bd1488bd9448bd84885d27432492bd94c8b4c24284d85c9741e410fb70a6685c974156642890c1349ffc94983c20249ffc34883ea0175dd4885d27518eb054c8b4c24284d85c9740c66413902b9050000800f45c1488b5c24084d8918c3"
+    },
+    {
+      "name": "FID_conflict:StringCbLengthW",
+      "offset": 6443022348,
+      "size": 112,
+      "instr_count": 39,
+      "source": "ANALYSIS",
+      "bytes": "4533d248d1ea4d8bc8418bc24885c974434881faffffff7f773a4c8bc24885d2741066443911740a4883c1024983e80175f0498bc048f7d81bc9f7d181e10d0000c04d85c07408488bc2492bc0eb0a498bc2eb05b90d0000c04d85c9740f85c978084803c0498901eb034d89118bc1c3"
+    }
+  ],
+  "total_functions": 3831,
+  "exported_functions": 868
+}

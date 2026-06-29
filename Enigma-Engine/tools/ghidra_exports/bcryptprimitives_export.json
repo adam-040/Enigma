@@ -1,0 +1,295 @@
+{
+  "binary": "bcryptprimitives.dll",
+  "functions": [
+    {
+      "name": "thunk_FUN_180001008",
+      "offset": 6442455220,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e94fffffff"
+    },
+    {
+      "name": "GetHashInterface",
+      "offset": 6442533984,
+      "size": 89,
+      "instr_count": 15,
+      "source": "IMPORTED",
+      "bytes": "40534883ec20488bca498bd833d2e871ffffff83f80e0f8320ac0200488d05dd0d050048890333db8bc34883c4205bc341b9170100004c8d05e70c0300488d15908c0200b9bb0000c0bbbb0000c0e81125fdff90e9c353fdff"
+    },
+    {
+      "name": "ProcessPrng",
+      "offset": 6442536976,
+      "size": 699,
+      "instr_count": 135,
+      "source": "IMPORTED",
+      "bytes": "4053554881ec98000000488b051f6006004833c448894424680fb60598680600488bda488be93c010f8560a602008b058c6806004c897424784c8d35406706004c897c24704533ff48c74424300000000085c00f84f3a502004889bc2490000000a8080f859a0000004889b424c0000000488d4c24204c89a424880000004c89ac248000000048ff15d32305000f1f4400000fb74c24204c8d2d326806000fb67c2422b8cdccccccf7e183e73fc1ea048d0492c1e0022bc8488d34cd000000004a8b0c2e4885c90f8433010000488d34f94885f674154c393e0f84870000004c8b364d85ff0f858ea502004c8bac24800000004c8ba42488000000488bb424c00000004c8b7c24704885db742fbf000001004c8d4c2430483bdf488bd5498bce480f42fb4c8bc7e8340100004803ef482bdf75d985c00f884ba50200b801000000488bbc24900000004c8b742478488b4c24684833cce8e50501004881c4980000005d5bc365488b0c256000000033d241b830010000488b493048ff15e62205000f1f4400004c8bf84885c00f8458ffffff33d241b830010000488bc8e8844e02004c8d4c242841b830000000488d542438498bcee8a500000085c00f881fffffff4c8b442428488d542438498bcfe8870600008bd0488d7c243833c0b930000000f3aa85d20f88f5fefffff04c0fb13e0f855fa402004533ffe9dffeffff65488b0c256000000033d241b800020000488b493048ff154c2205000f1f4400004c8be04885c00f84befeffff33d241b800020000488bc8e8ea4d020033c0f04e0fb1242e75094a8b0c2ee97dfeffff498bcce804d4ffffebede8c701feff90e9025afdff498d4f10e88082fdff498d8f8000000048ff157a7d02000f1f44000090e9665afdff498bcfe8db2ffdff90e9645afdff33c0e9b35afdff3c02750fe8813c0000b801000000e9ad5afdffc7042500000000726e6778ebf3"
+    },
+    {
+      "name": "GetCipherInterface",
+      "offset": 6442555664,
+      "size": 146,
+      "instr_count": 33,
+      "source": "IMPORTED",
+      "bytes": "48895c2408574883ec2033db4c8d0da5ba04008bc34d8bd8488bfa4d8b11488bcf4c2bd70fb711460fb70411412bd075094883c1024585c075ea85d2740bffc04983c17083f80872d283f8080f839e700200488d05c7b904004989038bc3488b5c24304883c4205fc341b9d50000004c8d0583f30200488d152c730200b9bb0000c0bbbb0000c0e8ad0bfdff90e9438ffdff"
+    },
+    {
+      "name": "GetSecretAgreementInterface",
+      "offset": 6442577904,
+      "size": 175,
+      "instr_count": 50,
+      "source": "IMPORTED",
+      "bytes": "48895c24084889742410574883ec200fb70ab84400000033db498bf0488bfa2bc875120fb74a0283e94875090fb74a040fb7c32bc885c9746e488d1510940400488bcfe80bb0010085c0751d488d053d670400488906488b7424388bc3488b5c24304883c4205fc3488d15f0930400488bcfe8dbaf010085c074d0488d15f5930400488bcfe8c8af010085c074bd488d15fa930400488bcfe8b5af010085c074aae9d7270200488d0552670400eba3"
+    },
+    {
+      "name": "GetAsymmetricEncryptionInterface",
+      "offset": 6442580352,
+      "size": 102,
+      "instr_count": 17,
+      "source": "IMPORTED",
+      "bytes": "48895c2408574883ec20488bca498bf8488d15618b0400e8a7a6010033db85c00f85c2210200488d05b35e04004889078bc3488b5c24304883c4205fc341b9570000004c8d051be20200488d15c4610200b9bb0000c0bbbb0000c0e845fafcff90e91fdefdff"
+    },
+    {
+      "name": "GetRngInterface",
+      "offset": 6442584384,
+      "size": 13,
+      "instr_count": 4,
+      "source": "IMPORTED",
+      "bytes": "488d05894f040048890233c0c3"
+    },
+    {
+      "name": "GetSignatureInterface",
+      "offset": 6442584720,
+      "size": 228,
+      "instr_count": 49,
+      "source": "IMPORTED",
+      "bytes": "48895c24084889742410574883ec20488bfa498bf0488bcf488d15a97a0400e88f95010033db85c07413488d157f7a0400488bcfe87a95010085c0751d488d052c4e0400488906488b7424388bc3488b5c24304883c4205fc3488d15777a0400488bcfe84a95010085c074d0488d159c7a0400488bcfe83795010085c074bd488d15717a0400488bcfe82495010085c07420488d15567a0400488bcfe81195010085c00f8538130200488d051f4e0400eb91488d0556650400eb8841b9b30000004c8d0511df0200488d15ba5e0200b9bb0000c0bbbb0000c0e83bf7fcff90e93cecfdff"
+    },
+    {
+      "name": "GetKeyDerivationInterface",
+      "offset": 6442602784,
+      "size": 233,
+      "instr_count": 45,
+      "source": "IMPORTED",
+      "bytes": "48895c24084889742410574883ec20488bfa498bf0488bcf488d1579340400e8ff4e010033db85c07463488d15e7340400488bcfe8ea4e010085c07450488d15c4340400488bcfe8d74e010085c0743d488d1599340400488bcfe8c44e010085c0742a488d156e340400488bcfe8b14e010085c07417488d1543340400488bcfe89e4e010085c00f85c9cf0100488d050c080400488906488b7424388bc3488b5c24304883c4205fc3488d15e3640200488bcfe8be7effff85c00f842030feff41b9410100004c8d05f6db0200488d159f5b0200b9bb0000c0bbbb0000c0e820f4fcff90e90130feff"
+    },
+    {
+      "name": "__security_check_cookie",
+      "offset": 6442604368,
+      "size": 30,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "483b0de9580500751048c1c11066f7c1ffff7501c348c1c910e932000000"
+    },
+    {
+      "name": "_DllMainCRTStartupForGS2",
+      "offset": 6442604404,
+      "size": 24,
+      "instr_count": 7,
+      "source": "ANALYSIS",
+      "bytes": "4883ec2883fa017505e86e010000b8010000004883c428c3"
+    },
+    {
+      "name": "__report_gsfailure",
+      "offset": 6442604448,
+      "size": 328,
+      "instr_count": 57,
+      "source": "ANALYSIS",
+      "bytes": "48894c24084881ec88000000488d0d0d5a0500e822020000488b05f95a050048894424484533c0488d542450488b4c2448e810020000488944244048837c244000744148c744243800000000488d4424584889442430488d4424604889442428488d05b959050048894424204c8b4c24404c8b442448488b54245033c9e8d0010000eb22488b842488000000488905855a0500488d8424880000004883c008488905125a0500488b056b5a0500488905dc580500488b842490000000488905dd590500c705b3580500090400c0c705ad58050001000000c705b758050001000000b808000000486bc000488d0daf58050048c7040102000000b808000000486bc000488b0d9757050048894c0468b808000000486bc001488b0d8a57050048894c0468488d0d46020400e82f010000ba090400c048c7c1ffffffffe8ee0000004881c488000000c3"
+    },
+    {
+      "name": "__security_init_cookie",
+      "offset": 6442604784,
+      "size": 67,
+      "instr_count": 13,
+      "source": "ANALYSIS",
+      "bytes": "4883ec2848833d4457050000741348b832a2df2d992b000048390531570500750c488d0d28570500e81f000000488b051c57050048f7d04889051a5705004883c428c3"
+    },
+    {
+      "name": "__security_init_cookie_ex",
+      "offset": 6442604860,
+      "size": 140,
+      "instr_count": 31,
+      "source": "ANALYSIS",
+      "bytes": "48894c24084883ec1848c704242003fe7f488b0424488b004889442408b80400000048050000fe7f8b00488b4c2408480fafc8488bc148c1e8188bc0483344242048b9ffffffffffff00004823c1488b4c2420488901488b442420488338007414488b44242048b932a2df2d992b00004839087512488b44242048b933a2df2d992b00004889084883c418c3"
+    },
+    {
+      "name": "NtTerminateProcess",
+      "offset": 6442605006,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25941a0400"
+    },
+    {
+      "name": "RtlCaptureContext",
+      "offset": 6442605018,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25b01a0400"
+    },
+    {
+      "name": "RtlLookupFunctionEntry",
+      "offset": 6442605030,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25f41a0400"
+    },
+    {
+      "name": "RtlVirtualUnwind",
+      "offset": 6442605042,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25101b0400"
+    },
+    {
+      "name": "RtlUnhandledExceptionFilter",
+      "offset": 6442605054,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25241b0400"
+    },
+    {
+      "name": "__C_specific_handler",
+      "offset": 6442683212,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff255ee90200"
+    },
+    {
+      "name": "entry",
+      "offset": 6442683232,
+      "size": 568,
+      "instr_count": 139,
+      "source": "IMPORTED",
+      "bytes": "488bc4488958104889681848897020574883ec3033ed498bd848896808488bf183fa010f85ac0100008b05412d040085c07505e8906cfeffa808751b4863059974fcff488d0db474fcfff6040880750733c0e9cc010000488bce48ff157fe702000f1f4400004c8bc3ba01000000488bcee89ecbfeffe8c961feff8b05ef2c040085c07505e83e6cfeffbf00020000a80874278b055b240400a804750a85c774190fbae00a7313b93200000048ff15ede602000f1f440000eb96e83d68feff488d052a6a030048892da32a0400488905b42a0400488d05852a0400488905be23040048892d772a040048c705842a040001000000e89f6cfeffe8a6f7fdff8bd885c07907b94f050000eba1488b058e230400f6401c20742b488bcfe860acfdff488905f12a04004885c0741741b800010000488bd033c948ff15aae602000f1f4400004c8d442440b905000000488d15acfeffff48ff1575e602000f1f44000085c0751b48ff152de602000f1f4400008bd885c07e090fb7d881cb00000780488b0d1a230400488d3d1323040085db7926f6411c200f8483000000483bcf7417488b49104c8bce895c2428e8cca40000488b0de9220400f6411c207461483bcf745c488b4910ba0e0000004c8bcee815a40000eb4985d27545e85a00feff488b0dbb220400f6411c20742e488d3dae220400483bcf7411488b4910ba0f0000004c8bcee8e0a30000488b0d092a04004885c97405e877ac0000e8f66cfeffb801000000488b5c2448488b6c2450488b7424584883c4305fc3"
+    },
+    {
+      "name": "_guard_check_icall",
+      "offset": 6442688208,
+      "size": 3,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "c20000"
+    },
+    {
+      "name": "__GSHandlerCheck",
+      "offset": 6442688232,
+      "size": 29,
+      "instr_count": 8,
+      "source": "ANALYSIS",
+      "bytes": "4883ec284d8b4138488bca498bd1e811000000b8010000004883c428c3"
+    },
+    {
+      "name": "__GSHandlerCheckCommon",
+      "offset": 6442688268,
+      "size": 91,
+      "instr_count": 28,
+      "source": "ANALYSIS",
+      "bytes": "4053458b18488bda4183e3f84c8bc941f600044c8bd17413418b40084d635004f7d84c03d14863c84c23d14963c34a8b1410488b43108b4808488b4308f64401030f740b0fb644010383e0f04c03c84c33ca498bc95be9e9b7feff"
+    },
+    {
+      "name": "__GSHandlerCheck_SEH",
+      "offset": 6442688368,
+      "size": 133,
+      "instr_count": 40,
+      "source": "ANALYSIS",
+      "bytes": "488bc44889580848896810488970184889782041564883ec204d8b5138488bf24d8bf0488be9498bd1488bce498bf9418b1a48c1e3044903da4c8d4304e85affffff8b45042466f6d8b8010000001bd2f7da03d085530474114c8bcf4d8bc6488bd6488bcde872ebffff488b5c2430488b6c2438488b742440488b7c24484883c420415ec3"
+    },
+    {
+      "name": "__chkstk",
+      "offset": 6442688507,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff253fd50200"
+    },
+    {
+      "name": "_local_unwind",
+      "offset": 6442688519,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff253bd50200"
+    },
+    {
+      "name": "memcmp",
+      "offset": 6442688531,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2537d50200"
+    },
+    {
+      "name": "memcpy",
+      "offset": 6442688543,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff2533d50200"
+    },
+    {
+      "name": "memmove",
+      "offset": 6442688555,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff252fd50200"
+    },
+    {
+      "name": "memset",
+      "offset": 6442688567,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff25f3d40200"
+    },
+    {
+      "name": "wcscmp",
+      "offset": 6442688579,
+      "size": 6,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "ff251fd50200"
+    },
+    {
+      "name": "_guard_dispatch_icall",
+      "offset": 6442688608,
+      "size": 2,
+      "instr_count": 1,
+      "source": "IMPORTED",
+      "bytes": "ffe0"
+    },
+    {
+      "name": "thunk_FUN_1800435c0",
+      "offset": 6442722716,
+      "size": 5,
+      "instr_count": 1,
+      "source": "DEFAULT",
+      "bytes": "e91f100000"
+    },
+    {
+      "name": "ProcessPrngGuid",
+      "offset": 6442726768,
+      "size": 73,
+      "instr_count": 22,
+      "source": "IMPORTED",
+      "bytes": "48895c2408574883ec20bf01000000488bd98d570fe8861afdff85c0750433ffeb1a8063083fb8ff0f000066214306b800400000804b088066094306488b5c24308bc74883c4205fc3"
+    },
+    {
+      "name": "MSCryptConvertRsaPrivateBlobToFullRsaBlob",
+      "offset": 6442727104,
+      "size": 799,
+      "instr_count": 210,
+      "source": "IMPORTED",
+      "bytes": "488bc44889580848897010488978184c8960205541564157488d68a94881ecc0000000488365cf00498bf8488365d7008bf24c8bf1488d15fc4d02004533c0488d4dcf458bf9e8c5c2fdff8bd885c0792041b92e0000004c8d05d2c60200488d151b4602008bc8e8a4defcffe97902000083642430004c8d4dd7488b4dcf4c8d055b4802008974242833d24c89742420e8abe4fcff4c8b75d78bd885c0791441b93c000000488d15d44502008bc8e91e020000498bcee8d9fbfcff488d35be450200488bd84885c00f84d3010000837810000f84c9010000488b50204885d20f84bc010000488b423048c1e82085c0750d8b4a30e8afbffdff448bc8eb0b8bc8e8a3bffdff448d4804448b420c4183c00741c1e803807a0400750cbb0d0000c08bfbe99f010000448b521c448b5a204183c20741c1ea034183c30741c1eb03418d4a08418d04098d0448438d14038d0c50488b457f89084885ff750733dbe97a010000443bf97307bb230000c0ebb1c707525341334c8d67188b430c89470444894f084489470c4489571044895f14418bca418bc3488945ff4889451f458bf94c8d4dd74d03e7c74424380200000048894def498bd448894df748894d174b8d3c204c8945df48897d074803f948897d0f4803f848897d274803f9488b4b2048897d2f4803f8498d043a488945e7488d45f74889442430488d45074889442428e8dfbefdff85c074168bc8e80c3bfcff41b9cb0600008bf88bc8e992000000488b45d74d85ff741149ffcc4188042448c1e8084983ef0175ef4885c07412b9b200800ce8d43afcff41b9d3060000ebc6488b45df4c8d4517488b4b20488d5527488944243841b902000000488b45e74889442430488b45ef488944242848897c2420e8257a010085c074128bc8e88a3afcff41b9e7060000e979ffffff33ffeb1fbf080000c041b923060000b9080000c04c8d05884b0200488bd6e850dcfcff8bdf85ff791741b94a000000488bd68bcf4c8d0558c40200e833dcfcff4d85f67408498bcee8d6f9fcff48837dcf00740b488b4dcf33d2e874cdfdff4c8d9c24c00000008bc3498b5b20498b7328498b7b304d8b6338498be3415f415e5dc3"
+    }
+  ],
+  "total_functions": 942,
+  "exported_functions": 36
+}
