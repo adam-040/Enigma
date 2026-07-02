@@ -14,6 +14,7 @@
 #include <unordered_map>
 #include <cstring>
 #include <filesystem>
+#include <unordered_set>
 #include <algorithm>
 
 namespace ghidra {
@@ -159,6 +160,62 @@ std::vector<uint8_t> serializeCandidateList(
     return std::vector<uint8_t>(buf, buf + size);
 }
 
+// Write with collision merge: if key exists, merge candidates instead of overwriting.
+bool putEntryMerge(MDB_txn* txn, MDB_dbi dbi,
+                   const std::vector<uint8_t>& key,
+                   const std::vector<uint8_t>& newValue) {
+    MDB_val k{key.size(), const_cast<uint8_t*>(key.data())};
+    MDB_val v{newValue.size(), const_cast<uint8_t*>(newValue.data())};
+
+    int rc = mdb_put(txn, dbi, &k, &v, MDB_NOOVERWRITE);
+    if (rc == 0) return true;
+    if (rc != MDB_KEYEXIST) return false;
+
+    MDB_val existing{0, nullptr};
+    rc = mdb_get(txn, dbi, &k, &existing);
+    if (rc != 0) return false;
+    if (existing.mv_size == 0) return false;
+
+    auto existingCandidates = FksIndexManager::extractAllCandidates(
+        std::vector<uint8_t>(
+            static_cast<const uint8_t*>(existing.mv_data),
+            static_cast<const uint8_t*>(existing.mv_data) + existing.mv_size));
+
+    auto newCandidates = FksIndexManager::extractAllCandidates(newValue);
+
+    std::unordered_set<uint64_t> existingUids;
+    for (auto& c : existingCandidates) existingUids.insert(c.uid);
+
+    std::vector<CandidateEntry> merged;
+    auto addEntry = [&](const std::string& family, const std::string& compiler,
+                        const CandidateInfo& c) {
+        CandidateEntry e;
+        e.uid = c.uid; e.name = c.name; e.nameDemangled = c.nameDemangled;
+        e.namespacePath = c.namespacePath; e.signature = c.signature;
+        e.family = family; e.compiler = compiler;
+        e.bodySize = c.bodySize; e.instrCount = c.instrCount;
+        e.callCount = c.callCount; e.basicBlocks = c.basicBlocks;
+        e.cyclomatic = c.cyclomatic; e.hasFrame = c.hasFrame;
+        e.isThunk = c.isThunk; e.isLibrary = c.isLibrary; e.exported = c.exported;
+        merged.push_back(std::move(e));
+    };
+
+    std::string mergeFamily = newCandidates.empty() ? "unknown" : newCandidates[0].family;
+    std::string mergeCompiler = newCandidates.empty() ? "unknown" : newCandidates[0].compiler;
+
+    for (auto& c : existingCandidates) addEntry(mergeFamily, mergeCompiler, c);
+    for (auto& c : newCandidates) {
+        if (existingUids.count(c.uid)) continue;
+        addEntry(mergeFamily, mergeCompiler, c);
+    }
+
+    auto serialized = serializeCandidateList(mergeFamily, mergeCompiler, merged);
+    v.mv_data = const_cast<uint8_t*>(serialized.data());
+    v.mv_size = serialized.size();
+    rc = mdb_put(txn, dbi, &k, &v, 0);
+    return rc == 0;
+}
+
 } // anonymous namespace
 
 // ── Public API ───────────────────────────────────────────────────────────────
@@ -241,7 +298,7 @@ bool FksIndexManager::indexLibrary(const std::string& fksDir, const FksLibrary& 
     for (auto& [key, candidates] : groups) {
         auto serialized = serializeCandidateList(family, compiler, candidates);
         std::vector<uint8_t> lmdbKey = makeHashKey(key.prefix, key.hash);
-        ok = ok && putEntry(txn, dbi, lmdbKey, serialized);
+        ok = ok && putEntryMerge(txn, dbi, lmdbKey, serialized);
         if (!ok) break;
     }
 
@@ -266,7 +323,7 @@ bool FksIndexManager::indexLibrary(const std::string& fksDir, const FksLibrary& 
             entry.exported      = func.exported;
             auto serialized = serializeCandidateList(family, compiler, {entry});
             auto addrKey = makeAddressKey(PREFIX_ADDRESS, family, func.virtualAddress);
-            ok = ok && putEntry(txn, dbi, addrKey, serialized);
+            ok = ok && putEntryMerge(txn, dbi, addrKey, serialized);
             if (!ok) break;
         }
     }
@@ -297,7 +354,7 @@ bool FksIndexManager::indexLibrary(const std::string& fksDir, const FksLibrary& 
         for (auto& [hash, candidates] : demGroups) {
             auto serialized = serializeCandidateList(family, compiler, candidates);
             auto key = makeHashKey(PREFIX_DEMANGLED_NAME, hash);
-            ok = ok && putEntry(txn, dbi, key, serialized);
+            ok = ok && putEntryMerge(txn, dbi, key, serialized);
             if (!ok) break;
         }
     }
@@ -328,7 +385,7 @@ bool FksIndexManager::indexLibrary(const std::string& fksDir, const FksLibrary& 
         for (auto& [hash, candidates] : nsGroups) {
             auto serialized = serializeCandidateList(family, compiler, candidates);
             auto key = makeHashKey(PREFIX_NAMESPACE, hash);
-            ok = ok && putEntry(txn, dbi, key, serialized);
+            ok = ok && putEntryMerge(txn, dbi, key, serialized);
             if (!ok) break;
         }
     }
@@ -358,7 +415,7 @@ bool FksIndexManager::indexLibrary(const std::string& fksDir, const FksLibrary& 
         for (auto& [composite, candidates] : biGroups) {
             auto serialized = serializeCandidateList(family, compiler, candidates);
             auto key = makeHashKey(PREFIX_BODY_INSTR, composite);
-            ok = ok && putEntry(txn, dbi, key, serialized);
+            ok = ok && putEntryMerge(txn, dbi, key, serialized);
             if (!ok) break;
         }
     }
@@ -550,13 +607,14 @@ std::unordered_map<uint64_t, std::vector<uint64_t>> FksIndexManager::buildCallee
                 }
             }
 
-            // Sort callee vectors for consistent comparison
-            for (auto& [uid, callees] : cachedIndex) {
-                std::sort(callees.begin(), callees.end());
-            }
         } catch (...) {
             continue;
         }
+    }
+
+    // Sort callee vectors once for consistent comparison
+    for (auto& [uid, callees] : cachedIndex) {
+        std::sort(callees.begin(), callees.end());
     }
 
     populated = true;

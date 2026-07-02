@@ -14,6 +14,7 @@
 #include <ghidra/FNV1a64.h>
 #include <capstone/capstone.h>
 #include <capstone/x86.h>
+#include <capstone/arm64.h>
 #include <nlohmann/json.hpp>
 
 #include <iostream>
@@ -44,6 +45,7 @@ struct JsonFunction {
     std::string namespacePath;
     bool isThunk = false;
     bool isLibrary = false;
+    bool isExported = false;
     bool isExternal = false;
     std::string signature;
     int basicBlocks = 0;
@@ -116,6 +118,7 @@ static JsonExport parseJsonExport(const std::string& filePath) {
         f.namespacePath   = jf.value("namespace", "");
         f.isThunk         = jf.value("is_thunk", false);
         f.isLibrary       = jf.value("is_library", false);
+        f.isExported      = jf.value("is_exported", false);
         f.isExternal      = jf.value("is_external", false);
         f.signature       = jf.value("signature", "");
         f.basicBlocks     = jf.value("basic_blocks", 0);
@@ -160,20 +163,20 @@ static bool isCallOrJump(const std::string& mn) {
            mn == "loop" || mn == "loope" || mn == "loopne";
 }
 
-static FunctionFingerprint computeHashes(const uint8_t* bytes, int size) {
+static FunctionFingerprint computeHashes(const uint8_t* bytes, int size, int arch = CS_ARCH_X86) {
     FunctionFingerprint fp;
 
-    // V1: raw-byte FNV-1a (first 32 bytes or less)
-    int v1Len = std::min(size, FunctionFingerprinter::MAX_SHORT_HASH_BYTES);
-    uint64_t v1Hash = fnv1a64(bytes, v1Len);
-    fp.v1.fullHash  = v1Hash;
-    fp.v1.shortHash = v1Hash;
+    // V1: raw-byte FNV-1a
+    fp.v1.fullHash  = fnv1a64(bytes, size);                              // all bytes
+    int v1ShortLen = std::min(size, FunctionFingerprinter::MAX_SHORT_HASH_BYTES);
+    fp.v1.shortHash = fnv1a64(bytes, v1ShortLen);                        // first 32 bytes
     fp.v1.mnemHash  = 0;
     fp.v1.callHash  = 0;
 
-    // V2: Capstone mnemonic-sequence hashing
+    // V2: Capstone mnemonic-sequence hashing (supports CS_ARCH_X86 and CS_ARCH_ARM64)
     csh handle;
-    if (cs_open(CS_ARCH_X86, CS_MODE_64, &handle) != CS_ERR_OK)
+    cs_mode capMode = (arch == CS_ARCH_ARM64) ? CS_MODE_ARM : CS_MODE_64;
+    if (cs_open(static_cast<cs_arch>(arch), capMode, &handle) != CS_ERR_OK)
         return fp;
 
     cs_option(handle, CS_OPT_DETAIL, CS_OPT_ON);
@@ -251,7 +254,7 @@ static FunctionFingerprint computeHashes(const uint8_t* bytes, int size) {
 int main(int argc, char* argv[]) {
     if (argc < 3) {
         std::cerr << "Usage: enigma_fks_ingest_from_ghidra <export.json> <output.fkslib> "
-                  << "[--family <name>] [--compiler <name>] [--version <ver>]\n";
+                  << "[--family <name>] [--compiler <name>] [--version <ver>] [--arch x86|arm64]\n";
         return 1;
     }
 
@@ -260,13 +263,18 @@ int main(int argc, char* argv[]) {
     std::string family   = "unknown";
     std::string compiler = "unknown";
     std::string version  = "";
+    std::string archStr  = "x86";
 
     for (int i = 3; i < argc; i++) {
         std::string arg = argv[i];
         if (arg == "--family"   && i + 1 < argc) family   = argv[++i];
         else if (arg == "--compiler" && i + 1 < argc) compiler = argv[++i];
         else if (arg == "--version"  && i + 1 < argc) version  = argv[++i];
+        else if (arg == "--arch"     && i + 1 < argc) archStr  = argv[++i];
     }
+
+    int capArch = CS_ARCH_X86;
+    if (archStr == "arm64" || archStr == "aarch64") capArch = CS_ARCH_ARM64;
 
     // Parse JSON
     JsonExport data = parseJsonExport(jsonPath);
@@ -294,7 +302,7 @@ int main(int argc, char* argv[]) {
     meta.family      = family;
     meta.version     = version;
     meta.compiler    = compiler;
-    meta.language    = "x86:LE:64:default";
+    meta.language    = (capArch == CS_ARCH_ARM64) ? "AARCH64:LE:64:v8A" : "x86:LE:64:default";
     meta.description = "Imported from Ghidra FID analysis of " + data.binary;
     meta.created     = static_cast<uint64_t>(std::time(nullptr));
     lib.setMeta(meta);
@@ -309,7 +317,8 @@ int main(int argc, char* argv[]) {
         }
 
         FunctionFingerprint fp = computeHashes(func.bytes.data(),
-                                                static_cast<int>(func.bytes.size()));
+                                                static_cast<int>(func.bytes.size()),
+                                                capArch);
 
         FksFunction fkFunc;
         fkFunc.uid             = fp.fullHash();
@@ -334,7 +343,7 @@ int main(int argc, char* argv[]) {
         fkFunc.isLibrary   = func.isLibrary;
         fkFunc.isExternal  = func.isExternal;
         fkFunc.signature   = func.signature;
-        fkFunc.exported    = (func.source == "IMPORTED");
+        fkFunc.exported    = func.isExported;
         fkFunc.virtualAddress = func.offset;
 
         lib.addFunction(fkFunc);
@@ -342,16 +351,33 @@ int main(int argc, char* argv[]) {
     }
 
     // ── Populate FksRelation table from caller→callee data ──
+    // Track which JSON indices were actually ingested into the library
+    std::unordered_map<int, int> jsonIdxToLibIdx;  // json index → library index
+    int libIdx = 0;
+    for (int jsonIdx = 0; jsonIdx < static_cast<int>(data.functions.size()); jsonIdx++) {
+        auto& func = data.functions[jsonIdx];
+        if (func.bytes.empty() || func.bytes.size() < 1) continue;
+        jsonIdxToLibIdx[jsonIdx] = libIdx++;
+    }
+
     for (int callerIdx = 0; callerIdx < static_cast<int>(data.functions.size()); callerIdx++) {
         auto& func = data.functions[callerIdx];
+        auto callerIt = jsonIdxToLibIdx.find(callerIdx);
+        if (callerIt == jsonIdxToLibIdx.end()) continue;  // caller was skipped
+
         for (uint64_t calleeAddr : func.calledFunctions) {
             auto it = addrToIndex.find(calleeAddr);
-            if (it != addrToIndex.end()) {
-                FksRelation rel;
-                rel.callerIndex = static_cast<uint32_t>(callerIdx);
-                rel.calleeIndex = static_cast<uint32_t>(it->second);
-                lib.addRelation(rel);
-            }
+            if (it == addrToIndex.end()) continue;  // callee not found
+
+            auto calleeIt = jsonIdxToLibIdx.find(it->second);
+            if (calleeIt == jsonIdxToLibIdx.end()) continue;  // callee was skipped
+
+            if (callerIt->second == calleeIt->second) continue;  // self-loop
+
+            FksRelation rel;
+            rel.callerIndex = static_cast<uint32_t>(callerIt->second);
+            rel.calleeIndex = static_cast<uint32_t>(calleeIt->second);
+            lib.addRelation(rel);
         }
     }
 

@@ -28,6 +28,9 @@ import ghidra.app.script.GhidraScript;
 import ghidra.program.model.listing.*;
 import ghidra.program.model.address.*;
 import ghidra.program.model.symbol.*;
+import ghidra.program.model.symbol.ExternalLocation;
+import ghidra.program.model.symbol.ExternalManager;
+import ghidra.program.model.symbol.ExternalLocationIterator;
 import ghidra.program.model.block.SimpleBlockModel;
 import ghidra.program.model.block.CodeBlock;
 import ghidra.program.model.block.CodeBlockIterator;
@@ -80,7 +83,8 @@ public class EnigmaExportFidMatches extends GhidraScript {
             File envFile = new File(envOverride);
             if (envFile.isDirectory() || envOverride.endsWith("\\") || envOverride.endsWith("/")) {
                 String baseName = currentProgram.getName();
-                if (baseName.endsWith(".dll") || baseName.endsWith(".exe") || baseName.endsWith(".drv")) {
+                String baseNameLower = baseName.toLowerCase();
+                if (baseNameLower.endsWith(".dll") || baseNameLower.endsWith(".exe") || baseNameLower.endsWith(".drv")) {
                     baseName = baseName.substring(0, baseName.lastIndexOf('.'));
                 }
                 outputPath = envOverride + baseName + "_export.json";
@@ -203,6 +207,16 @@ public class EnigmaExportFidMatches extends GhidraScript {
                     // ignore
                 }
 
+                // Exported flag (part of DLL's public API via export table)
+                boolean isExported = false;
+                try {
+                    ExternalManager extMgr = currentProgram.getExternalManager();
+                    ExternalLocationIterator extLocIter = extMgr.getExternalLocations(func.getEntryPoint());
+                    isExported = extLocIter.hasNext();
+                } catch (Exception e) {
+                    // ignore
+                }
+
                 // Thunk / library flags
                 boolean isThunk = false;
                 boolean isLibrary = false;
@@ -289,9 +303,10 @@ public class EnigmaExportFidMatches extends GhidraScript {
                 writer.println("      \"bytes\": \"" + bytesToHex(rawBytes) + "\",");
                 writer.println("      \"name_demangled\": \"" + escapeJson(nameDemangled) + "\",");
                 writer.println("      \"namespace\": \"" + escapeJson(namespacePath) + "\",");
-                writer.println("      \"is_thunk\": " + isThunk + ",");
-                writer.println("      \"is_library\": " + isLibrary + ",");
-                writer.println("      \"is_external\": false,");
+                    writer.println("      \"is_thunk\": " + isThunk + ",");
+                    writer.println("      \"is_library\": " + isLibrary + ",");
+                    writer.println("      \"is_exported\": " + isExported + ",");
+                    writer.println("      \"is_external\": false,");
                 writer.println("      \"signature\": \"" + escapeJson(signature) + "\",");
                 writer.println("      \"basic_blocks\": " + basicBlocks + ",");
                 writer.println("      \"cyclomatic\": " + cyclomatic + ",");

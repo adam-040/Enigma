@@ -9,8 +9,10 @@
 #include <ghidra/Memory.h>
 #include <ghidra/MemoryBlock.h>
 #include <ghidra/FNV1a64.h>
+#include <ghidra/LanguageID.h>
 #include <capstone/capstone.h>
 #include <capstone/x86.h>
+#include <capstone/arm64.h>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -26,6 +28,15 @@ uint64_t fnv1a64(const uint8_t* data, int length) {
     return h.digest();
 }
 
+// Detect Capstone architecture from program language ID.
+bool isArm64Program(Program* program) {
+    if (!program) return false;
+    std::string lid = program->getLanguageID().getIdAsString();
+    return lid.find("AARCH64") != std::string::npos ||
+           lid.find("aarch64") != std::string::npos ||
+           lid.find("ARM64") != std::string::npos;
+}
+
 // ── V2 helpers ──────────────────────────────────────────────────────────────
 
 // Disassemble up to maxInstr instructions from entry point using Capstone.
@@ -35,21 +46,20 @@ struct CsInstr {
     int length;
 };
 
-std::vector<CsInstr> capstoneDisassemble(Memory* memory, Address entry, int maxInstr) {
+std::vector<CsInstr> capstoneDisassemble(const uint8_t* codeBuf, int bytesRead,
+                                          uint64_t baseAddr, int maxInstr,
+                                          cs_arch arch, cs_mode mode) {
     std::vector<CsInstr> result;
+    if (bytesRead < 1) return result;
+
     csh handle;
-    if (cs_open(CS_ARCH_X86, CS_MODE_64, &handle) != CS_ERR_OK)
+    if (cs_open(arch, mode, &handle) != CS_ERR_OK)
         return result;
     cs_option(handle, CS_OPT_DETAIL, CS_OPT_ON);
 
-    // Read up to 64 bytes from entry
-    uint8_t codeBuf[64];
-    int bytesRead = memory->getBytes(entry, codeBuf, sizeof(codeBuf));
-    if (bytesRead < 1) { cs_close(&handle); return result; }
-
     cs_insn* insns = nullptr;
     size_t count = cs_disasm(handle, codeBuf, bytesRead,
-                             entry.getOffset(), maxInstr, &insns);
+                             baseAddr, maxInstr, &insns);
     for (size_t i = 0; i < count; i++) {
         CsInstr ci;
         ci.mnemonic = insns[i].mnemonic;
@@ -84,19 +94,37 @@ FunctionFingerprint FunctionFingerprinter::compute(Function* func, Program* prog
     Address entry = func->getEntryPoint();
     if (!entry.isValid()) return fp;
 
-    // ── V1: raw-byte FNV-1a (backward-compatible with FidHasher) ────────────
-    uint8_t buf[MAX_SHORT_HASH_BYTES];
-    int bytesRead = memory->getBytes(entry, buf, MAX_SHORT_HASH_BYTES);
+    // Determine body size and read all available bytes.
+    // Use getNumAddresses() as an estimate; cap at 1 MB to avoid pathological cases.
+    int64_t bodySize = func->getBody().getNumAddresses();
+    if (bodySize < 1) bodySize = 256;
+    if (bodySize > 1024 * 1024) bodySize = 1024 * 1024;
+
+    std::vector<uint8_t> bodyBuf(static_cast<size_t>(bodySize));
+    int bytesRead = memory->getBytes(entry, bodyBuf.data(), static_cast<int>(bodySize));
     if (bytesRead < 1) return fp;
 
-    uint64_t hash = fnv1a64(buf, bytesRead);
-    fp.v1.fullHash  = hash;
-    fp.v1.shortHash = hash;
+    // ── V1: raw-byte FNV-1a (backward-compatible with FidHasher) ────────────
+    // fullHash = all body bytes (matching the fixed ingest tool)
+    fp.v1.fullHash  = fnv1a64(bodyBuf.data(), bytesRead);
+    // shortHash = first 32 bytes only (FLIRT-compatible quick filter)
+    int shortLen = std::min(bytesRead, MAX_SHORT_HASH_BYTES);
+    fp.v1.shortHash = fnv1a64(bodyBuf.data(), shortLen);
     fp.v1.mnemHash  = 0;
     fp.v1.callHash  = 0;
 
     // ── V2: Capstone instruction-aware hashing ──────────────────────────────
-    auto instrs = capstoneDisassemble(memory, entry, 32);
+    // Select architecture from program language
+    cs_arch csArch = CS_ARCH_X86;
+    cs_mode csMode = CS_MODE_64;
+    if (isArm64Program(program)) {
+        csArch = CS_ARCH_ARM64;
+        csMode = CS_MODE_ARM;
+    }
+
+    auto instrs = capstoneDisassemble(bodyBuf.data(), bytesRead,
+                                       entry.getOffset(), 32,
+                                       csArch, csMode);
     if (!instrs.empty()) {
         // V2 fullHash: hash all mnemonic strings (opcode sequence)
         {

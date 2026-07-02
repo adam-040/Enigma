@@ -18,11 +18,10 @@
 
 #include <capstone/capstone.h>
 #include <capstone/x86.h>
+#include <capstone/arm64.h>
 #include <unordered_map>
 
 namespace ghidra {
-
-static std::unordered_map<std::string, FlowType*> flowTypeCache;
 
 // Extract address-relevant scalar values from a Capstone instruction.
 // For x86/x86_64 this resolves RIP/EIP-relative displacements to absolute
@@ -114,8 +113,8 @@ public:
             alignment_ = 1;
             bitness_ = bitness;
         } else if (architecture.find("arm") != std::string::npos || architecture.find("ARM") != std::string::npos) {
-            csArch = CS_ARCH_ARM;
-            csMode = (bitness == 64) ? CS_MODE_ARM : CS_MODE_ARM;
+            csArch = (bitness == 64) ? CS_ARCH_ARM64 : CS_ARCH_ARM;
+            csMode = CS_MODE_ARM;
             alignment_ = 4;
             bitness_ = bitness;
         } else if (architecture.find("mips") != std::string::npos || architecture.find("MIPS") != std::string::npos) {

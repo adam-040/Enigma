@@ -38,8 +38,10 @@
 #include <ghidra/StackReferenceAnalyzer.h>
 #include <ghidra/StackVariableAnalyzer.h>
 #include <ghidra/TaskMonitor.h>
+#include <ghidra/LanguageID.h>
 #include <capstone/capstone.h>
 #include <capstone/x86.h>
+#include <capstone/arm64.h>
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -80,18 +82,40 @@ bool isCallOrJump(const std::string& mn) {
            mn == "loop" || mn == "loope" || mn == "loopne";
 }
 
-std::vector<std::string> disassembleMnemonics(Memory* memory, Address entry, int maxInstr) {
+bool isArm64Program(Program* program) {
+    if (!program) return false;
+    std::string lid = program->getLanguageID().getIdAsString();
+    return lid.find("AARCH64") != std::string::npos ||
+           lid.find("aarch64") != std::string::npos ||
+           lid.find("ARM64") != std::string::npos;
+}
+
+std::vector<std::string> disassembleMnemonics(Memory* memory, Address entry, int maxInstr,
+                                               Program* program) {
     std::vector<std::string> result;
+    cs_arch csArch = CS_ARCH_X86;
+    cs_mode csMode = CS_MODE_64;
+    if (isArm64Program(program)) {
+        csArch = CS_ARCH_ARM64;
+        csMode = CS_MODE_ARM;
+    }
+
     csh handle;
-    if (cs_open(CS_ARCH_X86, CS_MODE_64, &handle) != CS_ERR_OK)
+    if (cs_open(csArch, csMode, &handle) != CS_ERR_OK)
         return result;
 
-    uint8_t codeBuf[64];
-    int bytesRead = memory->getBytes(entry, codeBuf, sizeof(codeBuf));
+    // Read up to 1 KB for disassembly (avoids stack overflow on huge functions)
+    int64_t bodySize = 1024;
+    if (program) {
+        // Try to get function body size from FunctionManager
+        // (not available in this context, so use default)
+    }
+    std::vector<uint8_t> codeBuf(static_cast<size_t>(bodySize));
+    int bytesRead = memory->getBytes(entry, codeBuf.data(), static_cast<int>(bodySize));
     if (bytesRead < 1) { cs_close(&handle); return result; }
 
     cs_insn* insns = nullptr;
-    size_t count = cs_disasm(handle, codeBuf, bytesRead,
+    size_t count = cs_disasm(handle, codeBuf.data(), bytesRead,
                              entry.getOffset(), maxInstr, &insns);
     for (size_t i = 0; i < count; i++)
         result.push_back(insns[i].mnemonic);
@@ -228,7 +252,7 @@ std::vector<FuncRecord> extractFunctions(Program* prog) {
             rec.v1FullHash  = fp.v1.fullHash;
             rec.v1ShortHash = fp.v1.shortHash;
 
-            auto mnems = disassembleMnemonics(mem, f->getEntryPoint(), 32);
+            auto mnems = disassembleMnemonics(mem, f->getEntryPoint(), 32, prog);
             rec.instrCount = static_cast<int>(mnems.size());
             for (size_t i = 0; i < mnems.size(); i++) {
                 if (i > 0) rec.mnemonicSequence += ",";
