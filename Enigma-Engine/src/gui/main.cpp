@@ -27,8 +27,45 @@ static void printStack() {
     USHORT frames = CaptureStackBackTrace(1, 64, stack, NULL);
     CRASHLOG("  Stack (%d frames):\n", frames);
     for (USHORT i = 0; i < frames; ++i) {
-        CRASHLOG("    #%d: 0x%p\n", i, stack[i]);
+        HMODULE hMod = nullptr;
+        GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+            (LPCWSTR)stack[i], &hMod);
+        wchar_t modName[MAX_PATH] = L"<unknown>";
+        if (hMod) GetModuleFileNameW(hMod, modName, MAX_PATH);
+        CRASHLOG("    #%d: 0x%p  [%ls+0x%p]\n", i, stack[i], modName,
+            (void*)((char*)stack[i] - (char*)hMod));
     }
+}
+
+static LONG WINAPI vehHandler(EXCEPTION_POINTERS* ep) {
+    // Only intercept hardware exceptions (access violations, etc.)
+    DWORD code = ep->ExceptionRecord->ExceptionCode;
+    if (code != EXCEPTION_ACCESS_VIOLATION &&
+        code != EXCEPTION_ILLEGAL_INSTRUCTION &&
+        code != EXCEPTION_STACK_OVERFLOW &&
+        code != EXCEPTION_GUARD_PAGE) {
+        return EXCEPTION_CONTINUE_SEARCH;
+    }
+    CRASHLOG("\n=== VEH EXCEPTION ===\n");
+    CRASHLOG("ExceptionCode: 0x%08X\n", code);
+    CRASHLOG("ExceptionAddress: 0x%p\n", ep->ExceptionRecord->ExceptionAddress);
+    if (code == EXCEPTION_ACCESS_VIOLATION) {
+        CRASHLOG("AccessViolation: %s at 0x%p\n",
+            ep->ExceptionRecord->ExceptionInformation[0] ? "write" : "read",
+            (void*)ep->ExceptionRecord->ExceptionInformation[1]);
+    }
+    HMODULE hCrashMod = nullptr;
+    GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+        (LPCWSTR)ep->ExceptionRecord->ExceptionAddress, &hCrashMod);
+    wchar_t crashMod[MAX_PATH] = L"<unknown>";
+    if (hCrashMod) GetModuleFileNameW(hCrashMod, crashMod, MAX_PATH);
+    CRASHLOG("CrashModule: %ls\n", crashMod);
+    CRASHLOG("CrashOffset: 0x%p\n",
+        (void*)((char*)ep->ExceptionRecord->ExceptionAddress - (char*)hCrashMod));
+    printStack();
+    CRASHLOG("=== END VEH ===\n\n");
+    fflush(g_crashLog);
+    return EXCEPTION_CONTINUE_SEARCH;
 }
 
 static LONG WINAPI sehHandler(EXCEPTION_POINTERS* ep) {
@@ -41,6 +78,14 @@ static LONG WINAPI sehHandler(EXCEPTION_POINTERS* ep) {
             ep->ExceptionRecord->ExceptionInformation[0] ? "write" : "read",
             (void*)ep->ExceptionRecord->ExceptionInformation[1]);
     }
+    HMODULE hCrashMod = nullptr;
+    GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+        (LPCWSTR)ep->ExceptionRecord->ExceptionAddress, &hCrashMod);
+    wchar_t crashMod[MAX_PATH] = L"<unknown>";
+    if (hCrashMod) GetModuleFileNameW(hCrashMod, crashMod, MAX_PATH);
+    CRASHLOG("CrashModule: %ls\n", crashMod);
+    CRASHLOG("CrashOffset: 0x%p\n",
+        (void*)((char*)ep->ExceptionRecord->ExceptionAddress - (char*)hCrashMod));
     printStack();
     CRASHLOG("=== END SEH ===\n\n");
     fclose(g_crashLog);
@@ -110,6 +155,8 @@ static void installCrashHandlers() {
         si.dwPageSize, si.lpMinimumApplicationAddress, si.lpMaximumApplicationAddress);
     CRASHLOG("\n");
 
+    // VEH fires before any other handler (more reliable than SetUnhandledExceptionFilter)
+    AddVectoredExceptionHandler(1, vehHandler);
     SetUnhandledExceptionFilter(sehHandler);
     signal(SIGABRT, signalHandler);
     signal(SIGSEGV, signalHandler);

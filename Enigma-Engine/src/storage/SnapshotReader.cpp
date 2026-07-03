@@ -34,6 +34,8 @@
 #include <ghidra/ArrayDataType.h>
 #include <ghidra/PointerDataType.h>
 #include <ghidra/Composite.h>
+#include <ghidra/ProgramAddressFactory.h>
+#include <ghidra/AddressSpace.h>
 #include "program_generated.h"
 #include <flatbuffers/flatbuffers.h>
 #include <fstream>
@@ -85,6 +87,25 @@ std::unique_ptr<ProgramDB> SnapshotReader::deserialize(const uint8_t* data, size
     if (snapshot->compiler_spec_id())
         program->setCompilerSpecID(CompilerSpecID(snapshot->compiler_spec_id()->str()));
 
+    // Register address spaces on the program's address factory
+    AddressSpace* ramSpace = nullptr;
+    {
+        auto* af = dynamic_cast<ProgramAddressFactory*>(program->getAddressFactory());
+        if (af) {
+            ramSpace = new GenericAddressSpace("ram", 64, AddressSpace::TYPE_RAM, 1);
+            auto* constSpace = new GenericAddressSpace("const", 64, AddressSpace::TYPE_CONSTANT, 2);
+            auto* uniqueSpace = new GenericAddressSpace("unique", 64, AddressSpace::TYPE_UNIQUE, 3);
+            auto* regSpace = new GenericAddressSpace("register", 64, AddressSpace::TYPE_REGISTER, 4);
+            auto* stackSpace = new GenericAddressSpace("stack", 64, AddressSpace::TYPE_STACK, 5);
+            af->addAddressSpace(ramSpace);
+            af->addAddressSpace(constSpace);
+            af->addAddressSpace(uniqueSpace);
+            af->addAddressSpace(regSpace);
+            af->addAddressSpace(stackSpace);
+            af->setDefaultSpace(ramSpace);
+        }
+    }
+
     bool bigEndian = snapshot->is_big_endian();
 
     // Build address space and memory if blocks present
@@ -93,7 +114,7 @@ std::unique_ptr<ProgramDB> SnapshotReader::deserialize(const uint8_t* data, size
             auto defaultMem = std::make_unique<DefaultMemory>(bigEndian);
             for (auto* fbBlock : *memBlocks) {
                 std::string name = fbBlock->name() ? fbBlock->name()->str() : "";
-                Address start(nullptr, static_cast<int64_t>(fbBlock->start_address()));
+                Address start(ramSpace, static_cast<int64_t>(fbBlock->start_address()));
                 long long size = static_cast<long long>(fbBlock->length());
                 auto* bytes = fbBlock->bytes();
                 if (bytes && bytes->size() > 0) {
@@ -113,10 +134,10 @@ std::unique_ptr<ProgramDB> SnapshotReader::deserialize(const uint8_t* data, size
 
     // Set address metadata
     if (snapshot->image_base() != 0)
-        program->setImageBase(Address(nullptr, static_cast<int64_t>(snapshot->image_base())));
+        program->setImageBase(Address(ramSpace, static_cast<int64_t>(snapshot->image_base())));
     if (snapshot->min_address() != 0 || snapshot->max_address() != 0) {
-        program->setMinAddress(Address(nullptr, static_cast<int64_t>(snapshot->min_address())));
-        program->setMaxAddress(Address(nullptr, static_cast<int64_t>(snapshot->max_address())));
+        program->setMinAddress(Address(ramSpace, static_cast<int64_t>(snapshot->min_address())));
+        program->setMaxAddress(Address(ramSpace, static_cast<int64_t>(snapshot->max_address())));
     }
 
     // Type ID map — built during data type restoration, used by function restoration
@@ -267,11 +288,11 @@ std::unique_ptr<ProgramDB> SnapshotReader::deserialize(const uint8_t* data, size
         if (fm) {
             for (auto* fbFunc : *funcs) {
                 std::string name = fbFunc->name() ? fbFunc->name()->str() : "";
-                Address entry(nullptr, static_cast<int64_t>(fbFunc->entry_point()));
+                Address entry(ramSpace, static_cast<int64_t>(fbFunc->entry_point()));
                 AddressSet body;
                 if (auto* ranges = fbFunc->body_ranges()) {
                     for (auto* range : *ranges) {
-                        Address start(nullptr, static_cast<int64_t>(range->offset()));
+                        Address start(ramSpace, static_cast<int64_t>(range->offset()));
                         body.addRange(start, start.add(static_cast<int64_t>(range->length()) - 1));
                     }
                 }
@@ -333,7 +354,7 @@ std::unique_ptr<ProgramDB> SnapshotReader::deserialize(const uint8_t* data, size
         if (st) {
             for (auto* fbSym : *syms) {
                 std::string name = fbSym->name() ? fbSym->name()->str() : "";
-                Address addr(nullptr, static_cast<int64_t>(fbSym->address()));
+                Address addr(ramSpace, static_cast<int64_t>(fbSym->address()));
                 st->createLabel(addr, name, SourceType::DEFAULT);
             }
         }
@@ -344,7 +365,7 @@ std::unique_ptr<ProgramDB> SnapshotReader::deserialize(const uint8_t* data, size
         auto* bm = program->getBookmarkManager();
         if (bm) {
             for (auto* fbBk : *bkmks) {
-                Address addr(nullptr, static_cast<int64_t>(fbBk->address()));
+                Address addr(ramSpace, static_cast<int64_t>(fbBk->address()));
                 std::string text = fbBk->text() ? fbBk->text()->str() : "";
                 std::string type = fbBk->type() ? fbBk->type()->str() : "";
                 bm->setBookmark(addr, type, text);
@@ -370,7 +391,7 @@ std::unique_ptr<ProgramDB> SnapshotReader::deserialize(const uint8_t* data, size
             for (auto* fbLoc : *extLocs) {
                 std::string libName = fbLoc->library_name() ? fbLoc->library_name()->str() : "";
                 std::string label = fbLoc->name() ? fbLoc->name()->str() : "";
-                Address addr(nullptr, static_cast<int64_t>(fbLoc->address()));
+                Address addr(ramSpace, static_cast<int64_t>(fbLoc->address()));
                 em->addExternalLocation(libName, label, addr);
             }
         }

@@ -73,13 +73,17 @@ std::vector<CsInstr> capstoneDisassemble(const uint8_t* codeBuf, int bytesRead,
 }
 
 // Check if mnemonic is a call or jump (for call-independent hashing).
+// Supports both x86 and ARM64 mnemonics.
 bool isCallOrJump(const std::string& mn) {
-    return mn == "call" || mn == "jmp" || mn == "je" || mn == "jne" ||
-           mn == "jz" || mn == "jnz" || mn == "jg" || mn == "jge" ||
-           mn == "jl" || mn == "jle" || mn == "ja" || mn == "jae" ||
-           mn == "jb" || mn == "jbe" || mn == "jo" || mn == "jno" ||
-           mn == "js" || mn == "jns" || mn == "jp" || mn == "jnp" ||
-           mn == "loop" || mn == "loope" || mn == "loopne";
+    // x86
+    if (mn == "call" || mn == "jmp") return true;
+    if (mn.size() >= 2 && mn[0] == 'j' && mn != "jmp") return true; // je, jne, jg, jge, jl, jle, ja, jae, jb, jbe, jo, jno, js, jns, jp, jnp, jz, jnz
+    if (mn == "loop" || mn == "loope" || mn == "loopne") return true;
+    // ARM64
+    if (mn == "b" || mn == "bl" || mn == "blr" || mn == "br" || mn == "ret") return true;
+    if (mn.rfind("b.", 0) == 0) return true; // b.eq, b.ne, b.lt, etc.
+    if (mn == "cbz" || mn == "cbnz" || mn == "tbz" || mn == "tbnz") return true;
+    return false;
 }
 
 } // anonymous namespace

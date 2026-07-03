@@ -32,6 +32,12 @@
 #include <iomanip>
 #include <windows.h>   // GetCurrentThreadId
 #include <chrono>       // timestamps
+#include <QInputDialog>
+#include <ghidra/storage/Repository.h>
+#include <ghidra/storage/WorkingSnapshot.h>
+#include <ghidra/storage/BranchManager.h>
+#include <ghidra/storage/CommitManager.h>
+#include <ghidra/storage/IndexManager.h>
 
 
 MainWindow::MainWindow(QWidget* parent)
@@ -142,7 +148,22 @@ void MainWindow::createMenuBar() {
         if (program_) runAnalysisAsync();
     });
 
-    menuBar()->addMenu(tr("&Repository"));
+    auto* repo = menuBar()->addMenu(tr("&Repository"));
+    auto* commitAct = repo->addAction(tr("&Commit..."));
+    commitAct->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_K));
+    connect(commitAct, &QAction::triggered, this, &MainWindow::onCommit);
+
+    auto* historyAct = repo->addAction(tr("Commit &History..."));
+    connect(historyAct, &QAction::triggered, this, &MainWindow::onCommitHistory);
+
+    repo->addSeparator();
+
+    auto* createBranchAct = repo->addAction(tr("Create &Branch..."));
+    connect(createBranchAct, &QAction::triggered, this, &MainWindow::onCreateBranch);
+
+    auto* switchBranchAct = repo->addAction(tr("&Switch Branch..."));
+    connect(switchBranchAct, &QAction::triggered, this, &MainWindow::onSwitchBranch);
+
     menuBar()->addMenu(tr("&Tools"));
     menuBar()->addMenu(tr("&Help"));
 }
@@ -255,12 +276,89 @@ void MainWindow::onSaveProject() {
     }
     QString dir = QFileDialog::getExistingDirectory(this, tr("Save Project To"));
     if (dir.isEmpty()) return;
+
+    std::string repoDir = dir.toStdString();
+
+    // Create repo if it doesn't exist yet, otherwise just open/verify
+    bool repoReady = ghidra::storage::Repository::open(repoDir);
+    if (!repoReady) {
+        repoReady = ghidra::storage::Repository::create(
+            repoDir,
+            program_->getName(),
+            currentBinaryPath_.toStdString(),
+            "",
+            binaryLanguageId_,
+            binaryCompilerSpecId_,
+            binaryImageBase_);
+    }
+    if (!repoReady) {
+        QMessageBox::warning(this, tr("Error"), tr("Failed to create/open repository at:\n") + dir);
+        return;
+    }
+
+    std::string snapPath = ghidra::storage::Repository::getWorkingSnapshotPath(repoDir);
+    if (!ghidra::storage::WorkingSnapshot::save(*program_, snapPath)) {
+        QMessageBox::warning(this, tr("Error"), tr("Failed to save working snapshot."));
+        return;
+    }
+
+    repoPath_ = repoDir;
+    setWindowTitle(tr("Enigma Engine \u2014 %1 [%2]")
+        .arg(QString::fromStdString(program_->getName()))
+        .arg(dir));
     console_->log("Project saved to: " + dir);
 }
 
 void MainWindow::onOpenProject() {
     QString dir = QFileDialog::getExistingDirectory(this, tr("Open Project"));
     if (dir.isEmpty()) return;
+
+    std::string repoDir = dir.toStdString();
+    if (!ghidra::storage::Repository::open(repoDir)) {
+        QMessageBox::warning(this, tr("Error"),
+            tr("Not a valid Enigma project directory:\n") + dir);
+        return;
+    }
+
+    std::string snapPath = ghidra::storage::Repository::getWorkingSnapshotPath(repoDir);
+    auto prog = ghidra::storage::WorkingSnapshot::load(snapPath);
+    if (!prog) {
+        QMessageBox::warning(this, tr("Error"),
+            tr("Failed to load project snapshot from:\n") + dir);
+        return;
+    }
+
+    // Stop any running analysis
+    if (analysisWatcher_.isRunning()) analysisWatcher_.waitForFinished();
+    analysisMgr_.reset();
+    decompCache_.clear();
+    backStack_.clear();
+    forwardStack_.clear();
+    currentFunction_ = nullptr;
+    currentAddr_ = 0;
+    eventLog_.clear();
+
+    // Swap program
+    decompInterface_->closeProgram();
+    program_.reset(prog.release());
+
+    if (!decompInterface_->openProgram(program_.get())) {
+        QMessageBox::warning(this, tr("Error"),
+            tr("Failed to open program in decompiler."));
+        program_.reset();
+        return;
+    }
+
+    disasmView_->setProgram(program_.get());
+    disasmView_->setDecompInterface(decompInterface_.get());
+    repoPath_ = repoDir;
+
+    populateExplorer();
+    runAnalysisAsync();
+
+    setWindowTitle(tr("Enigma Engine \u2014 %1 [%2]")
+        .arg(QString::fromStdString(program_->getName()))
+        .arg(dir));
     console_->log("Project loaded from: " + dir);
 }
 
@@ -1171,3 +1269,262 @@ void MainWindow::onAddressCursorSync(uint64_t addr) {
         }
     }
 }
+
+void MainWindow::onCommit() {
+    if (!program_) {
+        console_->log("No program loaded.");
+        return;
+    }
+    if (repoPath_.empty()) {
+        console_->log("Save the project first (Ctrl+S).");
+        return;
+    }
+    std::string currentBranch = ghidra::storage::BranchManager::getCurrentBranch(repoPath_);
+    std::string parentCommitId = ghidra::storage::BranchManager::getBranchCommit(repoPath_, currentBranch);
+    bool ok = false;
+    QString msg = QInputDialog::getMultiLineText(this, tr("Commit"),
+        tr("Commit message:"), "", &ok);
+    if (!ok) return;
+    std::string commitId = ghidra::storage::CommitManager::createCommit(
+        repoPath_, parentCommitId, msg.toStdString(), "user", currentBranch,
+        *program_, eventLog_);
+    if (!commitId.empty()) {
+        eventLog_.clear();
+        updateUndoRedoActions();
+        console_->log("Commit created: " + QString::fromStdString(commitId).left(12));
+    } else {
+        console_->log("Failed to create commit.");
+    }
+}
+
+void MainWindow::onCommitHistory() {
+    if (repoPath_.empty()) {
+        console_->log("No project open.");
+        return;
+    }
+    auto commitIds = ghidra::storage::CommitManager::listCommits(repoPath_);
+    if (commitIds.empty()) {
+        QMessageBox::information(this, tr("Commit History"), tr("No commits yet."));
+        return;
+    }
+
+    struct DisplayEntry {
+        std::string id;
+        std::string branchName;
+        std::string message;
+        uint64_t timestamp;
+        DisplayEntry(std::string i, std::string b, std::string m, uint64_t t)
+            : id(std::move(i)), branchName(std::move(b)), message(std::move(m)), timestamp(t) {}
+    };
+    std::vector<DisplayEntry> entries;
+    for (const auto& cid : commitIds) {
+        ghidra::storage::CommitInfo info;
+        if (ghidra::storage::CommitManager::loadCommitMeta(repoPath_, cid, info)) {
+            entries.push_back(DisplayEntry(info.commitId, info.branchName, info.message, info.timestamp));
+        }
+    }
+    if (entries.empty()) {
+        QMessageBox::information(this, tr("Commit History"), tr("No commit metadata found."));
+        return;
+    }
+
+    QStringList items;
+    for (const auto& e : entries) {
+        QString label = QString("%1 | %2 | %3")
+            .arg(QString::fromStdString(e.id).left(12), -12)
+            .arg(QString::fromStdString(e.branchName), -10)
+            .arg(QString::fromStdString(e.message));
+        items << label;
+    }
+
+    bool ok = false;
+    QString chosen = QInputDialog::getItem(this, tr("Commit History"),
+        tr("Select commit to check out:"), items, 0, false, &ok);
+    if (!ok) return;
+    int idx = items.indexOf(chosen);
+    if (idx < 0 || idx >= static_cast<int>(entries.size())) return;
+
+    auto ret = QMessageBox::question(this, tr("Checkout Commit"),
+        tr("Checkout commit %1?\nThis will replace the current working state.")
+            .arg(QString::fromStdString(entries[idx].id).left(12)));
+    if (ret != QMessageBox::Yes) return;
+
+    try {
+        if (!program_ || !decompInterface_ || !disasmView_ || !explorer_) {
+            QMessageBox::warning(this, tr("Error"), tr("UI not initialized."));
+            return;
+        }
+
+        std::string snapPath = ghidra::storage::Repository::getWorkingSnapshotPath(repoPath_);
+        ghidra::storage::WorkingSnapshot::save(*program_, snapPath);
+
+        std::string commitSnapPath = ghidra::storage::Repository::getCommitSnapshotPath(repoPath_, entries[idx].id);
+        auto prog = ghidra::storage::WorkingSnapshot::load(commitSnapPath);
+        if (!prog) {
+            QMessageBox::warning(this, tr("Error"), tr("Failed to load commit snapshot."));
+            return;
+        }
+
+        if (analysisWatcher_.isRunning()) analysisWatcher_.waitForFinished();
+        analysisMgr_.reset();
+        decompCache_.clear();
+        backStack_.clear();
+        forwardStack_.clear();
+        currentFunction_ = nullptr;
+        currentAddr_ = 0;
+        eventLog_.clear();
+
+        decompInterface_->closeProgram();
+        program_.reset(prog.release());
+        if (!program_) {
+            QMessageBox::warning(this, tr("Error"), tr("Failed to load program from snapshot."));
+            return;
+        }
+        if (!decompInterface_->openProgram(program_.get())) {
+            QMessageBox::warning(this, tr("Error"), tr("Failed to open program in decompiler."));
+            return;
+        }
+
+        disasmView_->setProgram(program_.get());
+        disasmView_->setDecompInterface(decompInterface_.get());
+        ghidra::storage::WorkingSnapshot::save(*program_, snapPath);
+        populateExplorer();
+        ghidra::storage::IndexManager::rebuildFromProgramDB(repoPath_, *program_);
+        runAnalysisAsync();
+
+        setWindowTitle(tr("Enigma Engine \u2014 %1 [commit %2]")
+            .arg(QString::fromStdString(program_->getName()))
+            .arg(QString::fromStdString(entries[idx].id).left(12)));
+        console_->log("Checked out commit: " + QString::fromStdString(entries[idx].id).left(12));
+    } catch (const std::exception& e) {
+        QMessageBox::warning(this, tr("Error"),
+            tr("Checkout failed: %1").arg(e.what()));
+    } catch (...) {
+        QMessageBox::warning(this, tr("Error"),
+            tr("Checkout failed with unknown error."));
+    }
+}
+
+void MainWindow::onCreateBranch() {
+    if (repoPath_.empty()) {
+        console_->log("No project open.");
+        return;
+    }
+    bool ok = false;
+    QString name = QInputDialog::getText(this, tr("Create Branch"),
+        tr("Branch name:"), QLineEdit::Normal, "", &ok);
+    if (!ok || name.isEmpty()) return;
+    std::string currentBranch = ghidra::storage::BranchManager::getCurrentBranch(repoPath_);
+    std::string headCommit = ghidra::storage::BranchManager::getBranchCommit(repoPath_, currentBranch);
+    if (headCommit.empty()) {
+        console_->log("Current branch has no commits yet. Make a commit first (Ctrl+K).");
+        return;
+    }
+    if (!ghidra::storage::BranchManager::createBranch(repoPath_, name.toStdString(), headCommit)) {
+        QMessageBox::warning(this, tr("Error"), tr("Failed to create branch (may already exist)."));
+        return;
+    }
+    console_->log("Created branch: " + name);
+}
+
+void MainWindow::onSwitchBranch() {
+    if (repoPath_.empty()) {
+        console_->log("No project open.");
+        return;
+    }
+    auto branches = ghidra::storage::BranchManager::listBranches(repoPath_);
+    if (branches.empty()) {
+        console_->log("No branches available.");
+        return;
+    }
+    QStringList names;
+    for (const auto& b : branches) names << QString::fromStdString(b.name);
+
+    std::string currentBranch = ghidra::storage::BranchManager::getCurrentBranch(repoPath_);
+    int currentIdx = names.indexOf(QString::fromStdString(currentBranch));
+    if (currentIdx < 0) currentIdx = 0;
+
+    bool ok = false;
+    QString chosen = QInputDialog::getItem(this, tr("Switch Branch"),
+        tr("Select branch:"), names, currentIdx, false, &ok);
+    if (!ok || chosen.isEmpty()) return;
+    std::string branchName = chosen.toStdString();
+    std::string headCommit = ghidra::storage::BranchManager::getBranchCommit(repoPath_, branchName);
+    if (headCommit.empty()) {
+        console_->log("Branch '" + chosen + "' has no commits.");
+        return;
+    }
+
+    try {
+        if (!program_ || !decompInterface_ || !disasmView_ || !explorer_) {
+            QMessageBox::warning(this, tr("Error"), tr("UI not initialized."));
+            return;
+        }
+
+        std::string snapPath = ghidra::storage::Repository::getWorkingSnapshotPath(repoPath_);
+        ghidra::storage::WorkingSnapshot::save(*program_, snapPath);
+
+        if (!ghidra::storage::BranchManager::switchBranch(repoPath_, branchName)) {
+            QMessageBox::warning(this, tr("Error"), tr("Failed to switch branch."));
+            return;
+        }
+
+        std::string commitSnapPath = ghidra::storage::Repository::getCommitSnapshotPath(repoPath_, headCommit);
+        auto prog = ghidra::storage::WorkingSnapshot::load(commitSnapPath);
+        if (!prog) {
+            QMessageBox::warning(this, tr("Error"), tr("Failed to load branch snapshot."));
+            return;
+        }
+
+        if (analysisWatcher_.isRunning()) analysisWatcher_.waitForFinished();
+        analysisMgr_.reset();
+        decompCache_.clear();
+        backStack_.clear();
+        forwardStack_.clear();
+        currentFunction_ = nullptr;
+        currentAddr_ = 0;
+        eventLog_.clear();
+
+        decompInterface_->closeProgram();
+        program_.reset(prog.release());
+        if (!program_) {
+            QMessageBox::warning(this, tr("Error"), tr("Failed to load program from snapshot."));
+            return;
+        }
+        if (!decompInterface_->openProgram(program_.get())) {
+            QMessageBox::warning(this, tr("Error"), tr("Failed to open program in decompiler."));
+            return;
+        }
+
+        disasmView_->setProgram(program_.get());
+        disasmView_->setDecompInterface(decompInterface_.get());
+        ghidra::storage::WorkingSnapshot::save(*program_, snapPath);
+        populateExplorer();
+        ghidra::storage::IndexManager::rebuildFromProgramDB(repoPath_, *program_);
+        runAnalysisAsync();
+
+        setWindowTitle(tr("Enigma Engine \u2014 %1 [%2]")
+            .arg(QString::fromStdString(program_->getName()))
+            .arg(chosen));
+        console_->log("Switched to branch: " + chosen);
+    } catch (const std::exception& e) {
+        QMessageBox::warning(this, tr("Error"),
+            tr("Branch switch failed: %1").arg(e.what()));
+    } catch (...) {
+        QMessageBox::warning(this, tr("Error"),
+            tr("Branch switch failed with unknown error."));
+    }
+}
+
+void MainWindow::onUndo() {}
+void MainWindow::onRedo() {}
+void MainWindow::onRenameFunction() {}
+void MainWindow::onDeleteFunction() {}
+void MainWindow::onAddLabel() {}
+void MainWindow::onRemoveLabel() {}
+void MainWindow::onSetComment() {}
+void MainWindow::onRemoveComment() {}
+void MainWindow::onAddBookmark() {}
+void MainWindow::onDeleteBookmark() {}
+void MainWindow::executeWithEvent(std::unique_ptr<ghidra::storage::Event> event) {}
+void MainWindow::updateUndoRedoActions() {}

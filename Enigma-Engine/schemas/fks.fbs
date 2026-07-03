@@ -79,14 +79,7 @@ table FkCandidate {
     library_compiler: string;
     body_size:        uint;
     instr_count:      ushort;
-    call_count:       ushort = 0;
-    basic_blocks:     ushort = 0;
-    cyclomatic:       ushort = 0;
-    has_frame:        bool = false;
-    is_thunk:         bool = false;
-    is_library:       bool = false;
     signature:        string;   // Function prototype
-    exported:         bool = false;
 }
 
 // List of candidates that share the same hash value.

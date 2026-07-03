@@ -26,13 +26,6 @@ struct CandidateInfo {
     std::string compiler;
     uint32_t bodySize;
     uint16_t instrCount;
-    uint16_t callCount;
-    uint16_t basicBlocks;
-    uint16_t cyclomatic;
-    bool hasFrame;
-    bool isThunk;
-    bool isLibrary;
-    bool exported;
 };
 
 class FksIndexManager {

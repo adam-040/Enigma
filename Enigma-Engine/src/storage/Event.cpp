@@ -7,6 +7,7 @@
 #include <ghidra/FunctionSignatureImpl.h>
 #include <ghidra/Listing.h>
 #include <ghidra/ParameterImpl.h>
+#include <ghidra/ProgramAddressFactory.h>
 #include <ghidra/SignatureSource.h>
 #include <ghidra/SymbolTable.h>
 #include <ghidra/StructureDataType.h>
@@ -19,10 +20,19 @@ namespace storage {
 // Helpers
 // ------------------------------------------------------------------
 
-static CodeUnit* getCodeUnit(ProgramDB& program, uint64_t addr) {
+static Address addrFor(ProgramDB& program, uint64_t offset) {
+    auto* af = dynamic_cast<ProgramAddressFactory*>(program.getAddressFactory());
+    if (af) {
+        auto* space = const_cast<AddressSpace*>(af->getDefaultAddressSpace());
+        if (space) return Address(space, static_cast<int64_t>(offset));
+    }
+    return Address(nullptr, static_cast<int64_t>(offset));
+}
+
+static CodeUnit* getCodeUnit(ProgramDB& program, uint64_t offset) {
     Listing* listing = program.getListing();
     if (!listing) return nullptr;
-    return listing->getCodeUnitAt(Address(nullptr, addr));
+    return listing->getCodeUnitAt(addrFor(program, offset));
 }
 
 static void setCommentOnCodeUnit(CodeUnit* cu, CommentType type, const std::string& text) {
@@ -54,14 +64,14 @@ static DataType* createDataTypeForKind(const std::string& name, const CategoryPa
 void RenameFunctionEvent::undo(ProgramDB& program) {
     FunctionManager* fm = program.getFunctionManager();
     if (!fm) return;
-    Function* func = fm->getFunctionAt(Address(nullptr, addr_));
+    Function* func = fm->getFunctionAt(addrFor(program, addr_));
     if (func) func->setName(oldName_);
 }
 
 void RenameFunctionEvent::redo(ProgramDB& program) {
     FunctionManager* fm = program.getFunctionManager();
     if (!fm) return;
-    Function* func = fm->getFunctionAt(Address(nullptr, addr_));
+    Function* func = fm->getFunctionAt(addrFor(program, addr_));
     if (func) func->setName(newName_);
 }
 
@@ -72,14 +82,14 @@ void RenameFunctionEvent::redo(ProgramDB& program) {
 void RenameSymbolEvent::undo(ProgramDB& program) {
     SymbolTable* st = program.getSymbolTable();
     if (!st) return;
-    Symbol* sym = st->getPrimarySymbol(Address(nullptr, addr_));
+    Symbol* sym = st->getPrimarySymbol(addrFor(program, addr_));
     if (sym) sym->setName(oldName_);
 }
 
 void RenameSymbolEvent::redo(ProgramDB& program) {
     SymbolTable* st = program.getSymbolTable();
     if (!st) return;
-    Symbol* sym = st->getPrimarySymbol(Address(nullptr, addr_));
+    Symbol* sym = st->getPrimarySymbol(addrFor(program, addr_));
     if (sym) sym->setName(newName_);
 }
 
@@ -90,7 +100,7 @@ void RenameSymbolEvent::redo(ProgramDB& program) {
 void AddSymbolEvent::undo(ProgramDB& program) {
     SymbolTable* st = program.getSymbolTable();
     if (!st) return;
-    std::vector<Symbol*> syms = st->getSymbols(Address(nullptr, addr_));
+    std::vector<Symbol*> syms = st->getSymbols(addrFor(program, addr_));
     for (Symbol* sym : syms) {
         if (sym->getName() == name_) {
             st->removeSymbolSpecial(sym);
@@ -102,7 +112,7 @@ void AddSymbolEvent::undo(ProgramDB& program) {
 void AddSymbolEvent::redo(ProgramDB& program) {
     SymbolTable* st = program.getSymbolTable();
     if (!st) return;
-    st->createLabel(Address(nullptr, addr_), name_, SourceType::DEFAULT);
+    st->createLabel(addrFor(program, addr_), name_, SourceType::DEFAULT);
 }
 
 // ------------------------------------------------------------------
@@ -112,13 +122,13 @@ void AddSymbolEvent::redo(ProgramDB& program) {
 void RemoveSymbolEvent::undo(ProgramDB& program) {
     SymbolTable* st = program.getSymbolTable();
     if (!st) return;
-    st->createLabel(Address(nullptr, addr_), name_, SourceType::DEFAULT);
+    st->createLabel(addrFor(program, addr_), name_, SourceType::DEFAULT);
 }
 
 void RemoveSymbolEvent::redo(ProgramDB& program) {
     SymbolTable* st = program.getSymbolTable();
     if (!st) return;
-    std::vector<Symbol*> syms = st->getSymbols(Address(nullptr, addr_));
+    std::vector<Symbol*> syms = st->getSymbols(addrFor(program, addr_));
     for (Symbol* sym : syms) {
         if (sym->getName() == name_) {
             st->removeSymbolSpecial(sym);
@@ -134,13 +144,13 @@ void RemoveSymbolEvent::redo(ProgramDB& program) {
 void CreateFunctionEvent::undo(ProgramDB& program) {
     FunctionManager* fm = program.getFunctionManager();
     if (!fm) return;
-    fm->removeFunction(Address(nullptr, addr_));
+    fm->removeFunction(addrFor(program, addr_));
 }
 
 void CreateFunctionEvent::redo(ProgramDB& program) {
     FunctionManager* fm = program.getFunctionManager();
     if (!fm) return;
-    fm->createFunction(name_, Address(nullptr, addr_), body_, SourceType::DEFAULT);
+    fm->createFunction(name_, addrFor(program, addr_), body_, SourceType::DEFAULT);
 }
 
 // ------------------------------------------------------------------
@@ -150,13 +160,13 @@ void CreateFunctionEvent::redo(ProgramDB& program) {
 void DeleteFunctionEvent::undo(ProgramDB& program) {
     FunctionManager* fm = program.getFunctionManager();
     if (!fm) return;
-    fm->createFunction(name_, Address(nullptr, addr_), body_, SourceType::DEFAULT);
+    fm->createFunction(name_, addrFor(program, addr_), body_, SourceType::DEFAULT);
 }
 
 void DeleteFunctionEvent::redo(ProgramDB& program) {
     FunctionManager* fm = program.getFunctionManager();
     if (!fm) return;
-    fm->removeFunction(Address(nullptr, addr_));
+    fm->removeFunction(addrFor(program, addr_));
 }
 
 // ------------------------------------------------------------------
@@ -214,13 +224,13 @@ void ModifyCommentEvent::redo(ProgramDB& program) {
 void AddBookmarkEvent::undo(ProgramDB& program) {
     BookmarkManager* bm = program.getBookmarkManager();
     if (!bm) return;
-    bm->removeBookmark(Address(nullptr, addr_), type_);
+    bm->removeBookmark(addrFor(program, addr_), type_);
 }
 
 void AddBookmarkEvent::redo(ProgramDB& program) {
     BookmarkManager* bm = program.getBookmarkManager();
     if (!bm) return;
-    bm->setBookmark(Address(nullptr, addr_), type_, text_);
+    bm->setBookmark(addrFor(program, addr_), type_, text_);
 }
 
 // ------------------------------------------------------------------
@@ -230,13 +240,13 @@ void AddBookmarkEvent::redo(ProgramDB& program) {
 void DeleteBookmarkEvent::undo(ProgramDB& program) {
     BookmarkManager* bm = program.getBookmarkManager();
     if (!bm) return;
-    bm->setBookmark(Address(nullptr, addr_), type_, text_);
+    bm->setBookmark(addrFor(program, addr_), type_, text_);
 }
 
 void DeleteBookmarkEvent::redo(ProgramDB& program) {
     BookmarkManager* bm = program.getBookmarkManager();
     if (!bm) return;
-    bm->removeBookmark(Address(nullptr, addr_), type_);
+    bm->removeBookmark(addrFor(program, addr_), type_);
 }
 
 // ------------------------------------------------------------------
@@ -286,14 +296,14 @@ void DeleteDataTypeEvent::redo(ProgramDB& program) {
 void SetFunctionSignatureEvent::undo(ProgramDB& program) {
     FunctionManager* fm = program.getFunctionManager();
     if (!fm) return;
-    Function* func = fm->getFunctionAt(Address(nullptr, addr_));
+    Function* func = fm->getFunctionAt(addrFor(program, addr_));
     if (func) func->setSignature(nullptr);
 }
 
 void SetFunctionSignatureEvent::redo(ProgramDB& program) {
     FunctionManager* fm = program.getFunctionManager();
     if (!fm) return;
-    Function* func = fm->getFunctionAt(Address(nullptr, addr_));
+    Function* func = fm->getFunctionAt(addrFor(program, addr_));
     if (func) {
         FunctionSignatureImpl* sig = new FunctionSignatureImpl(name_);
         func->setSignature(sig);
@@ -307,7 +317,7 @@ void SetFunctionSignatureEvent::redo(ProgramDB& program) {
 void SetReturnTypeEvent::undo(ProgramDB& program) {
     FunctionManager* fm = program.getFunctionManager();
     if (!fm) return;
-    Function* func = fm->getFunctionAt(Address(nullptr, addr_));
+    Function* func = fm->getFunctionAt(addrFor(program, addr_));
     if (func && func->getReturnType()) {
         DataTypeManager* dtm = program.getDataTypeManager();
         DataType* dt = dtm ? dtm->getDataType(CategoryPath::ROOT(), oldType_) : nullptr;
@@ -318,7 +328,7 @@ void SetReturnTypeEvent::undo(ProgramDB& program) {
 void SetReturnTypeEvent::redo(ProgramDB& program) {
     FunctionManager* fm = program.getFunctionManager();
     if (!fm) return;
-    Function* func = fm->getFunctionAt(Address(nullptr, addr_));
+    Function* func = fm->getFunctionAt(addrFor(program, addr_));
     if (func) {
         DataTypeManager* dtm = program.getDataTypeManager();
         DataType* dt = dtm ? dtm->getDataType(CategoryPath::ROOT(), newType_) : nullptr;
@@ -333,7 +343,7 @@ void SetReturnTypeEvent::redo(ProgramDB& program) {
 void SetCallingConventionEvent::undo(ProgramDB& program) {
     FunctionManager* fm = program.getFunctionManager();
     if (!fm) return;
-    Function* func = fm->getFunctionAt(Address(nullptr, addr_));
+    Function* func = fm->getFunctionAt(addrFor(program, addr_));
     if (func && !oldCc_.empty()) {
         PrototypeModel* cc = fm->getCallingConvention(oldCc_);
         if (cc) func->setCallingConvention(cc);
@@ -343,7 +353,7 @@ void SetCallingConventionEvent::undo(ProgramDB& program) {
 void SetCallingConventionEvent::redo(ProgramDB& program) {
     FunctionManager* fm = program.getFunctionManager();
     if (!fm) return;
-    Function* func = fm->getFunctionAt(Address(nullptr, addr_));
+    Function* func = fm->getFunctionAt(addrFor(program, addr_));
     if (func && !newCc_.empty()) {
         PrototypeModel* cc = fm->getCallingConvention(newCc_);
         if (cc) func->setCallingConvention(cc);
@@ -357,7 +367,7 @@ void SetCallingConventionEvent::redo(ProgramDB& program) {
 void AddParameterEvent::undo(ProgramDB& program) {
     FunctionManager* fm = program.getFunctionManager();
     if (!fm) return;
-    Function* func = fm->getFunctionAt(Address(nullptr, addr_));
+    Function* func = fm->getFunctionAt(addrFor(program, addr_));
     if (func) {
         auto& params = func->getParameters();
         for (auto* p : params) {
@@ -372,7 +382,7 @@ void AddParameterEvent::undo(ProgramDB& program) {
 void AddParameterEvent::redo(ProgramDB& program) {
     FunctionManager* fm = program.getFunctionManager();
     if (!fm) return;
-    Function* func = fm->getFunctionAt(Address(nullptr, addr_));
+    Function* func = fm->getFunctionAt(addrFor(program, addr_));
     if (func) {
         DataTypeManager* dtm = program.getDataTypeManager();
         DataType* dt = dtm ? dtm->getDataType(CategoryPath::ROOT(), typeName_) : nullptr;
@@ -391,7 +401,7 @@ void AddParameterEvent::redo(ProgramDB& program) {
 void RemoveParameterEvent::undo(ProgramDB& program) {
     FunctionManager* fm = program.getFunctionManager();
     if (!fm) return;
-    Function* func = fm->getFunctionAt(Address(nullptr, addr_));
+    Function* func = fm->getFunctionAt(addrFor(program, addr_));
     if (func) {
         DataTypeManager* dtm = program.getDataTypeManager();
         DataType* dt = dtm ? dtm->getDataType(CategoryPath::ROOT(), typeName_) : nullptr;
@@ -406,7 +416,7 @@ void RemoveParameterEvent::undo(ProgramDB& program) {
 void RemoveParameterEvent::redo(ProgramDB& program) {
     FunctionManager* fm = program.getFunctionManager();
     if (!fm) return;
-    Function* func = fm->getFunctionAt(Address(nullptr, addr_));
+    Function* func = fm->getFunctionAt(addrFor(program, addr_));
     if (func) {
         auto& params = func->getParameters();
         for (auto* p : params) {
@@ -425,15 +435,41 @@ void RemoveParameterEvent::redo(ProgramDB& program) {
 void SetNoReturnEvent::undo(ProgramDB& program) {
     FunctionManager* fm = program.getFunctionManager();
     if (!fm) return;
-    Function* func = fm->getFunctionAt(Address(nullptr, addr_));
+    Function* func = fm->getFunctionAt(addrFor(program, addr_));
     if (func) func->setHasNoReturn(oldVal_);
 }
 
 void SetNoReturnEvent::redo(ProgramDB& program) {
     FunctionManager* fm = program.getFunctionManager();
     if (!fm) return;
-    Function* func = fm->getFunctionAt(Address(nullptr, addr_));
+    Function* func = fm->getFunctionAt(addrFor(program, addr_));
     if (func) func->setHasNoReturn(newVal_);
+}
+
+// ------------------------------------------------------------------
+// ChangeTypeEvent
+// ------------------------------------------------------------------
+
+void ChangeTypeEvent::undo(ProgramDB& program) {
+    Listing* listing = program.getListing();
+    if (!listing) return;
+    CodeUnit* cu = listing->getCodeUnitAt(addrFor(program, addr_));
+    if (!cu) return;
+    DataTypeManager* dtm = program.getDataTypeManager();
+    if (!dtm) return;
+    DataType* dt = dtm->getDataType(CategoryPath::ROOT(), oldType_);
+    if (dt) cu->setDataType(dt);
+}
+
+void ChangeTypeEvent::redo(ProgramDB& program) {
+    Listing* listing = program.getListing();
+    if (!listing) return;
+    CodeUnit* cu = listing->getCodeUnitAt(addrFor(program, addr_));
+    if (!cu) return;
+    DataTypeManager* dtm = program.getDataTypeManager();
+    if (!dtm) return;
+    DataType* dt = dtm->getDataType(CategoryPath::ROOT(), newType_);
+    if (dt) cu->setDataType(dt);
 }
 
 } // namespace storage

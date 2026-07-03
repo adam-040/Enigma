@@ -67,6 +67,10 @@ public:
     /// Access the type database for known API function prototypes
     TypeDatabase* getTypeDatabase() const;
 
+    /// Re-register all function names from ProgramDB into the decompiler's symbol table.
+    /// Call after any rename/edit that affects function or symbol names visible to the decompiler.
+    void refreshFunctionSymbols();
+
     static bool initializeLibrary();
     static void shutdownLibrary();
 

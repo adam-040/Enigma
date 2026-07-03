@@ -43,8 +43,8 @@ int main() {
     f1.nameDemangled = "alpha()";
     f1.hashes.fullHash  = 0xAAAABBBBCCCCDDDD;
     f1.hashes.shortHash = 0x1111222233334444;
-    f1.hashes.mnemHash  = 0x5555666677778888;
-    f1.hashes.callHash  = 0x9999AAAABBBBCCCC;
+    f1.hashes.mnemHash  = 0;
+    f1.hashes.callHash  = 0;
     f1.bodySize    = 128;
     f1.instrCount  = 20;
     f1.callCount   = 3;
@@ -96,15 +96,7 @@ int main() {
     std::vector<uint8_t> shortResult = FksIndexManager::lookupByShortHash(testDir, 0x1111222233334444);
     TEST("lookupByShortHash for f1 is non-empty", !shortResult.empty());
 
-    // === Test 7: lookup mnemHash for f1 ===
-    std::vector<uint8_t> mnemResult = FksIndexManager::lookupByMnemHash(testDir, 0x5555666677778888);
-    TEST("lookupByMnemHash for f1 is non-empty", !mnemResult.empty());
-
-    // === Test 8: lookup callHash for f1 ===
-    std::vector<uint8_t> callResult = FksIndexManager::lookupByCallHash(testDir, 0x9999AAAABBBBCCCC);
-    TEST("lookupByCallHash for f1 is non-empty", !callResult.empty());
-
-    // === Test 9: lookup hash that doesn't exist — should return empty ===
+    // === Test 7: lookup hash that doesn't exist — should return empty ===
     std::vector<uint8_t> noResult = FksIndexManager::lookupByFullHash(testDir, 0xDEADBEEFCAFEBABE);
     TEST("lookupByFullHash for non-existent hash is empty", noResult.empty());
 

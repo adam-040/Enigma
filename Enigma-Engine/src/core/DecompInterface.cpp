@@ -154,13 +154,10 @@ struct DecompInterface::Impl {
         ghidra::AddressSpace* gSpace = af ? const_cast<ghidra::AddressSpace*>(
             af->getDefaultAddressSpace()) : nullptr;
 
-        std::string langId = "x86:LE:64:default";
-        Language* lang = program->getLanguage();
-        if (lang) {
-            LanguageID lid = lang->getLanguageID();
-            std::string lidStr = lid.getIdAsString();
-            if (!lidStr.empty()) langId = lidStr;
-        }
+        LanguageID lid = program->getLanguageID();
+        std::string langId = lid.getIdAsString();
+        if (langId.empty() || langId == "unknown")
+            langId = "x86:LE:64:default";
 
         auto* rawLoader = new LoadImageFromProgram(program->getName(), mem, gSpace);
         loader = rawLoader;
@@ -417,6 +414,13 @@ void DecompInterface::closeProgram() {
 
 bool DecompInterface::isOpen() const {
     return impl->archInitialized && impl->program != nullptr;
+}
+
+void DecompInterface::refreshFunctionSymbols() {
+    if (!impl->archInitialized || !impl->arch || !impl->program) return;
+    Program* saved = impl->program;
+    closeProgram();
+    openProgram(saved);
 }
 
 std::vector<DecompFunctionSummary> DecompInterface::getFunctions() const {

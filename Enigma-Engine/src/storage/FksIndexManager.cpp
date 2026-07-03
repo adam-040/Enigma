@@ -68,6 +68,8 @@ bool openFksEnv(const std::string& fksDir, MDB_env** env) {
     fs::create_directories(lmdbDir, ec);
     int rc = mdb_env_create(env);
     if (rc != 0) return false;
+    rc = mdb_env_set_mapsize(*env, 1024UL * 1024 * 1024);
+    if (rc != 0) { mdb_env_close(*env); return false; }
     rc = mdb_env_set_maxdbs(*env, 1);
     if (rc != 0) { mdb_env_close(*env); return false; }
     rc = mdb_env_open(*env, lmdbDir.c_str(), 0, 0664);
@@ -121,13 +123,6 @@ struct CandidateEntry {
     std::string compiler;
     uint32_t bodySize;
     uint16_t instrCount;
-    uint16_t callCount;
-    uint16_t basicBlocks;
-    uint16_t cyclomatic;
-    bool hasFrame;
-    bool isThunk;
-    bool isLibrary;
-    bool exported;
 };
 
 std::vector<uint8_t> serializeCandidateList(
@@ -148,8 +143,7 @@ std::vector<uint8_t> serializeCandidateList(
         auto compilerStr = builder.CreateString(compiler);
         fbCandidates.push_back(fb::CreateFkCandidate(
             builder, c.uid, nameStr, demStr, nsStr, familyStr, compilerStr,
-            c.bodySize, c.instrCount, c.callCount, c.basicBlocks, c.cyclomatic,
-            c.hasFrame, c.isThunk, c.isLibrary, sigStr, c.exported));
+            c.bodySize, c.instrCount, sigStr));
     }
     auto vec = builder.CreateVector(fbCandidates);
     auto root = fb::CreateFkCandidateList(builder, vec);
@@ -194,9 +188,6 @@ bool putEntryMerge(MDB_txn* txn, MDB_dbi dbi,
         e.namespacePath = c.namespacePath; e.signature = c.signature;
         e.family = family; e.compiler = compiler;
         e.bodySize = c.bodySize; e.instrCount = c.instrCount;
-        e.callCount = c.callCount; e.basicBlocks = c.basicBlocks;
-        e.cyclomatic = c.cyclomatic; e.hasFrame = c.hasFrame;
-        e.isThunk = c.isThunk; e.isLibrary = c.isLibrary; e.exported = c.exported;
         merged.push_back(std::move(e));
     };
 
@@ -260,12 +251,11 @@ bool FksIndexManager::indexLibrary(const std::string& fksDir, const FksLibrary& 
     // Two-pass: collect candidates per hash key, then serialize and store.
     std::unordered_map<HashKey, std::vector<CandidateEntry>, HashKeyHash> groups;
 
-    uint8_t prefixes[] = {PREFIX_FULL_HASH, PREFIX_SHORT_HASH, PREFIX_MNEM_HASH, PREFIX_CALL_HASH,
+    uint8_t prefixes[] = {PREFIX_FULL_HASH, PREFIX_SHORT_HASH,
                           PREFIX_FULL_HASH_V2, PREFIX_SHORT_HASH_V2, PREFIX_MNEM_HASH_V2, PREFIX_CALL_HASH_V2};
 
     for (auto& func : lib.getFunctions()) {
         uint64_t hashes[] = {func.hashes.fullHash, func.hashes.shortHash,
-                             func.hashes.mnemHash, func.hashes.callHash,
                              func.hashesV2.fullHash, func.hashesV2.shortHash,
                              func.hashesV2.mnemHash, func.hashesV2.callHash};
 
@@ -277,15 +267,7 @@ bool FksIndexManager::indexLibrary(const std::string& fksDir, const FksLibrary& 
         entry.signature     = func.signature;
         entry.bodySize      = func.bodySize;
         entry.instrCount    = func.instrCount;
-        entry.callCount     = func.callCount;
-        entry.basicBlocks   = func.basicBlocks;
-        entry.cyclomatic    = func.cyclomatic;
-        entry.hasFrame      = func.hasFrame;
-        entry.isThunk       = func.isThunk;
-        entry.isLibrary     = func.isLibrary;
-        entry.exported      = func.exported;
-
-        for (int i = 0; i < 8; i++) {
+        for (int i = 0; i < 6; i++) {
             if (hashes[i] == 0) continue;
             groups[HashKey{prefixes[i], hashes[i]}].push_back(entry);
         }
@@ -314,78 +296,9 @@ bool FksIndexManager::indexLibrary(const std::string& fksDir, const FksLibrary& 
             entry.signature     = func.signature;
             entry.bodySize      = func.bodySize;
             entry.instrCount    = func.instrCount;
-            entry.callCount     = func.callCount;
-            entry.basicBlocks   = func.basicBlocks;
-            entry.cyclomatic    = func.cyclomatic;
-            entry.hasFrame      = func.hasFrame;
-            entry.isThunk       = func.isThunk;
-            entry.isLibrary     = func.isLibrary;
-            entry.exported      = func.exported;
             auto serialized = serializeCandidateList(family, compiler, {entry});
             auto addrKey = makeAddressKey(PREFIX_ADDRESS, family, func.virtualAddress);
             ok = ok && putEntryMerge(txn, dbi, addrKey, serialized);
-            if (!ok) break;
-        }
-    }
-
-    // Demangled name indexing (0x40)
-    if (ok) {
-        std::unordered_map<uint64_t, std::vector<CandidateEntry>> demGroups;
-        for (auto& func : lib.getFunctions()) {
-            if (func.nameDemangled.empty()) continue;
-            uint64_t nameHash = fnv1a64(func.nameDemangled);
-            CandidateEntry entry;
-            entry.uid           = func.uid;
-            entry.name          = func.name;
-            entry.nameDemangled = func.nameDemangled;
-            entry.namespacePath = func.namespacePath;
-            entry.signature     = func.signature;
-            entry.bodySize      = func.bodySize;
-            entry.instrCount    = func.instrCount;
-            entry.callCount     = func.callCount;
-            entry.basicBlocks   = func.basicBlocks;
-            entry.cyclomatic    = func.cyclomatic;
-            entry.hasFrame      = func.hasFrame;
-            entry.isThunk       = func.isThunk;
-            entry.isLibrary     = func.isLibrary;
-            entry.exported      = func.exported;
-            demGroups[nameHash].push_back(entry);
-        }
-        for (auto& [hash, candidates] : demGroups) {
-            auto serialized = serializeCandidateList(family, compiler, candidates);
-            auto key = makeHashKey(PREFIX_DEMANGLED_NAME, hash);
-            ok = ok && putEntryMerge(txn, dbi, key, serialized);
-            if (!ok) break;
-        }
-    }
-
-    // Namespace indexing (0x41)
-    if (ok) {
-        std::unordered_map<uint64_t, std::vector<CandidateEntry>> nsGroups;
-        for (auto& func : lib.getFunctions()) {
-            if (func.namespacePath.empty()) continue;
-            uint64_t nsHash = fnv1a64(func.namespacePath);
-            CandidateEntry entry;
-            entry.uid           = func.uid;
-            entry.name          = func.name;
-            entry.nameDemangled = func.nameDemangled;
-            entry.namespacePath = func.namespacePath;
-            entry.signature     = func.signature;
-            entry.bodySize      = func.bodySize;
-            entry.instrCount    = func.instrCount;
-            entry.callCount     = func.callCount;
-            entry.basicBlocks   = func.basicBlocks;
-            entry.cyclomatic    = func.cyclomatic;
-            entry.hasFrame      = func.hasFrame;
-            entry.isThunk       = func.isThunk;
-            entry.isLibrary     = func.isLibrary;
-            entry.exported      = func.exported;
-            nsGroups[nsHash].push_back(entry);
-        }
-        for (auto& [hash, candidates] : nsGroups) {
-            auto serialized = serializeCandidateList(family, compiler, candidates);
-            auto key = makeHashKey(PREFIX_NAMESPACE, hash);
-            ok = ok && putEntryMerge(txn, dbi, key, serialized);
             if (!ok) break;
         }
     }
@@ -403,13 +316,6 @@ bool FksIndexManager::indexLibrary(const std::string& fksDir, const FksLibrary& 
             entry.signature     = func.signature;
             entry.bodySize      = func.bodySize;
             entry.instrCount    = func.instrCount;
-            entry.callCount     = func.callCount;
-            entry.basicBlocks   = func.basicBlocks;
-            entry.cyclomatic    = func.cyclomatic;
-            entry.hasFrame      = func.hasFrame;
-            entry.isThunk       = func.isThunk;
-            entry.isLibrary     = func.isLibrary;
-            entry.exported      = func.exported;
             biGroups[composite].push_back(entry);
         }
         for (auto& [composite, candidates] : biGroups) {
@@ -556,13 +462,6 @@ std::vector<CandidateInfo> FksIndexManager::extractAllCandidates(const std::vect
         info.compiler       = c->library_compiler() ? c->library_compiler()->str() : "";
         info.bodySize       = c->body_size();
         info.instrCount     = c->instr_count();
-        info.callCount      = c->call_count();
-        info.basicBlocks    = c->basic_blocks();
-        info.cyclomatic     = c->cyclomatic();
-        info.hasFrame       = c->has_frame();
-        info.isThunk        = c->is_thunk();
-        info.isLibrary      = c->is_library();
-        info.exported       = c->exported();
         result.push_back(std::move(info));
     }
     return result;
@@ -571,17 +470,30 @@ std::vector<CandidateInfo> FksIndexManager::extractAllCandidates(const std::vect
 std::unordered_map<uint64_t, std::vector<uint64_t>> FksIndexManager::buildCalleeIndex(
     const std::string& fksDir)
 {
-    // Static cache: rebuilt only when fksDir changes
-    static std::string cachedDir;
+    // Static cache key: dir path + mtime hash of all .fkslib files.
+    // Invalidates when any .fkslib is added, removed, or modified.
+    static std::string cachedKey;
     static std::unordered_map<uint64_t, std::vector<uint64_t>> cachedIndex;
     static bool populated = false;
 
-    if (populated && cachedDir == fksDir) {
+    std::string currentKey = fksDir;
+    {
+        uint64_t mtimeAccum = 0;
+        for (auto& entry : fs::directory_iterator(fksDir)) {
+            if (!entry.is_regular_file()) continue;
+            if (entry.path().extension() != ".fkslib") continue;
+            auto ft = fs::last_write_time(entry.path());
+            mtimeAccum ^= static_cast<uint64_t>(ft.time_since_epoch().count()) + 0x9e3779b9 + (mtimeAccum << 6) + (mtimeAccum >> 2);
+        }
+        currentKey += ":" + std::to_string(mtimeAccum);
+    }
+
+    if (populated && cachedKey == currentKey) {
         return cachedIndex;
     }
 
     cachedIndex.clear();
-    cachedDir = fksDir;
+    cachedKey = currentKey;
 
     for (auto& entry : fs::directory_iterator(fksDir)) {
         if (!entry.is_regular_file()) continue;

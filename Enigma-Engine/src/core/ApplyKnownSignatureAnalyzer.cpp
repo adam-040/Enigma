@@ -574,7 +574,17 @@ ParameterDefinition* ApplyKnownSignatureAnalyzer::makeParameter(DataTypeManager*
     return new ParameterDefinitionImpl(paramName.empty() ? ("p" + std::to_string(ordinal)) : paramName, dt, "", ordinal);
 }
 
+static DataTypeManager* g_lastDtm = nullptr;
+
 void ApplyKnownSignatureAnalyzer::ensureSignatureTable(DataTypeManager* dtm) {
+    if (dtm != g_lastDtm) {
+        for (auto& pair : signatureTable_) {
+            delete pair.second;
+        }
+        signatureTable_.clear();
+        g_lastDtm = dtm;
+    }
+
     DataType* voidType = dtm ? dtm->getDataType(CategoryPath("/"), "void") : nullptr;
     DataType* defaultRetType = voidType;
 

@@ -17,6 +17,8 @@
 #include <utility>
 #include <vector>
 
+#include <ghidra/storage/EventLog.h>
+
 class SelectionManager;
 
 namespace ghidra {
@@ -65,6 +67,24 @@ private slots:
     void onToggleShowBytes(bool show);
     void onAddressCursorSync(uint64_t addr);
 
+    // Edit / Undo-Redo
+    void onUndo();
+    void onRedo();
+    void onRenameFunction();
+    void onDeleteFunction();
+    void onAddLabel();
+    void onRemoveLabel();
+    void onSetComment();
+    void onRemoveComment();
+    void onAddBookmark();
+    void onDeleteBookmark();
+
+    // Repository
+    void onCommit();
+    void onCommitHistory();
+    void onCreateBranch();
+    void onSwitchBranch();
+
 private:
     void createMenuBar();
     void createDockWidgets();
@@ -74,9 +94,13 @@ private:
     void runAnalysisAsync();
     void logOnce(const QString& msg);
 
+    void executeWithEvent(std::unique_ptr<ghidra::storage::Event> event);
+    void updateUndoRedoActions();
+
     std::unique_ptr<ghidra::ProgramDB> program_;
     std::unique_ptr<ghidra::DecompInterface> decompInterface_;
     std::unique_ptr<ghidra::AutoAnalysisManager> analysisMgr_;
+    ghidra::storage::EventLog eventLog_;
 
     ghidra::Function* currentFunction_ = nullptr;
     uint64_t currentAddr_ = 0;
@@ -90,6 +114,14 @@ private:
     std::unordered_map<uint64_t, DecompCacheEntry> decompCache_;
     QFutureWatcher<void> analysisWatcher_;
     QString lastConsoleMsg_;
+    QString currentBinaryPath_;
+    std::string repoPath_;
+    std::string binaryLanguageId_;
+    std::string binaryCompilerSpecId_;
+    uint64_t binaryImageBase_ = 0;
+
+    QAction* undoAction_ = nullptr;
+    QAction* redoAction_ = nullptr;
 
     FunctionExplorer* explorer_;
     DisassemblyFieldView* disasmView_;

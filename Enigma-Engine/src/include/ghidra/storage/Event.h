@@ -289,5 +289,18 @@ private:
     bool newVal_;
 };
 
+class ChangeTypeEvent : public Event {
+public:
+    ChangeTypeEvent(uint64_t addr, const std::string& oldType, const std::string& newType)
+        : Event(fb::ChangeType_CHANGE_TYPE, addr, ""), oldType_(oldType), newType_(newType) {}
+    void undo(ProgramDB& program) override;
+    void redo(ProgramDB& program) override;
+    std::string getOldValue() const override { return oldType_; }
+    std::string getNewValue() const override { return newType_; }
+private:
+    std::string oldType_;
+    std::string newType_;
+};
+
 } // namespace storage
 } // namespace ghidra

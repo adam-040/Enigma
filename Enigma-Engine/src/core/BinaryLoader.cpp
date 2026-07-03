@@ -268,8 +268,13 @@ public:
                 uint64_t bodyEnd = entryPoint_;
                 if (const SectionInfo* entrySection = findSectionContaining(entryPoint_)) {
                     uint64_t span = getSectionSpan(*entrySection);
-                    uint64_t sectionEnd = entrySection->virtualAddress + span - 1;
-                    bodyEnd = std::min(sectionEnd, entryPoint_ + 63);
+                    if (span > 0) {
+                        uint64_t sectionEnd = entrySection->virtualAddress + span - 1;
+                        bodyEnd = std::min(sectionEnd, entryPoint_ + 63);
+                    }
+                }
+                if (bodyEnd < entryPoint_) {
+                    bodyEnd = entryPoint_;
                 }
                 AddressSet body(entryAddr, Address(ramSpace, static_cast<int64_t>(bodyEnd)));
                 try {

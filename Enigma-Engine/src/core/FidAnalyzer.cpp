@@ -115,18 +115,65 @@ bool FidAnalyzer::added(Program* program, const AddressSetView& set,
         familyName = progName;
     }
 
-    auto extractFksName = [](const std::vector<uint8_t>& data) -> std::string {
-        if (data.empty()) return "";
-        auto verifier = flatbuffers::Verifier(data.data(), data.size());
-        if (!verifier.VerifyBuffer<fbschema::FkCandidateList>()) return "";
-        auto* list = flatbuffers::GetRoot<fbschema::FkCandidateList>(data.data());
-        if (!list || !list->candidates() || list->candidates()->size() == 0) return "";
-        auto* first = list->candidates()->Get(0);
-        if (!first || !first->name()) return "";
-        return first->name()->str();
+    // Collect all FKS candidates for a function from all hash types.
+    // Returns ALL candidates from the first matching hash type (preserving priority order).
+    auto collectFksCandidates = [&](const FunctionFingerprint& fp, Function* func)
+        -> std::vector<storage::CandidateInfo>
+    {
+        std::vector<storage::CandidateInfo> result;
+        std::vector<uint8_t> data;
+
+        if (fp.v2.shortHash != 0) {
+            data = storage::FksIndexManager::lookupByShortHashV2(fksDir, fp.v2.shortHash);
+            result = storage::FksIndexManager::extractAllCandidates(data);
+        }
+        if (result.empty() && fp.v2.fullHash != 0 && fp.v2.fullHash != fp.v2.shortHash) {
+            data = storage::FksIndexManager::lookupByFullHashV2(fksDir, fp.v2.fullHash);
+            result = storage::FksIndexManager::extractAllCandidates(data);
+        }
+        if (result.empty() && fp.v2.mnemHash != 0) {
+            data = storage::FksIndexManager::lookupByMnemHashV2(fksDir, fp.v2.mnemHash);
+            result = storage::FksIndexManager::extractAllCandidates(data);
+        }
+        if (result.empty() && fp.v2.callHash != 0) {
+            data = storage::FksIndexManager::lookupByCallHashV2(fksDir, fp.v2.callHash);
+            result = storage::FksIndexManager::extractAllCandidates(data);
+        }
+
+        if (result.empty() && fp.v1.fullHash != 0) {
+            data = storage::FksIndexManager::lookupByFullHash(fksDir, fp.v1.fullHash);
+            result = storage::FksIndexManager::extractAllCandidates(data);
+        }
+        if (result.empty() && fp.v1.shortHash != 0 && fp.v1.shortHash != fp.v1.fullHash) {
+            data = storage::FksIndexManager::lookupByShortHash(fksDir, fp.v1.shortHash);
+            result = storage::FksIndexManager::extractAllCandidates(data);
+        }
+        if (result.empty()) {
+            uint32_t bodySize = static_cast<uint32_t>(func->getBody().getNumAddresses());
+            uint16_t instrCount = static_cast<uint16_t>(
+                listing->getInstructions(func->getBody()).size());
+            if (bodySize > 0 && instrCount > 0) {
+                uint64_t composite = (static_cast<uint64_t>(bodySize) << 32) | instrCount;
+                data = storage::FksIndexManager::lookupByBodyInstr(fksDir, composite);
+                result = storage::FksIndexManager::extractAllCandidates(data);
+            }
+        }
+
+        if (result.empty() && !familyName.empty()) {
+            uint64_t funcAddr = func->getEntryPoint().getOffset();
+            data = storage::FksIndexManager::lookupByAddress(fksDir, familyName, funcAddr);
+            result = storage::FksIndexManager::extractAllCandidates(data);
+        }
+
+        return result;
     };
 
-    // Step 0: Hash-based function identification (FLIRT-like byte pattern matching)
+    // Pending FKS candidates that must be ranked by Step 11 before any rename.
+    // Key: function address. Value: all candidates from hash lookup.
+    std::unordered_map<uint64_t, std::vector<storage::CandidateInfo>> pendingFksCandidates;
+
+    // Step 0: Collect FKS candidates from hash lookups (NO RENAME — deferred to Step 11).
+    // KnownFunctionHashes (in-process built-in) still renamed immediately.
     {
         KnownFunctionHashes knownHashes;
 
@@ -137,7 +184,7 @@ bool FidAnalyzer::added(Program* program, const AddressSetView& set,
             FunctionFingerprint fp = fingerprinter.compute(f, program);
             if (fp.v1.fullHash == 0) continue;
 
-            // Priority 1: KnownFunctionHashes (fast, in-process)
+            // KnownFunctionHashes: fast in-process, rename immediately
             const char* matchedName = knownHashes.lookup(fp.v1.fullHash, 0);
             if (matchedName) {
                 uint64_t a = f->getEntryPoint().getOffset();
@@ -145,65 +192,12 @@ bool FidAnalyzer::added(Program* program, const AddressSetView& set,
                 continue;
             }
 
-            // Priority 2: FKS LMDB — V2 first (cross-binary stable), then V1
+            // FKS: collect ALL candidates, defer rename to Step 11 for proper ranking
             if (fksAvailable) {
-                std::string fksName;
-                auto data = std::vector<uint8_t>();
-
-                // V2 first: mnemonic-sequence hashes (cross-binary stable)
-                if (fksName.empty() && fp.v2.shortHash != 0) {
-                    data = storage::FksIndexManager::lookupByShortHashV2(fksDir, fp.v2.shortHash);
-                    fksName = extractFksName(data);
-                }
-                if (fksName.empty() && fp.v2.fullHash != 0 && fp.v2.fullHash != fp.v2.shortHash) {
-                    data = storage::FksIndexManager::lookupByFullHashV2(fksDir, fp.v2.fullHash);
-                    fksName = extractFksName(data);
-                }
-                if (fksName.empty() && fp.v2.mnemHash != 0) {
-                    data = storage::FksIndexManager::lookupByMnemHashV2(fksDir, fp.v2.mnemHash);
-                    fksName = extractFksName(data);
-                }
-                if (fksName.empty() && fp.v2.callHash != 0) {
-                    data = storage::FksIndexManager::lookupByCallHashV2(fksDir, fp.v2.callHash);
-                    fksName = extractFksName(data);
-                }
-
-                // V1 fallback: raw-byte hashes (same-binary only)
-                if (fksName.empty() && fp.v1.fullHash != 0) {
-                    data = storage::FksIndexManager::lookupByFullHash(fksDir, fp.v1.fullHash);
-                    fksName = extractFksName(data);
-                }
-                if (fksName.empty() && fp.v1.shortHash != 0 && fp.v1.shortHash != fp.v1.fullHash) {
-                    data = storage::FksIndexManager::lookupByShortHash(fksDir, fp.v1.shortHash);
-                    fksName = extractFksName(data);
-                }
-                if (fksName.empty() && fp.v1.callHash != 0) {
-                    data = storage::FksIndexManager::lookupByCallHash(fksDir, fp.v1.callHash);
-                    fksName = extractFksName(data);
-                }
-
-                // Tier 1: Body-size + instruction-count composite key
-                if (fksName.empty()) {
-                    uint32_t bodySize = static_cast<uint32_t>(f->getBody().getNumAddresses());
-                    uint16_t instrCount = static_cast<uint16_t>(
-                        listing->getInstructions(f->getBody()).size());
-                    if (bodySize > 0 && instrCount > 0) {
-                        uint64_t composite = (static_cast<uint64_t>(bodySize) << 32) | instrCount;
-                        data = storage::FksIndexManager::lookupByBodyInstr(fksDir, composite);
-                        fksName = extractFksName(data);
-                    }
-                }
-
-                // Final fallback: address-based lookup
-                if (fksName.empty() && !familyName.empty()) {
-                    uint64_t funcAddr = f->getEntryPoint().getOffset();
-                    data = storage::FksIndexManager::lookupByAddress(fksDir, familyName, funcAddr);
-                    fksName = extractFksName(data);
-                }
-
-                if (!fksName.empty() && !NamingService::isAutoGeneratedName(fksName)) {
+                auto candidates = collectFksCandidates(fp, f);
+                if (!candidates.empty()) {
                     uint64_t a = f->getEntryPoint().getOffset();
-                    if (tryRename(a, fksName)) ++identified;
+                    pendingFksCandidates[a] = std::move(candidates);
                 }
             }
         }
@@ -457,115 +451,41 @@ bool FidAnalyzer::added(Program* program, const AddressSetView& set,
         }
     }
 
-    // Step 9: Multi-hop call-chain propagation via iterative fixed-point.
-    // Each pass: for every unnamed function with at least one named caller,
-    // compute fingerprint and try FKS lookup. Newly renamed functions create
-    // new named-caller relationships, so repeat until no more renames happen.
-    // This catches chains like A(known) → B → C → D where D is identified
-    // after B and C have been renamed in earlier passes.
+    // Step 9: Collect FKS candidates for functions with named callers.
+    // No renaming here — all FKS-based renaming is deferred to Step 11
+    // which applies full neighbor-context ranking.
     if (fksAvailable) {
-        auto fksLookup = [&](Function* func) -> std::string {
-            FunctionFingerprint fp = fingerprinter.compute(func, program);
-            if (fp.v2.fullHash == 0 && fp.v1.fullHash == 0) return "";
+        for (Function* f : allFunctions) {
+            std::string cn = f->getName();
+            if (!NamingService::isAutoGeneratedName(cn)) continue;
 
-            std::string name;
-            std::vector<uint8_t> data;
+            uint64_t a = f->getEntryPoint().getOffset();
 
-            // V2: mnemonic-sequence hashes (cross-binary stable)
-            if (fp.v2.shortHash != 0) {
-                data = storage::FksIndexManager::lookupByShortHashV2(fksDir, fp.v2.shortHash);
-                name = extractFksName(data);
-            }
-            if (name.empty() && fp.v2.fullHash != 0 && fp.v2.fullHash != fp.v2.shortHash) {
-                data = storage::FksIndexManager::lookupByFullHashV2(fksDir, fp.v2.fullHash);
-                name = extractFksName(data);
-            }
-            if (name.empty() && fp.v2.mnemHash != 0) {
-                data = storage::FksIndexManager::lookupByMnemHashV2(fksDir, fp.v2.mnemHash);
-                name = extractFksName(data);
-            }
-            if (name.empty() && fp.v2.callHash != 0) {
-                data = storage::FksIndexManager::lookupByCallHashV2(fksDir, fp.v2.callHash);
-                name = extractFksName(data);
-            }
+            // Skip if already has pending candidates from Step 0
+            if (pendingFksCandidates.count(a)) continue;
 
-            // V1 fallback: raw-byte hashes (same-binary only)
-            if (name.empty() && fp.v1.fullHash != 0) {
-                data = storage::FksIndexManager::lookupByFullHash(fksDir, fp.v1.fullHash);
-                name = extractFksName(data);
-            }
-            if (name.empty() && fp.v1.shortHash != 0 && fp.v1.shortHash != fp.v1.fullHash) {
-                data = storage::FksIndexManager::lookupByShortHash(fksDir, fp.v1.shortHash);
-                name = extractFksName(data);
-            }
-            if (name.empty() && fp.v1.callHash != 0) {
-                data = storage::FksIndexManager::lookupByCallHash(fksDir, fp.v1.callHash);
-                name = extractFksName(data);
-            }
-
-            // Body-size + instruction-count composite key
-            if (name.empty()) {
-                uint32_t bodySize = static_cast<uint32_t>(func->getBody().getNumAddresses());
-                uint16_t instrCount = static_cast<uint16_t>(
-                    listing->getInstructions(func->getBody()).size());
-                if (bodySize > 0 && instrCount > 0) {
-                    uint64_t composite = (static_cast<uint64_t>(bodySize) << 32) | instrCount;
-                    data = storage::FksIndexManager::lookupByBodyInstr(fksDir, composite);
-                    name = extractFksName(data);
-                }
-            }
-
-            // Address-based fallback
-            if (name.empty() && !familyName.empty()) {
-                uint64_t funcAddr = func->getEntryPoint().getOffset();
-                data = storage::FksIndexManager::lookupByAddress(fksDir, familyName, funcAddr);
-                name = extractFksName(data);
-            }
-
-            return name;
-        };
-
-        // Iterative fixed-point: repeat until no new renames in a full pass.
-        // Capped at 8 iterations to avoid pathological loops.
-        for (int iteration = 0; iteration < 8; ++iteration) {
-            int renamedThisPass = 0;
-
-            for (Function* f : allFunctions) {
-                std::string cn = f->getName();
-                if (!NamingService::isAutoGeneratedName(cn)) continue;
-
-                uint64_t a = f->getEntryPoint().getOffset();
-
-                // Check if any caller of this function is already named
-                bool hasNamedCaller = false;
-                auto callersIt = reverseCallGraph.find(a);
-                if (callersIt != reverseCallGraph.end()) {
-                    for (uint64_t caller : callersIt->second) {
-                        Function* callerFunc = funcMgr->getFunctionAt(
-                            Address(defaultSpace, static_cast<int64_t>(caller)));
-                        if (callerFunc && !NamingService::isAutoGeneratedName(callerFunc->getName())) {
-                            hasNamedCaller = true;
-                            break;
-                        }
-                    }
-                }
-                if (!hasNamedCaller) continue;
-
-                std::string fksName = fksLookup(f);
-                if (!fksName.empty() && !NamingService::isAutoGeneratedName(fksName)) {
-                    if (tryRename(a, fksName)) {
-                        ++renamedThisPass;
-                        ++identified;
+            // Check if any caller of this function is already named
+            bool hasNamedCaller = false;
+            auto callersIt = reverseCallGraph.find(a);
+            if (callersIt != reverseCallGraph.end()) {
+                for (uint64_t caller : callersIt->second) {
+                    Function* callerFunc = funcMgr->getFunctionAt(
+                        Address(defaultSpace, static_cast<int64_t>(caller)));
+                    if (callerFunc && !NamingService::isAutoGeneratedName(callerFunc->getName())) {
+                        hasNamedCaller = true;
+                        break;
                     }
                 }
             }
+            if (!hasNamedCaller) continue;
 
-            // Fixed point: no renames in this pass — stop
-            if (renamedThisPass == 0) break;
+            FunctionFingerprint fp = fingerprinter.compute(f, program);
+            if (fp.v2.fullHash == 0 && fp.v1.fullHash == 0) continue;
 
-            Msg::info("FidAnalyzer",
-                      "Propagation pass " + std::to_string(iteration + 1) +
-                      ": renamed " + std::to_string(renamedThisPass) + " functions");
+            auto candidates = collectFksCandidates(fp, f);
+            if (!candidates.empty()) {
+                pendingFksCandidates[a] = std::move(candidates);
+            }
         }
     }
 
@@ -684,13 +604,73 @@ bool FidAnalyzer::added(Program* program, const AddressSetView& set,
             }
         }
 
-        // For each unnamed function, try all candidates and score by callee overlap
         int contextRenamed = 0;
+
+        // Process pending candidates from Steps 0 and 9 (deferred FKS lookups).
+        // These were collected during hash-only passes; now apply full neighbor-context
+        // scoring and ranking before renaming.
+        for (auto& [addr, allCandidates] : pendingFksCandidates) {
+            Function* f = funcMgr->getFunctionAt(
+                Address(defaultSpace, static_cast<int64_t>(addr)));
+            if (!f) continue;
+            if (!NamingService::isAutoGeneratedName(f->getName())) continue;
+
+            // Single candidate: direct rename (no disambiguation needed)
+            if (allCandidates.size() == 1) {
+                if (!NamingService::isAutoGeneratedName(allCandidates[0].name)) {
+                    if (tryRename(addr, allCandidates[0].name)) ++contextRenamed;
+                }
+                continue;
+            }
+
+            // Multiple candidates: build local callee UID set
+            std::vector<uint64_t> localCalleeUids;
+            auto cgIt = callGraph.find(addr);
+            if (cgIt != callGraph.end()) {
+                for (uint64_t calleeAddr : cgIt->second) {
+                    auto uidIt = localAddrToFksUid.find(calleeAddr);
+                    if (uidIt != localAddrToFksUid.end()) {
+                        localCalleeUids.push_back(uidIt->second);
+                    }
+                }
+                std::sort(localCalleeUids.begin(), localCalleeUids.end());
+            }
+
+            // Score each candidate by callee overlap
+            const storage::CandidateInfo* bestCandidate = nullptr;
+            int bestScore = -1;
+
+            for (auto& cand : allCandidates) {
+                if (NamingService::isAutoGeneratedName(cand.name)) continue;
+
+                int score = storage::FksIndexManager::scoreCandidateByCallees(
+                    cand, calleeIndex, localCalleeUids);
+
+                if (score == bestScore && bestCandidate) {
+                    if (cand.family == familyName && bestCandidate->family != familyName) {
+                        bestCandidate = &cand;
+                    }
+                } else if (score > bestScore) {
+                    bestScore = score;
+                    bestCandidate = &cand;
+                }
+            }
+
+            if (bestCandidate && bestScore >= 0) {
+                if (tryRename(addr, bestCandidate->name)) ++contextRenamed;
+            }
+        }
+
+        // For remaining unnamed functions (not in pendingFksCandidates), do hash
+        // lookups and apply same scoring logic.
         for (Function* f : allFunctions) {
             std::string cn = f->getName();
             if (!NamingService::isAutoGeneratedName(cn)) continue;
 
             uint64_t a = f->getEntryPoint().getOffset();
+
+            // Skip if already processed via pendingCandidates
+            if (pendingFksCandidates.count(a)) continue;
 
             FunctionFingerprint fp = fingerprinter.compute(f, program);
             if (fp.v2.fullHash == 0 && fp.v1.fullHash == 0) continue;
@@ -698,7 +678,6 @@ bool FidAnalyzer::added(Program* program, const AddressSetView& set,
             // Collect ALL candidates from the best hash match
             std::vector<storage::CandidateInfo> allCandidates;
 
-            // V2 hashes
             if (fp.v2.shortHash != 0) {
                 auto data = storage::FksIndexManager::lookupByShortHashV2(fksDir, fp.v2.shortHash);
                 auto cands = storage::FksIndexManager::extractAllCandidates(data);
@@ -720,7 +699,6 @@ bool FidAnalyzer::added(Program* program, const AddressSetView& set,
                 allCandidates.insert(allCandidates.end(), cands.begin(), cands.end());
             }
 
-            // V1 fallback
             if (allCandidates.empty() && fp.v1.fullHash != 0) {
                 auto data = storage::FksIndexManager::lookupByFullHash(fksDir, fp.v1.fullHash);
                 auto cands = storage::FksIndexManager::extractAllCandidates(data);
@@ -731,15 +709,8 @@ bool FidAnalyzer::added(Program* program, const AddressSetView& set,
                 auto cands = storage::FksIndexManager::extractAllCandidates(data);
                 allCandidates.insert(allCandidates.end(), cands.begin(), cands.end());
             }
-            if (allCandidates.empty() && fp.v1.callHash != 0) {
-                auto data = storage::FksIndexManager::lookupByCallHash(fksDir, fp.v1.callHash);
-                auto cands = storage::FksIndexManager::extractAllCandidates(data);
-                allCandidates.insert(allCandidates.end(), cands.begin(), cands.end());
-            }
-
             if (allCandidates.empty()) continue;
 
-            // If only one candidate, use it directly (no disambiguation needed)
             if (allCandidates.size() == 1) {
                 if (!NamingService::isAutoGeneratedName(allCandidates[0].name)) {
                     if (tryRename(a, allCandidates[0].name)) ++contextRenamed;
@@ -747,7 +718,6 @@ bool FidAnalyzer::added(Program* program, const AddressSetView& set,
                 continue;
             }
 
-            // Multiple candidates: build local callee UID set
             std::vector<uint64_t> localCalleeUids;
             auto cgIt = callGraph.find(a);
             if (cgIt != callGraph.end()) {
@@ -760,7 +730,6 @@ bool FidAnalyzer::added(Program* program, const AddressSetView& set,
                 std::sort(localCalleeUids.begin(), localCalleeUids.end());
             }
 
-            // Score each candidate by callee overlap
             const storage::CandidateInfo* bestCandidate = nullptr;
             int bestScore = -1;
 
@@ -770,7 +739,6 @@ bool FidAnalyzer::added(Program* program, const AddressSetView& set,
                 int score = storage::FksIndexManager::scoreCandidateByCallees(
                     cand, calleeIndex, localCalleeUids);
 
-                // Tiebreak: prefer candidates from the same library family
                 if (score == bestScore && bestCandidate) {
                     if (cand.family == familyName && bestCandidate->family != familyName) {
                         bestCandidate = &cand;
