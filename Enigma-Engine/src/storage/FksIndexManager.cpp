@@ -67,13 +67,29 @@ bool openFksEnv(const std::string& fksDir, MDB_env** env) {
     std::error_code ec;
     fs::create_directories(lmdbDir, ec);
     int rc = mdb_env_create(env);
-    if (rc != 0) return false;
+    if (rc != 0) {
+        fprintf(stderr, "[openFksEnv] mdb_env_create: %s\n", mdb_strerror(rc));
+        return false;
+    }
     rc = mdb_env_set_mapsize(*env, 1024UL * 1024 * 1024);
-    if (rc != 0) { mdb_env_close(*env); return false; }
+    if (rc != 0) {
+        fprintf(stderr, "[openFksEnv] mdb_env_set_mapsize: %s\n", mdb_strerror(rc));
+        mdb_env_close(*env);
+        return false;
+    }
     rc = mdb_env_set_maxdbs(*env, 1);
-    if (rc != 0) { mdb_env_close(*env); return false; }
+    if (rc != 0) {
+        fprintf(stderr, "[openFksEnv] mdb_env_set_maxdbs: %s\n", mdb_strerror(rc));
+        mdb_env_close(*env);
+        return false;
+    }
     rc = mdb_env_open(*env, lmdbDir.c_str(), 0, 0664);
-    if (rc != 0) { mdb_env_close(*env); return false; }
+    if (rc != 0) {
+        fprintf(stderr, "[openFksEnv] mdb_env_open('%s'): %s\n",
+                lmdbDir.c_str(), mdb_strerror(rc));
+        mdb_env_close(*env);
+        return false;
+    }
     return true;
 }
 
@@ -216,24 +232,57 @@ bool FksIndexManager::indexExists(const std::string& fksDir) {
     return fs::exists(mdbPath);
 }
 
-bool FksIndexManager::clear(const std::string& fksDir) {
+bool FksIndexManager::clear(const std::string& fksDir, std::string* errorOut) {
+    auto fail = [&](const std::string& msg) {
+        if (errorOut) *errorOut = msg;
+        fprintf(stderr, "[FksIndexManager::clear] %s\n", msg.c_str());
+    };
+
+    std::string lmdbDir = FksRepository::getIndexDir(fksDir);
+    std::error_code ec;
+    std::filesystem::create_directories(lmdbDir, ec);
+
+    // Delete data.mdb and lock.mdb — LMDB will recreate fresh on next access.
+    std::string dataPath = lmdbDir + "/data.mdb";
+    std::string lockPath = lmdbDir + "/lock.mdb";
+    bool hadData = std::filesystem::exists(dataPath, ec);
+    (void)std::filesystem::remove(dataPath, ec);
+    (void)std::filesystem::remove(lockPath, ec);
+
+    if (hadData) {
+        if (errorOut) errorOut->clear();
+        return true;
+    }
+
+    // No data.mdb existed — create a fresh empty env so the index directory
+    // is properly initialised for future lookups.
     MDB_env* env = nullptr;
-    if (!openFksEnv(fksDir, &env)) return false;
-
-    MDB_txn* txn = nullptr;
-    int rc = mdb_txn_begin(env, nullptr, 0, &txn);
-    if (rc != 0) { mdb_env_close(env); return false; }
-
-    MDB_dbi dbi;
-    rc = mdb_dbi_open(txn, nullptr, MDB_CREATE, &dbi);
-    if (rc != 0) { mdb_txn_abort(txn); mdb_env_close(env); return false; }
-
-    rc = mdb_drop(txn, dbi, 0);
-    if (rc != 0) { mdb_txn_abort(txn); mdb_env_close(env); return false; }
-
-    rc = mdb_txn_commit(txn);
+    int rc = mdb_env_create(&env);
+    if (rc != 0) {
+        fail(std::string("mdb_env_create: ") + mdb_strerror(rc));
+        return false;
+    }
+    rc = mdb_env_set_mapsize(env, 1024UL * 1024 * 1024);
+    if (rc != 0) {
+        fail(std::string("mdb_env_set_mapsize: ") + mdb_strerror(rc));
+        mdb_env_close(env);
+        return false;
+    }
+    rc = mdb_env_set_maxdbs(env, 1);
+    if (rc != 0) {
+        fail(std::string("mdb_env_set_maxdbs: ") + mdb_strerror(rc));
+        mdb_env_close(env);
+        return false;
+    }
+    rc = mdb_env_open(env, lmdbDir.c_str(), 0, 0664);
+    if (rc != 0) {
+        fail(std::string("mdb_env_open(" + lmdbDir + "): ") + mdb_strerror(rc));
+        mdb_env_close(env);
+        return false;
+    }
     mdb_env_close(env);
-    return rc == 0;
+    if (errorOut) errorOut->clear();
+    return true;
 }
 
 bool FksIndexManager::indexLibrary(const std::string& fksDir, const FksLibrary& lib) {

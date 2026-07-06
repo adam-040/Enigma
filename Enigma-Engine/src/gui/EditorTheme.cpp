@@ -2,11 +2,14 @@
 #include <QFontMetrics>
 
 QFont EditorTheme::baseFont() {
-    QFont font({"JetBrains Mono", "Cascadia Code", "Consolas", "Courier New"}, 10);
-    font.setStyleHint(QFont::Monospace);
-    font.setFixedPitch(true);
-    font.setWeight(QFont::Normal);
-    font.setKerning(false);
+    static QFont font = [] {
+        QFont f({"JetBrains Mono", "Cascadia Code", "Consolas", "Courier New"}, 10);
+        f.setStyleHint(QFont::Monospace);
+        f.setFixedPitch(true);
+        f.setWeight(QFont::Normal);
+        f.setKerning(false);
+        return f;
+    }();
     return font;
 }
 

@@ -12,20 +12,66 @@ DisassemblyFieldView::DisassemblyFieldView(QWidget* parent)
 
 void DisassemblyFieldView::setProgram(ghidra::ProgramDB* program) {
     program_ = program;
+    indexBuilt_ = false;
 }
 
 void DisassemblyFieldView::setDecompInterface(ghidra::DecompInterface* decomp) {
     decomp_ = decomp;
+    indexBuilt_ = false;
 }
 
 void DisassemblyFieldView::setShowBytes(bool show) {
     showBytes_ = show;
-    if (!lastText_.isEmpty())
+    if (parsed_.empty() && !lastText_.isEmpty()) {
         showDisassembly(lastText_);
+    } else if (!parsed_.empty()) {
+        uint64_t currentAddr = addressAtCurrentLine();
+        buildDocumentFromParsed();
+        if (currentAddr != 0)
+            seek(currentAddr);
+    }
 }
 
 bool DisassemblyFieldView::showBytes() const {
     return showBytes_;
+}
+
+void DisassemblyFieldView::buildFullIndex() {
+    if (!program_ || !decomp_ || !decomp_->isOpen())
+        return;
+
+    auto* mem = program_->getMemory();
+    auto* af = program_->getAddressFactory();
+    if (!mem || !af) return;
+
+    auto allBlocks = mem->getBlocks();
+    if (allBlocks.empty()) return;
+
+    QString allText;
+    for (auto* block : allBlocks) {
+        if (!block) continue;
+        int flags = block->getFlags();
+        if (!(flags & ghidra::MemoryBlock::FLAG_EXECUTE)) continue;
+
+        uint64_t start = block->getStart().getUnsignedOffset();
+        ghidra::Address gAddr = af->oldGetAddressFromLong(start);
+        std::string text = decomp_->disassembleAt(gAddr, 100000000);
+        allText += QString::fromStdString(text);
+    }
+
+    if (allText.isEmpty())
+        return;
+
+    indexBuilt_ = true;
+    lastText_ = allText;
+    showDisassembly(allText);
+}
+
+void DisassemblyFieldView::seekToAddress(uint64_t addr) {
+    if (!indexBuilt_ || !document())
+        return;
+
+    seek(addr);
 }
 
 static bool isCommentLine(const QString& trimmed) {
@@ -33,7 +79,7 @@ static bool isCommentLine(const QString& trimmed) {
         || trimmed.startsWith(QStringLiteral("//"));
 }
 
-static std::vector<uint8_t> fetchBytes(ghidra::ProgramDB* program, uint64_t addr, int len) {
+static std::vector<uint8_t> fetchBytesLocal(ghidra::ProgramDB* program, uint64_t addr, int len) {
     if (!program || len <= 0) return {};
     auto* mem = program->getMemory();
     auto* af = program->getAddressFactory();
@@ -46,6 +92,110 @@ static std::vector<uint8_t> fetchBytes(ghidra::ProgramDB* program, uint64_t addr
         return buf;
     }
     return {};
+}
+
+void DisassemblyFieldView::showDisassembly(const QString& text) {
+    lastText_ = text;
+    parsed_.clear();
+
+    QString expanded = text;
+    expanded.replace(QLatin1Char('\t'), QString(8, QLatin1Char(' ')));
+    QStringList rawLines = expanded.split(QLatin1Char('\n'));
+
+    parsed_.reserve(rawLines.size());
+
+    static QRegularExpression instRe(
+        QStringLiteral("^0x([0-9a-fA-F]+):\\s+([A-Za-z][A-Za-z0-9]*)\\s*(.*)$"));
+
+    for (const QString& rawLine : rawLines) {
+        if (rawLine.trimmed().isEmpty()) {
+            parsed_.push_back(ParsedLine{});
+            continue;
+        }
+        QString trimmed = rawLine.trimmed();
+        if (isCommentLine(trimmed)) {
+            ParsedLine rl;
+            rl.body = trimmed;
+            parsed_.push_back(rl);
+            continue;
+        }
+        auto m = instRe.match(trimmed);
+        if (m.hasMatch()) {
+            ParsedLine rl;
+            bool ok = false;
+            rl.addr = m.captured(1).toULongLong(&ok, 16);
+            rl.mne = m.captured(2);
+            rl.body = m.captured(3);
+            parsed_.push_back(rl);
+        } else {
+            ParsedLine rl;
+            rl.body = trimmed;
+            parsed_.push_back(rl);
+        }
+    }
+
+    buildDocumentFromParsed();
+}
+
+void DisassemblyFieldView::buildDocumentFromParsed() {
+    auto doc = std::make_unique<Document>();
+
+    for (size_t i = 0; i < parsed_.size(); ++i) {
+        const ParsedLine& rl = parsed_[i];
+        if (rl.body.isEmpty() && rl.mne.isEmpty()) {
+            doc->addLine(Line{});
+            continue;
+        }
+
+        Line l;
+        l.addr = rl.addr;
+
+        if (!rl.mne.isEmpty()) {
+            Token addrTok;
+            addrTok.text = QStringLiteral("0x%1  ").arg(rl.addr, 8, 16, QLatin1Char('0'));
+            addrTok.kind = TokenKind::Address;
+            addrTok.addr = rl.addr;
+            l.tokens.push_back(addrTok);
+
+            int len = 0;
+            if (i + 1 < parsed_.size() && parsed_[i + 1].addr > rl.addr)
+                len = static_cast<int>(parsed_[i + 1].addr - rl.addr);
+            else if (decomp_)
+                len = decomp_->instructionLengthAt(rl.addr);
+
+            if (showBytes_ && len > 0) {
+                l.bytes = fetchBytesLocal(program_, rl.addr, len);
+                Token bytesTok;
+                bytesTok.text = formatBytes(l.bytes);
+                bytesTok.kind = TokenKind::Bytes;
+                bytesTok.addr = rl.addr;
+                int gap = 30 - static_cast<int>(bytesTok.text.size());
+                bytesTok.spaceAfter = (gap >= 2) ? gap : 2;
+                l.tokens.push_back(bytesTok);
+            }
+
+            Token mneTok;
+            mneTok.text = rl.mne.leftJustified(8, QLatin1Char(' '));
+            mneTok.kind = isBranchMnemonic(rl.mne) ? TokenKind::Branch : TokenKind::Mnemonic;
+            mneTok.addr = rl.addr;
+            l.tokens.push_back(mneTok);
+
+            auto opTokens = tokenizeOperands(rl.body, rl.addr);
+            for (auto& t : opTokens)
+                l.tokens.push_back(t);
+
+        } else {
+            Token t;
+            t.text = rl.body;
+            t.kind = isCommentLine(rl.body) ? TokenKind::Comment : TokenKind::Plain;
+            l.tokens.push_back(t);
+        }
+
+        doc->addLine(l);
+    }
+
+    doc->finalize();
+    setDocument(std::move(doc));
 }
 
 QString DisassemblyFieldView::formatBytes(const std::vector<uint8_t>& bytes) {
@@ -73,132 +223,6 @@ bool DisassemblyFieldView::isBranchMnemonic(const QString& mne) {
         QStringLiteral("LOOPZ"), QStringLiteral("LOOPNZ")
     };
     return branch.contains(mne.toUpper());
-}
-
-void DisassemblyFieldView::showDisassembly(const QString& text) {
-    lastText_ = text;
-    auto doc = std::make_unique<Document>();
-
-    QString expanded = text;
-    expanded.replace(QLatin1Char('\t'), QString(8, QLatin1Char(' ')));
-    QStringList rawLines = expanded.split(QLatin1Char('\n'));
-
-    struct RawLine { uint64_t addr = 0; QString mne; QString body; };
-    std::vector<RawLine> parsed;
-    parsed.reserve(rawLines.size());
-
-    static QRegularExpression instRe(
-        QStringLiteral("^0x([0-9a-fA-F]+):\\s+([A-Za-z][A-Za-z0-9]*)\\s*(.*)$"));
-
-    for (const QString& rawLine : rawLines) {
-        if (rawLine.trimmed().isEmpty()) {
-            parsed.push_back(RawLine{});
-            continue;
-        }
-        QString trimmed = rawLine.trimmed();
-        if (isCommentLine(trimmed)) {
-            RawLine rl;
-            rl.body = trimmed;
-            parsed.push_back(rl);
-            continue;
-        }
-        auto m = instRe.match(trimmed);
-        if (m.hasMatch()) {
-            RawLine rl;
-            bool ok = false;
-            rl.addr = m.captured(1).toULongLong(&ok, 16);
-            rl.mne = m.captured(2);
-            rl.body = m.captured(3);
-            parsed.push_back(rl);
-        } else {
-            RawLine rl;
-            rl.body = trimmed;
-            parsed.push_back(rl);
-        }
-    }
-
-    for (size_t i = 0; i < parsed.size(); ++i) {
-        const RawLine& rl = parsed[i];
-        if (rl.body.isEmpty() && rl.mne.isEmpty()) {
-            doc->addLine(Line{});
-            continue;
-        }
-
-        Line l;
-        l.addr = rl.addr;
-
-        if (!rl.mne.isEmpty()) {
-            Token addrTok;
-            addrTok.text = QStringLiteral("0x%1  ").arg(rl.addr, 8, 16, QLatin1Char('0'));
-            addrTok.kind = TokenKind::Address;
-            addrTok.addr = rl.addr;
-            l.tokens.push_back(addrTok);
-
-            int len = 0;
-            if (i + 1 < parsed.size() && parsed[i + 1].addr > rl.addr)
-                len = static_cast<int>(parsed[i + 1].addr - rl.addr);
-            else if (decomp_)
-                len = decomp_->instructionLengthAt(rl.addr);
-
-            if (showBytes_ && len > 0) {
-                l.bytes = fetchBytes(program_, rl.addr, len);
-                Token bytesTok;
-                // Use raw bytes text (no padding in text) and compute spaceAfter
-                // so mnemonic always starts at column (addrLen + bytesTargetCol),
-                // with a guaranteed minimum gap of 2 cells regardless of byte count.
-                bytesTok.text = formatBytes(l.bytes);
-                bytesTok.kind = TokenKind::Bytes;
-                bytesTok.addr = rl.addr;
-                // Target: align mnemonic to start 30 chars after bytes token begins.
-                // spaceAfter = max(2, 30 - actual_bytes_len)
-                int gap = 30 - static_cast<int>(bytesTok.text.size());
-                bytesTok.spaceAfter = (gap >= 2) ? gap : 2;
-                l.tokens.push_back(bytesTok);
-            }
-
-            QString ops, comment;
-            int semi = rl.body.indexOf(QLatin1Char(';'));
-            if (semi >= 0) {
-                ops = rl.body.left(semi).trimmed();
-                comment = rl.body.mid(semi);
-            } else {
-                int dSlash = rl.body.indexOf(QStringLiteral("//"));
-                if (dSlash >= 0) {
-                    ops = rl.body.left(dSlash).trimmed();
-                    comment = rl.body.mid(dSlash);
-                } else {
-                    ops = rl.body.trimmed();
-                }
-            }
-
-            Token mneTok;
-            mneTok.text = rl.mne.leftJustified(8, QLatin1Char(' '));
-            mneTok.kind = isBranchMnemonic(rl.mne) ? TokenKind::Branch : TokenKind::Mnemonic;
-            mneTok.addr = rl.addr;
-            l.tokens.push_back(mneTok);
-
-            auto opTokens = tokenizeOperands(ops, rl.addr);
-            for (auto& t : opTokens)
-                l.tokens.push_back(t);
-
-            if (!comment.isEmpty()) {
-                Token cTok;
-                cTok.text = QLatin1Char(' ') + comment;
-                cTok.kind = TokenKind::Comment;
-                l.tokens.push_back(cTok);
-            }
-        } else {
-            Token t;
-            t.text = rl.body;
-            t.kind = isCommentLine(rl.body) ? TokenKind::Comment : TokenKind::Plain;
-            l.tokens.push_back(t);
-        }
-
-        doc->addLine(l);
-    }
-
-    doc->finalize();
-    setDocument(std::move(doc));
 }
 
 TokenKind DisassemblyFieldView::classifyIdentifier(const QString& id) const {
@@ -331,7 +355,6 @@ std::vector<Token> DisassemblyFieldView::tokenizeOperands(const QString& ops, ui
             continue;
         }
 
-        // Fallback for any other character
         addToken(ops.mid(i, 1), bracketDepth > 0 ? TokenKind::MemRef : TokenKind::Plain);
         ++i;
     }

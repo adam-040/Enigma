@@ -376,3 +376,12 @@ find_package(Python3 COMPONENTS Interpreter REQUIRED)
 add_test(NAME enigma_test_cli_regression COMMAND Python3::Interpreter ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_cli_regression.py)
 add_test(NAME enigma_test_corpus_regression COMMAND Python3::Interpreter ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_corpus_regression.py)
 add_test(NAME enigma_test_determinism_regression COMMAND Python3::Interpreter ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_determinism_regression.py)
+
+# ── FKS index rebuild tool ───────────────────────────────────────────────────
+add_executable(enigma_rebuild_fks_index tools/rebuild_fks_index.cpp)
+target_link_libraries(enigma_rebuild_fks_index PRIVATE enigma_engine)
+target_include_directories(enigma_rebuild_fks_index PRIVATE ${FBS_OUTPUT_DIR})
+target_compile_definitions(enigma_rebuild_fks_index PRIVATE ENIGMA_SLEIGH_DIR="${ENIGMA_SLEIGH_DIR}")
+add_dependencies(enigma_rebuild_fks_index flatbuffers_schemas)
+enigma_apply_warning_policy(enigma_rebuild_fks_index)
+

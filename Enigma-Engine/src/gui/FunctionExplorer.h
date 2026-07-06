@@ -3,7 +3,10 @@
 #include <QWidget>
 #include <QTreeWidget>
 #include <QLineEdit>
+#include <QCheckBox>
+#include <QPushButton>
 #include <QVBoxLayout>
+#include <QHBoxLayout>
 #include <vector>
 #include <cstdint>
 
@@ -22,6 +25,9 @@ public:
     // Highlight the tree item matching the given address (programmatic selection)
     void highlightAddress(uint64_t addr);
 
+    QCheckBox* autoClearCheckbox() const { return autoClearCb_; }
+    QPushButton* clearIndexButton() const { return clearBtn_; }
+
 signals:
     void functionSelected(uint64_t addr, const QString& name);
 
@@ -33,4 +39,6 @@ private slots:
 private:
     QTreeWidget* tree_;
     QLineEdit* filter_;
+    QCheckBox* autoClearCb_;
+    QPushButton* clearBtn_;
 };

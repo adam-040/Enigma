@@ -4,6 +4,7 @@
 #include <QRegularExpression>
 #include <QStringList>
 #include <cstdint>
+#include <vector>
 
 namespace ghidra {
 class ProgramDB;
@@ -20,8 +21,21 @@ public:
     void setShowBytes(bool show);
     bool showBytes() const;
 
+    void buildFullIndex();
+    void seekToAddress(uint64_t addr);
+    int totalInstructions() const { return indexBuilt_ ? 1 : 0; }
+
+signals:
+    void addressJumpRequested(uint64_t addr);
+
 private:
-    struct RawLine { uint64_t addr = 0; QString mne; QString body; };
+    struct ParsedLine {
+        uint64_t addr = 0;
+        QString mne;
+        QString body;
+    };
+
+    void buildDocumentFromParsed();
 
     std::vector<Token> tokenizeOperands(const QString& ops, uint64_t lineAddr);
     TokenKind classifyIdentifier(const QString& id) const;
@@ -32,4 +46,7 @@ private:
     ghidra::DecompInterface* decomp_ = nullptr;
     bool showBytes_ = false;
     QString lastText_;
+    std::vector<ParsedLine> parsed_;
+
+    bool indexBuilt_ = false;
 };

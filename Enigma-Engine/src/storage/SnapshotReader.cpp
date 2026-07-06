@@ -117,15 +117,23 @@ std::unique_ptr<ProgramDB> SnapshotReader::deserialize(const uint8_t* data, size
                 Address start(ramSpace, static_cast<int64_t>(fbBlock->start_address()));
                 long long size = static_cast<long long>(fbBlock->length());
                 auto* bytes = fbBlock->bytes();
+                MemoryBlock* block = nullptr;
                 if (bytes && bytes->size() > 0) {
-                    auto* block = defaultMem->createInitializedBlock(name, start, size, false);
+                    block = defaultMem->createInitializedBlock(name, start, size, false);
                     if (block) {
                         int writeSize = static_cast<int>(std::min<uint64_t>(
                             static_cast<uint64_t>(bytes->size()), fbBlock->length()));
                         defaultMem->setBytes(start, bytes->data(), writeSize);
                     }
                 } else {
-                    defaultMem->createUninitializedBlock(name, start, size, false);
+                    block = defaultMem->createUninitializedBlock(name, start, size, false);
+                }
+                if (block && fbBlock->permissions()) {
+                    const char* perm = fbBlock->permissions()->c_str();
+                    bool r = perm[0] != '\0' && perm[0] != '-';
+                    bool w = perm[1] != '\0' && perm[1] != '-';
+                    bool x = perm[2] != '\0' && perm[2] != '-';
+                    block->setPermissions(r, w, x);
                 }
             }
             program->setMemory(defaultMem.release());
@@ -251,7 +259,8 @@ std::unique_ptr<ProgramDB> SnapshotReader::deserialize(const uint8_t* data, size
                             for (auto* field : *fields) {
                                 std::string fn = field->name() ? field->name()->str() : "";
                                 uint64_t ftId = field->data_type_id();
-                                DataType* ft = ftId > 0 ? idMap[ftId] : nullptr;
+                                auto fit = ftId > 0 ? idMap.find(ftId) : idMap.end();
+                                DataType* ft = (fit != idMap.end()) ? fit->second : nullptr;
                                 if (ft) st->add(ft, fn, "");
                             }
                         }
@@ -263,7 +272,8 @@ std::unique_ptr<ProgramDB> SnapshotReader::deserialize(const uint8_t* data, size
                             for (auto* field : *fields) {
                                 std::string fn = field->name() ? field->name()->str() : "";
                                 uint64_t ftId = field->data_type_id();
-                                DataType* ft = ftId > 0 ? idMap[ftId] : nullptr;
+                                auto fit = ftId > 0 ? idMap.find(ftId) : idMap.end();
+                                DataType* ft = (fit != idMap.end()) ? fit->second : nullptr;
                                 if (ft) un->add(ft, fn, "");
                             }
                         }

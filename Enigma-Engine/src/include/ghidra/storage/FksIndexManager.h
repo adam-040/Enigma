@@ -95,7 +95,7 @@ public:
         const std::vector<uint64_t>& localCallees);
 
     static bool indexExists(const std::string& fksDir);
-    static bool clear(const std::string& fksDir);
+    static bool clear(const std::string& fksDir, std::string* errorOut = nullptr);
 };
 
 } // namespace storage

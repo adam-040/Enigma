@@ -83,12 +83,18 @@ std::vector<uint8_t> SnapshotWriter::serialize(const ProgramDB& program) {
                     blockBytes.resize(static_cast<size_t>(std::max(0, nread)));
                 }
             }
+            char perm[4] = {
+                block->isRead() ? 'r' : '-',
+                block->isWrite() ? 'w' : '-',
+                block->isExecute() ? 'x' : '-',
+                '\0'
+            };
             memBlocks.push_back(fb::CreateMemoryBlockDirect(builder,
                 block->getName().c_str(),
                 block->getComment().c_str(),
                 static_cast<uint64_t>(block->getStart().getOffset()),
                 static_cast<uint64_t>(block->getSize()),
-                "rwx",
+                perm,
                 "default",
                 blockBytes.empty() ? nullptr : &blockBytes));
         }

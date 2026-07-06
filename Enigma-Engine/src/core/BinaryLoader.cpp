@@ -208,6 +208,34 @@ public:
         }
         if (!ramSpace) return false;
 
+        // Map PE header (image base to first section) so hex view shows full range
+        if (imageBase_ > 0 && !sections_.empty()) {
+            uint64_t firstSectionAddr = UINT64_MAX;
+            for (const auto& section : sections_) {
+                if (section.virtualAddress > imageBase_ && section.virtualAddress < firstSectionAddr)
+                    firstSectionAddr = section.virtualAddress;
+            }
+            if (firstSectionAddr != UINT64_MAX) {
+                uint64_t hdrSize = firstSectionAddr - imageBase_;
+                if (hdrSize > 0 && hdrSize <= rawData_.size()) {
+                    std::vector<uint8_t> hdrBytes = getBytes(imageBase_, hdrSize);
+                    if (!hdrBytes.empty()) {
+                        Address hdrAddr(ramSpace, static_cast<int64_t>(imageBase_));
+                        auto* hdrBlock = mem->createInitializedBlock(
+                            "IMAGE_HEADER", hdrAddr,
+                            static_cast<long long>(hdrBytes.size()), false);
+                        if (hdrBlock) {
+                            mem->setBytes(hdrAddr, hdrBytes.data(),
+                                          static_cast<int>(hdrBytes.size()));
+                            hdrBlock->setRead(true);
+                            hdrBlock->setWrite(false);
+                            hdrBlock->setExecute(false);
+                        }
+                    }
+                }
+            }
+        }
+
         for (const auto& section : sections_) {
             Address startAddr(ramSpace, static_cast<int64_t>(section.virtualAddress));
             std::vector<uint8_t> bytes = getBytes(section.virtualAddress, section.virtualSize);

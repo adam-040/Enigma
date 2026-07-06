@@ -449,22 +449,19 @@ void FieldView::paintEvent(QPaintEvent* event) {
                 tok.startCol == selectedToken_.startCol &&
                 tok.len == selectedToken_.len;
 
-            for (int i = 0; i < tok.text.size(); ++i) {
-                int col = tok.startCol + i;
-                int tx = baseX + col * cellW;
-                int ty = y + ascent;
+            int tx = baseX + tok.startCol * cellW;
+            int ty = y + ascent;
 
-                if (!highlightWord_.isEmpty() && !isSelectedToken &&
-                    tok.kind == highlightKind_ && tok.text == highlightWord_) {
-                    painter.fillRect(tx, y, cellW, cellH, EditorTheme::occurrenceColor());
-                }
-
-                if (isSelectedToken)
-                    painter.setPen(Qt::white);
-                painter.drawText(tx, ty, tok.text[i]);
-                if (isSelectedToken)
-                    painter.setPen(colorForKind(tok.kind));
+            if (!highlightWord_.isEmpty() && !isSelectedToken &&
+                tok.kind == highlightKind_ && tok.text == highlightWord_) {
+                painter.fillRect(tx, y, tok.text.size() * cellW, cellH, EditorTheme::occurrenceColor());
             }
+
+            if (isSelectedToken)
+                painter.setPen(Qt::white);
+            painter.drawText(tx, ty, tok.text);
+            if (isSelectedToken)
+                painter.setPen(colorForKind(tok.kind));
         }
     }
 

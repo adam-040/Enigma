@@ -20,6 +20,15 @@ FunctionExplorer::FunctionExplorer(QWidget* parent)
     filter_->setContentsMargins(4, 0, 4, 0);
     layout->addWidget(filter_);
 
+    auto* toolsLayout = new QHBoxLayout;
+    toolsLayout->setContentsMargins(4, 0, 4, 0);
+    autoClearCb_ = new QCheckBox(tr("Auto clear index"), this);
+    clearBtn_ = new QPushButton(tr("Clear index"), this);
+    clearBtn_->setFixedHeight(24);
+    toolsLayout->addWidget(autoClearCb_);
+    toolsLayout->addWidget(clearBtn_);
+    layout->addLayout(toolsLayout);
+
     connect(tree_, &QTreeWidget::itemDoubleClicked,
             this, &FunctionExplorer::onItemDoubleClicked);
     connect(tree_, &QTreeWidget::itemClicked,

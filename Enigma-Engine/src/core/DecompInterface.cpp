@@ -33,6 +33,21 @@ namespace ghidra {
 static std::mutex s_initMutex;
 static bool s_libraryInitialized = false;
 
+static std::string stripMarkup(const std::string& xml) {
+    std::string s;
+    s.reserve(xml.size());
+    for (size_t i = 0; i < xml.size();) {
+        if (xml[i] == '<') {
+            size_t end = xml.find('>', i);
+            if (end == std::string::npos) break;
+            i = end + 1;
+        } else {
+            s += xml[i++];
+        }
+    }
+    return s;
+}
+
 static std::string cleanCOutput(const std::string& raw) {
     std::string s = raw;
     for (size_t pos = 0; (pos = s.find("{\n\n", pos)) != std::string::npos; ) {
@@ -354,13 +369,9 @@ struct DecompInterface::Impl {
         arch->print->setMarkup(true);
         arch->print->setPackedOutput(false);
         arch->print->docFunction(fd);
-        arch->print->setMarkup(false);
-        results.markupXml = xmlStream.str();
-
-        std::ostringstream cStream;
-        arch->print->setOutputStream(&cStream);
-        arch->print->docFunction(fd);
-        results.cCode = cleanCOutput(cStream.str());
+        std::string markup = xmlStream.str();
+        results.markupXml = markup;
+        results.cCode = cleanCOutput(stripMarkup(markup));
 
         return results;
     }
@@ -441,11 +452,9 @@ struct AsmEmit : ghidra_decompiler::AssemblyEmit {
     AsmEmit(std::ostringstream& s) : out(s) {}
     void dump(const ghidra_decompiler::Address& addr, const std::string& mnem, const std::string& body) override {
         auto off = addr.getOffset();
-        std::ios_base::fmtflags f(out.flags());
-        out << "0x" << std::hex << off << ":  " << mnem;
+        out << "0x" << std::hex << off << std::dec << ":  " << mnem;
         if (!body.empty()) out << "  " << body;
         out << "\n";
-        out.flags(f);
     }
 };
 
@@ -460,20 +469,17 @@ std::string DecompInterface::disassembleAt(const Address& addr, int numInstructi
     if (!space) return "; No code space";
 
     uint64_t offset = addr.getOffset();
-    for (int i = 0; i < numInstructions; i++) {
-        ghidra_decompiler::Address decAddr(space, static_cast<ghidra_decompiler::int8>(offset));
-        ghidra_decompiler::int4 len = 0;
-        try {
-            len = trans->printAssembly(emit, decAddr);
-        } catch (const ghidra_decompiler::LowlevelError& le) {
-            out << "; Disasm error at 0x" << std::hex << offset << ": " << le.explain << "\n";
-            break;
-        } catch (const std::exception& e) {
-            out << "; Disasm exception at 0x" << std::hex << offset << ": " << e.what() << "\n";
-            break;
+    try {
+        for (int i = 0; i < numInstructions; i++) {
+            ghidra_decompiler::Address decAddr(space, static_cast<ghidra_decompiler::int8>(offset));
+            ghidra_decompiler::int4 len = trans->printAssembly(emit, decAddr);
+            if (len <= 0) break;
+            offset += len;
         }
-        if (len <= 0) break;
-        offset += len;
+    } catch (const ghidra_decompiler::LowlevelError& le) {
+        out << "; Disasm error at 0x" << std::hex << offset << ": " << le.explain << "\n";
+    } catch (const std::exception& e) {
+        out << "; Disasm exception at 0x" << std::hex << offset << ": " << e.what() << "\n";
     }
     return out.str();
 }

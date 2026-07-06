@@ -20,6 +20,8 @@
 #include <ghidra/AddressSpace.h>
 #include <ghidra/AddressFactory.h>
 #include <ghidra/ProgramAddressFactory.h>
+#include <ghidra/AddressSet.h>
+#include <ghidra/AddressRange.h>
 #include <ghidra/AddressSetView.h>
 #include <ghidra/Memory.h>
 #include <ghidra/AutoAnalysisManager.h>
@@ -33,11 +35,38 @@
 #include <windows.h>   // GetCurrentThreadId
 #include <chrono>       // timestamps
 #include <QInputDialog>
+#include <QDir>
 #include <ghidra/storage/Repository.h>
 #include <ghidra/storage/WorkingSnapshot.h>
 #include <ghidra/storage/BranchManager.h>
 #include <ghidra/storage/CommitManager.h>
 #include <ghidra/storage/IndexManager.h>
+
+// Try to find a writable FKS directory.  Checks ENIGMA_FKS_DIR env var first,
+// then looks for a writable `fid/index/lmdb/data.mdb` relative to the exe.
+static std::string resolveFksDir() {
+    // 1. Env var
+    std::string dir = ghidra::storage::FksRepository::getFksDirFromEnv();
+    if (!dir.empty()) {
+        std::string idxDir = ghidra::storage::FksRepository::getIndexDir(dir);
+        if (!idxDir.empty()) {
+            std::error_code ec;
+            if (std::filesystem::exists(idxDir, ec)) return dir;
+        }
+    }
+    // 2. Relative to the executable
+    QString exeDir = QCoreApplication::applicationDirPath();
+    // Walk up the tree looking for a sibling `fid` directory
+    QDir d(exeDir);
+    for (int i = 0; i < 8; ++i) {
+        QString candidate = d.absolutePath() + "/fid";
+        std::error_code ec;
+        if (std::filesystem::exists(candidate.toStdString() + "/index/lmdb", ec))
+            return candidate.toStdString();
+        if (!d.cdUp()) break;
+    }
+    return "";
+}
 
 
 MainWindow::MainWindow(QWidget* parent)
@@ -164,7 +193,15 @@ void MainWindow::createMenuBar() {
     auto* switchBranchAct = repo->addAction(tr("&Switch Branch..."));
     connect(switchBranchAct, &QAction::triggered, this, &MainWindow::onSwitchBranch);
 
-    menuBar()->addMenu(tr("&Tools"));
+    auto* tools = menuBar()->addMenu(tr("&Tools"));
+    auto* autoClearAct = tools->addAction(tr("Auto Clear Index"));
+    autoClearAct->setCheckable(true);
+    autoClearAct->setChecked(autoClearIndex_);
+    connect(autoClearAct, &QAction::toggled, this, &MainWindow::onAutoClearToggled);
+
+    auto* clearNowAct = tools->addAction(tr("Clear Index Now"));
+    connect(clearNowAct, &QAction::triggered, this, &MainWindow::onClearIndex);
+
     menuBar()->addMenu(tr("&Help"));
 }
 
@@ -208,6 +245,10 @@ void MainWindow::createDockWidgets() {
 
     connect(explorer_, &FunctionExplorer::functionSelected,
             this, &MainWindow::onFunctionSelected);
+    connect(explorer_->autoClearCheckbox(), &QCheckBox::toggled,
+            this, &MainWindow::onAutoClearToggled);
+    connect(explorer_->clearIndexButton(), &QPushButton::clicked,
+            this, &MainWindow::onClearIndex);
     connect(disasmView_, &DisassemblyFieldView::seekRequested,
             this, &MainWindow::onDisasmAddressDoubleClicked);
     connect(decompView_, &DecompilerView::seekRequested,
@@ -366,6 +407,7 @@ void MainWindow::loadBinary(const QString& path) {
     GUARD_ENTER("loadBinary");
     NAVLOG("path='%s'\n", path.toStdString().c_str());
     console_->log("> Loading: " + path);
+    currentBinaryPath_ = path;
     QApplication::processEvents();
 
     auto loader = ghidra::createLoader();
@@ -630,6 +672,26 @@ void MainWindow::loadBinary(const QString& path) {
     }
     NAVLOG("populateExplorer done\n");
 
+    // Auto-clear FKS index before analysis if enabled
+    if (autoClearIndex_) {
+        console_->log("> Auto-clearing FKS index...");
+        QApplication::processEvents();
+        std::string fksDir = resolveFksDir();
+        if (!fksDir.empty()) {
+            console_->log(QString("  FKS dir: %1").arg(QString::fromStdString(fksDir)));
+            std::string error;
+            if (ghidra::storage::FksIndexManager::clear(fksDir, &error)) {
+                console_->log("  FKS index cleared.");
+            } else {
+                console_->log("  Failed to clear FKS index.");
+                if (!error.empty())
+                    console_->log(QString("  Error: %1").arg(QString::fromStdString(error)));
+            }
+        } else {
+            console_->log("  No writable FKS index found; skipping clear.");
+        }
+    }
+
     console_->log(QString("Binary loaded: %1").arg(binaryName));
     console_->log(QString("Architecture: %1-bit %2%3")
         .arg(loader->getBitness())
@@ -661,10 +723,14 @@ void MainWindow::populateExplorer() {
     NAVLOG("getting function list from decompInterface...\n");
     auto funcs = decompInterface_->getFunctions();
     NAVLOG("got %zu functions\n", funcs.size());
+    explorer_->treeWidget()->setUpdatesEnabled(false);
+    explorer_->treeWidget()->setSortingEnabled(false);
     for (auto& f : funcs) {
         uint64_t addr = f.entryAddress.getOffset();
         explorer_->addEntry(root, addr, QString::fromStdString(f.name));
     }
+    explorer_->treeWidget()->setSortingEnabled(true);
+    explorer_->treeWidget()->setUpdatesEnabled(true);
 
     QString binaryName = QString::fromStdString(program_->getName());
     if (binaryName.isEmpty()) binaryName = "Program";
@@ -987,41 +1053,62 @@ void MainWindow::navigateTo(uint64_t addr, const QString& name) {
     QString asmText;
     if (!(navSkipFlags_ & NavSkip_Disasm)) {
         NAVLOG("STEP5: disassembleAt(0x%llx)...\n", addr);
+        bool usedFullListing = false;
         try {
-            bool disasmOk = decompInterface_ && decompInterface_->isOpen();
-            NAVLOG("  decompInterface_->isOpen()=%d\n", disasmOk);
-            if (disasmOk) {
-                asmText = QString::fromStdString(
-                    decompInterface_->disassembleAt(address, 50));
-                NAVLOG("  disassembly produced %d chars\n", asmText.size());
+            if (disasmView_->totalInstructions() == 0) {
+                NAVLOG("STEP5: building full index...\n");
+                disasmView_->buildFullIndex();
+            }
+            if (disasmView_->totalInstructions() > 0) {
+                NAVLOG("STEP5: using virtualized listing, seekToAddress\n");
+                disasmView_->seekToAddress(addr);
+                usedFullListing = true;
             } else {
-                NAVLOG("  disassembly SKIPPED (decompInterface not open)\n");
+                NAVLOG("STEP5: full index built but 0 instructions, falling back\n");
             }
         } catch (const std::exception& e) {
-            NAVLOG("STEP5 CRASHED: %s\n", e.what());
-            NAVLOG("CRASH at navigateTo step 5 for addr 0x%llx\n", addr);
-            asmText = QString();
+            NAVLOG("STEP5: fullIndex build threw: %s\n", e.what());
         } catch (...) {
-            NAVLOG("STEP5 CRASHED: unknown exception\n");
-            NAVLOG("CRASH at navigateTo step 5 for addr 0x%llx\n", addr);
-            asmText = QString();
+            NAVLOG("STEP5: fullIndex build threw unknown\n");
         }
 
-        try {
-            if (!asmText.isEmpty()) {
-                NAVLOG("STEP5b: showDisassembly...\n");
-                disasmView_->showDisassembly(asmText);
-                NAVLOG("  showDisassembly done\n");
-            } else {
-                NAVLOG("STEP5b: clearing disassembly (empty text)\n");
-                disasmView_->clearDocument();
+        if (!usedFullListing) {
+            try {
+                bool disasmOk = decompInterface_ && decompInterface_->isOpen();
+                NAVLOG("  decompInterface_->isOpen()=%d\n", disasmOk);
+                if (disasmOk) {
+                    asmText = QString::fromStdString(
+                        decompInterface_->disassembleAt(address, 50));
+                    NAVLOG("  disassembly produced %d chars\n", asmText.size());
+                } else {
+                    NAVLOG("  disassembly SKIPPED (decompInterface not open)\n");
+                }
+            } catch (const std::exception& e) {
+                NAVLOG("STEP5 CRASHED: %s\n", e.what());
+                NAVLOG("CRASH at navigateTo step 5 for addr 0x%llx\n", addr);
+                asmText = QString();
+            } catch (...) {
+                NAVLOG("STEP5 CRASHED: unknown exception\n");
+                NAVLOG("CRASH at navigateTo step 5 for addr 0x%llx\n", addr);
+                asmText = QString();
             }
-        } catch (const std::exception& e) {
-            NAVLOG("STEP5b CRASHED: %s\n", e.what());
-            NAVLOG("CRASH at navigateTo step 5b for addr 0x%llx\n", addr);
-        } catch (...) {
-            NAVLOG("STEP5b CRASHED: unknown exception\n");
-            NAVLOG("CRASH at navigateTo step 5b for addr 0x%llx\n", addr);
+
+            try {
+                if (!asmText.isEmpty()) {
+                    NAVLOG("STEP5b: showDisassembly (fallback)...\n");
+                    disasmView_->showDisassembly(asmText);
+                    NAVLOG("  showDisassembly done\n");
+                } else {
+                    NAVLOG("STEP5b: clearing disassembly (empty text)\n");
+                    disasmView_->clearDocument();
+                }
+            } catch (const std::exception& e) {
+                NAVLOG("STEP5b CRASHED: %s\n", e.what());
+                NAVLOG("CRASH at navigateTo step 5b for addr 0x%llx\n", addr);
+            } catch (...) {
+                NAVLOG("STEP5b CRASHED: unknown exception\n");
+                NAVLOG("CRASH at navigateTo step 5b for addr 0x%llx\n", addr);
+            }
         }
     } else {
         NAVLOG("STEP5: SKIPPED (NavSkip_Disasm)\n");
@@ -1070,26 +1157,17 @@ void MainWindow::navigateTo(uint64_t addr, const QString& name) {
         NAVLOG("STEP6: SKIPPED (NavSkip_Decompile)\n");
     }
 
-    // ── STEP 7: Hex view ─────────────────────────────────────────────────
+    // ── STEP 7: Hex view (full-program hex dump, sync navigation) ───────
     if (!(navSkipFlags_ & NavSkip_Hex)) {
-        NAVLOG("STEP7: reading memory bytes for hex view\n");
+        NAVLOG("STEP7: building full hex / seeking\n");
         try {
-            auto* mem = program_->getMemory();
-            NAVLOG("  memory=%p\n", (void*)mem);
-            if (mem) {
-                std::vector<uint8_t> bytes(256);
-                int got = mem->getBytes(address, bytes.data(), 256);
-                NAVLOG("  getBytes returned %d\n", got);
-                if (got > 0) {
-                    bytes.resize(got);
-                    hexView_->setData(addr, bytes);
-                } else {
-                    NAVLOG("  clearing hex view\n");
-                    hexView_->clear();
-                }
-            } else {
-                NAVLOG("  memory null, clearing hex view\n");
-                hexView_->clear();
+            if (!hexView_->document() || hexView_->document()->lineCount() == 0) {
+                NAVLOG("  building full hex listing\n");
+                hexView_->buildFullHex(program_.get(), currentBinaryPath_);
+            }
+            if (hexView_->document() && hexView_->document()->lineCount() > 0) {
+                NAVLOG("  seeking hex to 0x%llx\n", addr);
+                hexView_->seek(addr);
             }
         } catch (const std::exception& e) {
             NAVLOG("STEP7 CRASHED: %s\n", e.what());
@@ -1140,9 +1218,16 @@ void MainWindow::onNavigateBack() {
     disasmDock_->raise();
 
     NAVLOG("disassembleAt...\n");
-    QString asmText = QString::fromStdString(
-        decompInterface_->disassembleAt(address, 50));
-    disasmView_->showDisassembly(asmText);
+    if (disasmView_->totalInstructions() == 0) {
+        try { disasmView_->buildFullIndex(); } catch (...) {}
+    }
+    if (disasmView_->totalInstructions() > 0) {
+        disasmView_->seekToAddress(addr);
+    } else {
+        QString asmText = QString::fromStdString(
+            decompInterface_->disassembleAt(address, 50));
+        disasmView_->showDisassembly(asmText);
+    }
 
     NAVLOG("decompile...\n");
     auto it = decompCache_.find(addr);
@@ -1166,13 +1251,15 @@ void MainWindow::onNavigateBack() {
     }
 
     NAVLOG("hex view...\n");
-    std::vector<uint8_t> bytes(256);
-    int got = program_->getMemory()->getBytes(address, bytes.data(), 256);
-    if (got > 0) {
-        bytes.resize(got);
-        hexView_->setData(addr, bytes);
-    } else {
-        hexView_->clear();
+    {
+        if (!hexView_->document() || hexView_->document()->lineCount() == 0) {
+            NAVLOG("  building full hex listing\n");
+            hexView_->buildFullHex(program_.get(), currentBinaryPath_);
+        }
+        if (hexView_->document() && hexView_->document()->lineCount() > 0) {
+            NAVLOG("  seeking hex to 0x%llx\n", addr);
+            hexView_->seek(addr);
+        }
     }
     GUARD_EXIT("onNavigateBack");
 }
@@ -1252,20 +1339,11 @@ void MainWindow::onAddressCursorSync(uint64_t addr) {
         decompView_->seek(addr);
 
     if (s != hexView_) {
+        if (!hexView_->document() || hexView_->document()->lineCount() == 0) {
+            hexView_->buildFullHex(program_.get(), currentBinaryPath_);
+        }
         if (hexView_->containsAddress(addr)) {
             hexView_->seek(addr);
-        } else {
-            auto* af = program_->getAddressFactory();
-            auto* mem = program_->getMemory();
-            if (af && mem) {
-                ghidra::Address a = af->oldGetAddressFromLong(addr);
-                std::vector<uint8_t> bytes(256);
-                int got = mem->getBytes(a, bytes.data(), 256);
-                if (got > 0) {
-                    bytes.resize(got);
-                    hexView_->setData(addr, bytes);
-                }
-            }
         }
     }
 }
@@ -1514,6 +1592,33 @@ void MainWindow::onSwitchBranch() {
         QMessageBox::warning(this, tr("Error"),
             tr("Branch switch failed with unknown error."));
     }
+}
+
+void MainWindow::onClearIndex() {
+    autoClearIndex_ = false;
+    explorer_->autoClearCheckbox()->setChecked(false);
+    console_->log("> Clearing FKS index...");
+    QApplication::processEvents();
+    std::string fksDir = resolveFksDir();
+    if (!fksDir.empty()) {
+        console_->log(QString("  FKS dir: %1").arg(QString::fromStdString(fksDir)));
+        std::string error;
+        if (ghidra::storage::FksIndexManager::clear(fksDir, &error)) {
+            console_->log("  FKS index cleared (data.mdb emptied).");
+        } else {
+            console_->log("  Failed to clear FKS index.");
+            if (!error.empty())
+                console_->log(QString("  Error: %1").arg(QString::fromStdString(error)));
+        }
+    } else {
+        console_->log("  No writable FKS index found; nothing to clear.");
+    }
+}
+
+void MainWindow::onAutoClearToggled(bool checked) {
+    autoClearIndex_ = checked;
+    explorer_->autoClearCheckbox()->setChecked(checked);
+    console_->log(QString("Auto clear index: %1").arg(checked ? "ON" : "OFF"));
 }
 
 void MainWindow::onUndo() {}

@@ -18,6 +18,8 @@
 #include <vector>
 
 #include <ghidra/storage/EventLog.h>
+#include <ghidra/storage/FksIndexManager.h>
+#include <ghidra/storage/FksRepository.h>
 
 class SelectionManager;
 
@@ -85,6 +87,10 @@ private slots:
     void onCreateBranch();
     void onSwitchBranch();
 
+    // FKS Index
+    void onClearIndex();
+    void onAutoClearToggled(bool checked);
+
 private:
     void createMenuBar();
     void createDockWidgets();
@@ -138,4 +144,5 @@ private:
     QLabel* statusCount_;
     QAction* showBytesAction_;
     SelectionManager* selectionMgr_ = nullptr;
+    bool autoClearIndex_ = false;
 };
