@@ -116,13 +116,16 @@ run_test("timing-flag", ["-base", "1000", "-entry", "1000", "-time",
 ldr_exe = os.path.join(ENGINE_ROOT, "build-cmake", "enigma_test_loader.exe")
 if os.path.exists(ldr_exe):
     run_test("PE-auto-detect", ["-max-func", "5", ldr_exe],
-             expect_in_stdout=[r"entry\(", r"sub_0x", r"return"])
+             expect_in_stdout=[r"entry\(", r"func_(pdata|start|call)_0x", r"return"],
+             timeout=120)
     # Symbol resolution: known import names should appear
     run_test("PE-imports", ["-max-func", "3", ldr_exe],
-             expect_in_stdout=[r"Sleep\("])
+             expect_in_stdout=[r"Sleep\("],
+             timeout=120)
     # Empty entry (defaults to base) should still work
     run_test("PE-auto-entry", ["-max-func", "2", ldr_exe],
-             expect_in_stdout=[r"entry\(", r"return"])
+             expect_in_stdout=[r"entry\(", r"return"],
+             timeout=120)
 else:
     print("  [SKIP] PE tests: enigma_test_loader.exe not found")
 

@@ -10,9 +10,12 @@
 #pragma once
 
 namespace ghidra {
+class CancelledException;
+}
+
+namespace ghidra::pcode {
 
 class CodeBlock;
-class CancelledException;
 
 class CodeBlockIterator {
 public:
@@ -21,4 +24,4 @@ public:
     virtual CodeBlock* next() = 0;
 };
 
-} // namespace ghidra
+} // namespace ghidra::pcode

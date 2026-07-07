@@ -16,12 +16,15 @@
 #include <vector>
 
 namespace ghidra {
+class Program;
+class TaskMonitor;
+}
+
+namespace ghidra::pcode {
 
 class CodeBlock;
 class CodeBlockIterator;
 class CodeBlockReferenceIterator;
-class Program;
-class TaskMonitor;
 
 class CodeBlockModel {
 public:
@@ -44,4 +47,4 @@ public:
     virtual bool allowsBlockOverlap() const = 0;
 };
 
-} // namespace ghidra
+} // namespace ghidra::pcode

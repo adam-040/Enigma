@@ -12,7 +12,7 @@
 #include <ghidra/Address.h>
 #include <ghidra/RefType.h>
 
-namespace ghidra {
+namespace ghidra::pcode {
 
 class CodeBlock;
 
@@ -28,4 +28,4 @@ public:
     virtual CodeBlock* getSourceBlock() const = 0;
 };
 
-} // namespace ghidra
+} // namespace ghidra::pcode

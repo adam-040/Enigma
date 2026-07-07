@@ -19,19 +19,19 @@ void Msg::out(const std::string& message) {
 }
 
 void Msg::trace(const std::string& originator, const std::string& message) {
-    std::cout << "[TRACE] " << originator << ": " << message << std::endl;
+    std::cerr << "[TRACE] " << originator << ": " << message << std::endl;
 }
 
 void Msg::trace(const std::string& originator, const std::string& message, const std::exception& e) {
-    std::cout << "[TRACE] " << originator << ": " << message << " - " << e.what() << std::endl;
+    std::cerr << "[TRACE] " << originator << ": " << message << " - " << e.what() << std::endl;
 }
 
 void Msg::debug(const std::string& originator, const std::string& message) {
-    std::cout << "[DEBUG] " << originator << ": " << message << std::endl;
+    std::cerr << "[DEBUG] " << originator << ": " << message << std::endl;
 }
 
 void Msg::debug(const std::string& originator, const std::string& message, const std::exception& e) {
-    std::cout << "[DEBUG] " << originator << ": " << message << " - " << e.what() << std::endl;
+    std::cerr << "[DEBUG] " << originator << ": " << message << " - " << e.what() << std::endl;
 }
 
 void Msg::info(const std::string& originator, const std::string& message) {

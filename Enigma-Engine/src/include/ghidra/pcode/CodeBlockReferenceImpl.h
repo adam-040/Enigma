@@ -9,10 +9,10 @@
  */
 #pragma once
 
-#include <ghidra/CodeBlockReference.h>
+#include <ghidra/pcode/CodeBlockReference.h>
 #include <ghidra/Address.h>
 
-namespace ghidra {
+namespace ghidra::pcode {
 
 class CodeBlock;
 
@@ -39,4 +39,4 @@ private:
     Address referent_;
 };
 
-} // namespace ghidra
+} // namespace ghidra::pcode

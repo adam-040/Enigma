@@ -797,9 +797,13 @@ void PrintC::opReturn(const PcodeOp *op)
     nm = "halt_missing";
     break;
   }
-  pushOp(&function_call,op);
-  pushAtom(Atom(nm,optoken,EmitMarkup::funcname_color,op));
-  pushAtom(Atom(EMPTY_STRING,blanktoken,EmitMarkup::no_color));
+  {
+    ostringstream haltName;
+    haltName << nm << "_0x" << hex << op->getAddr().getOffset();
+    pushOp(&function_call,op);
+    pushAtom(Atom(haltName.str(),optoken,EmitMarkup::funcname_color,op));
+    pushAtom(Atom(EMPTY_STRING,blanktoken,EmitMarkup::no_color));
+  }
 }
 
 void PrintC::opIntZext(const PcodeOp *op,const PcodeOp *readOp)
@@ -1949,7 +1953,13 @@ void PrintC::pushAnnotation(const Varnode *vn,const PcodeOp *op)
     }
   }
   else {
-    string regname = glb->translate->getRegisterName(vn->getSpace(),vn->getOffset(),size);
+    string regname;
+    if (variableNameProvider) {
+      regname = variableNameProvider(vn->getAddr(), size);
+    }
+    if (regname.empty()) {
+      regname = glb->translate->getRegisterName(vn->getSpace(),vn->getOffset(),size);
+    }
     if (regname.empty()) {
       AddrSpace *spc = vn->getSpace();
       string spacename = spc->getName();
@@ -2000,6 +2010,13 @@ void PrintC::pushSymbol(const Symbol *sym,const Varnode *vn,const PcodeOp *op)
 void PrintC::pushUnnamedLocation(const Address &addr,
 				   const Varnode *vn,const PcodeOp *op)
 {
+  if (variableNameProvider) {
+    string name = variableNameProvider(addr, vn ? vn->getSize() : 0);
+    if (!name.empty()) {
+      pushAtom(Atom(name, vartoken, EmitMarkup::var_color, op, vn));
+      return;
+    }
+  }
   ostringstream s;
   s << addr.getSpace()->getName();
   addr.printRaw(s);
@@ -2290,8 +2307,11 @@ void PrintC::emitPrototypeInputs(const FuncProto *proto)
 {
   int4 sz = proto->numParams();
   
-  if (sz == 0)
-    emit->print(KEYWORD_VOID,EmitMarkup::keyword_color);
+  if (sz == 0) {
+    // In C empty parens mean unspecified; in C++ they mean void.
+    // We emit nothing here so the output matches C++ expectations.
+    // cleanCOutput previously stripped (void) via post-processing.
+  }
   else {
     bool printComma = false;
     for(int4 i=0;i<sz;++i) {
@@ -2782,7 +2802,6 @@ void PrintC::docFunction(const Funcdata *fd)
     commsorter.setupFunctionList(instr_comment_type|head_comment_type,fd,*fd->getArch()->commentdb,option_unplaced);
     int4 id1 = emit->beginFunction(fd);
     emitCommentFuncHeader(fd);
-    emit->tagLine();
     emitFunctionDeclaration(fd);	// Causes us to enter function's scope
     int4 id = emit->openBraceIndent(OPEN_CURLY, option_brace_func);
     emitLocalVarDecls(fd);

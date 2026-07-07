@@ -214,6 +214,7 @@ static std::string cleanOutput(const std::string& raw, bool skipTypeNorm = false
             s.replace(pos, 8, "undefined");
             pos += 9;
         }
+
     }
 
     // 5. Normalize unknown-size types to standard C fixed-width types.

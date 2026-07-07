@@ -9,12 +9,12 @@
  */
 #pragma once
 
-#include <ghidra/CodeBlock.h>
+#include <ghidra/pcode/CodeBlock.h>
 #include <ghidra/AddressSet.h>
 #include <ghidra/AddressSetView.h>
 #include <vector>
 
-namespace ghidra {
+namespace ghidra::pcode {
 
 class CodeBlockModel;
 
@@ -69,4 +69,4 @@ private:
     AddressSetView* set_;
 };
 
-} // namespace ghidra
+} // namespace ghidra::pcode

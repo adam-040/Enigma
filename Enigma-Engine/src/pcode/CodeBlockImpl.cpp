@@ -1,11 +1,11 @@
-#include <ghidra/CodeBlockImpl.h>
-#include <ghidra/CodeBlockModel.h>
-#include <ghidra/CodeBlockReferenceIterator.h>
-#include <ghidra/CodeBlockReference.h>
+#include <ghidra/pcode/CodeBlockImpl.h>
+#include <ghidra/pcode/CodeBlockModel.h>
+#include <ghidra/pcode/CodeBlockReferenceIterator.h>
+#include <ghidra/pcode/CodeBlockReference.h>
 #include <ghidra/TaskMonitor.h>
 #include <algorithm>
 
-namespace ghidra {
+namespace ghidra::pcode {
 
 CodeBlockImpl::CodeBlockImpl(CodeBlockModel* model, const std::vector<Address>& starts,
                              AddressSetView* body)
@@ -87,4 +87,4 @@ bool CodeBlockImpl::operator==(const CodeBlockImpl& other) const {
     return true;
 }
 
-} // namespace ghidra
+} // namespace ghidra::pcode

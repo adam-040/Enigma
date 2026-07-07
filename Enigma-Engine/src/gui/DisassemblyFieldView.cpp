@@ -55,7 +55,9 @@ void DisassemblyFieldView::buildFullIndex() {
 
         uint64_t start = block->getStart().getUnsignedOffset();
         ghidra::Address gAddr = af->oldGetAddressFromLong(start);
-        std::string text = decomp_->disassembleAt(gAddr, 100000000);
+        long long blockSize = block->getSize();
+        int maxInst = static_cast<int>((std::min)(blockSize, 100000LL));
+        std::string text = decomp_->disassembleAt(gAddr, maxInst);
         allText += QString::fromStdString(text);
     }
 

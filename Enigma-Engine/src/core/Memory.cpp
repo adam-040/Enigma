@@ -331,10 +331,25 @@ int DefaultMemory::findBlockIndex(const Address& addr) {
         blocks_[lastFoundIndex_]->contains(addr)) {
         return lastFoundIndex_;
     }
-    for (int i = 0; i < static_cast<int>(blocks_.size()); ++i) {
-        if (blocks_[i]->contains(addr)) {
-            lastFoundIndex_ = i;
-            return i;
+    // Binary search: relies on blocks being sorted by start address.
+    // Sort on first access (or after any block mutation sets lastFoundIndex_ = -1).
+    if (blocksSorted_ == -1) {
+        std::sort(blocks_.begin(), blocks_.end(),
+            [](const std::unique_ptr<DefaultMemoryBlock>& a,
+               const std::unique_ptr<DefaultMemoryBlock>& b) {
+                return a->getStart() < b->getStart();
+            });
+        blocksSorted_ = 1;
+    }
+    auto it = std::upper_bound(blocks_.begin(), blocks_.end(), addr,
+        [](const Address& a, const std::unique_ptr<DefaultMemoryBlock>& b) {
+            return a < b->getStart();
+        });
+    if (it != blocks_.begin()) {
+        --it;
+        if ((*it)->contains(addr)) {
+            lastFoundIndex_ = static_cast<int>(it - blocks_.begin());
+            return lastFoundIndex_;
         }
     }
     return -1;
@@ -352,6 +367,7 @@ DefaultMemoryBlock* DefaultMemory::createInitializedBlock(const std::string& nam
     DefaultMemoryBlock* raw = block.get();
     blocks_.push_back(std::move(block));
     lastFoundIndex_ = -1;
+    blocksSorted_ = -1;
     return raw;
 }
 
@@ -368,6 +384,7 @@ DefaultMemoryBlock* DefaultMemory::createInitializedBlock(const std::string& nam
     DefaultMemoryBlock* raw = block.get();
     blocks_.push_back(std::move(block));
     lastFoundIndex_ = -1;
+    blocksSorted_ = -1;
     return raw;
 }
 
@@ -383,6 +400,7 @@ DefaultMemoryBlock* DefaultMemory::createUninitializedBlock(const std::string& n
     DefaultMemoryBlock* raw = block.get();
     blocks_.push_back(std::move(block));
     lastFoundIndex_ = -1;
+    blocksSorted_ = -1;
     return raw;
 }
 
@@ -393,7 +411,7 @@ bool DefaultMemory::removeBlock(MemoryBlock* block) {
         });
     bool removed = (it != blocks_.end());
     blocks_.erase(it, blocks_.end());
-    if (removed) lastFoundIndex_ = -1;
+    if (removed) { lastFoundIndex_ = -1; blocksSorted_ = -1; }
     return removed;
 }
 
@@ -404,7 +422,7 @@ bool DefaultMemory::removeBlock(const std::string& name) {
         });
     bool removed = (it != blocks_.end());
     blocks_.erase(it, blocks_.end());
-    if (removed) lastFoundIndex_ = -1;
+    if (removed) { lastFoundIndex_ = -1; blocksSorted_ = -1; }
     return removed;
 }
 

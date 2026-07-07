@@ -9,13 +9,19 @@
  */
 #pragma once
 
-#include <ghidra/CodeBlockModel.h>
-
 namespace ghidra {
+class CancelledException;
+}
 
-class SubroutineBlockModel : public CodeBlockModel {
+namespace ghidra::pcode {
+
+class CodeBlockReference;
+
+class CodeBlockReferenceIterator {
 public:
-    virtual SubroutineBlockModel* getBaseSubroutineModel() = 0;
+    virtual ~CodeBlockReferenceIterator() = default;
+    virtual bool hasNext() = 0;
+    virtual CodeBlockReference* next() = 0;
 };
 
-} // namespace ghidra
+} // namespace ghidra::pcode

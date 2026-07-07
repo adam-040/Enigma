@@ -49,18 +49,14 @@ static std::string stripMarkup(const std::string& xml) {
 }
 
 static std::string cleanCOutput(const std::string& raw) {
-    std::string s = raw;
-    for (size_t pos = 0; (pos = s.find("{\n\n", pos)) != std::string::npos; ) {
-        s.replace(pos, 3, "{\n");
-        pos += 2;
-    }
-    for (size_t pos = 0; (pos = s.find("(void)", pos)) != std::string::npos; ) {
-        s.replace(pos, 6, "()");
-        pos += 2;
-    }
-    for (size_t pos = 0; (pos = s.find("xunknown", pos)) != std::string::npos; ) {
-        s.replace(pos, 8, "undefined");
-        pos += 9;
+    std::string s;
+    s.reserve(raw.size());
+    size_t i = 0;
+    while (i < raw.size()) {
+        if (raw[i] == '{' && i + 2 < raw.size() && raw[i+1] == '\n' && raw[i+2] == '\n') { s += "{\n"; i += 3; }
+        else if (i + 5 < raw.size() && raw.compare(i, 6, "(void)") == 0) { s += "()"; i += 6; }
+        else if (i + 7 < raw.size() && raw.compare(i, 8, "xunknown") == 0) { s += "undefined"; i += 8; }
+        else { s += raw[i++]; }
     }
     return s;
 }
@@ -119,8 +115,16 @@ public:
         int nread = 0;
         if (memory_)
             nread = memory_->getBytes(gAddr, ptr, size);
-        if (nread < size)
+        if (nread < size) {
+            if (nread == 0) {
+                static int warnCount = 0;
+                if (++warnCount <= 3)
+                    std::cerr << "[WARN] LoadImageFromProgram: zero-filling " << size
+                              << " bytes at 0x" << std::hex << addr.getOffset()
+                              << std::dec << " (unmapped memory)" << std::endl;
+            }
             std::memset(ptr + nread, 0, size - nread);
+        }
     }
 
     std::string getArchType() const override { return "raw"; }
@@ -183,6 +187,9 @@ struct DecompInterface::Impl {
             arch->init(store);
         } catch (const ghidra_decompiler::LowlevelError& le) {
             std::cerr << "DecompInterface: Architecture init failed: " << le.explain << std::endl;
+            return false;
+        } catch (const std::exception& e) {
+            std::cerr << "DecompInterface: Architecture init failed: " << e.what() << std::endl;
             return false;
         }
 

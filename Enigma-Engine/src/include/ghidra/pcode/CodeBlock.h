@@ -16,10 +16,13 @@
 #include <vector>
 
 namespace ghidra {
+class TaskMonitor;
+}
+
+namespace ghidra::pcode {
 
 class CodeBlockReferenceIterator;
 class CodeBlockModel;
-class TaskMonitor;
 
 class CodeBlock : public AddressSetView {
 public:
@@ -34,4 +37,4 @@ public:
     virtual CodeBlockModel* getModel() const = 0;
 };
 
-} // namespace ghidra
+} // namespace ghidra::pcode

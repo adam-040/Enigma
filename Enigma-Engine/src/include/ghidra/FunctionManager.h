@@ -107,6 +107,10 @@ private:
     // and O(log N) insertion. Each range stored as a uint64_t pair.
     mutable std::set<std::pair<uint64_t, uint64_t>> sortedBodyRanges_;
     mutable PerformanceCounters perfCounters_;
+
+    // ID index for O(1) getFunction(long key)
+    std::unordered_map<long, Function*> idIndex_;
+    long nextFunctionId_ = 1;
 };
 
 } // namespace ghidra

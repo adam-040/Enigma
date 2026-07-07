@@ -10,10 +10,10 @@
 #pragma once
 
 #include <ghidra/AddressSet.h>
-#include <ghidra/CodeBlock.h>
-#include <ghidra/CodeBlockReferenceIterator.h>
+#include <ghidra/pcode/CodeBlock.h>
+#include <ghidra/pcode/CodeBlockReferenceIterator.h>
 
-namespace ghidra {
+namespace ghidra::pcode {
 
 class CodeBlockModel;
 
@@ -45,4 +45,4 @@ public:
     CodeBlockReference* next() override { return nullptr; }
 };
 
-} // namespace ghidra
+} // namespace ghidra::pcode

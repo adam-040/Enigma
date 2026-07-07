@@ -12,6 +12,7 @@
 #include "ghidra/BinaryLoader.h"
 #include "ghidra/ProgramDB.h"
 #include "ghidra/FunctionManager.h"
+#include "ghidra/FunctionIterator.h"
 #include "ghidra/Function.h"
 #include "ghidra/Msg.h"
 #include "ghidra/storage/WorkingSnapshot.h"
@@ -230,14 +231,30 @@ int main(int argc, char** argv) {
                             ghidra::DecompInterface commitDi;
                             bool commitOpened = commitDi.openProgram(committedProgram.get());
                             TEST("DecompInterface opens committed snapshot", commitOpened);
-                            ghidra::DecompileResults commitRes =
-                                commitDi.decompileFunction(
-                                    ghidra::Address(nullptr, static_cast<int64_t>(ep)),
-                                    nullptr);
-                            TEST("committed snapshot decompiles entry", commitRes.decompiled);
-                            if (commitRes.decompiled) {
-                                TEST("committed snapshot uses renamed function",
-                                     commitRes.functionName == renamedEntry);
+                            // Use the function manager to get the entry address from the loaded program
+                            auto* commitFM = committedProgram->getFunctionManager();
+                            bool commitEntryFound = false;
+                            ghidra::Address commitEntry(nullptr, 0);
+                            if (commitFM) {
+                                auto commitFuncs = commitFM->getFunctions(false);
+                                while (commitFuncs.hasNext()) {
+                                    auto* f = commitFuncs.next();
+                                    if (f && f->getEntryPoint().getOffset() == static_cast<int64_t>(ep)) {
+                                        commitEntry = f->getEntryPoint();
+                                        commitEntryFound = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            TEST("committed snapshot has entry function", commitEntryFound);
+                            if (commitEntryFound) {
+                                ghidra::DecompileResults commitRes =
+                                    commitDi.decompileFunction(commitEntry, nullptr);
+                                TEST("committed snapshot decompiles entry", commitRes.decompiled);
+                                if (commitRes.decompiled) {
+                                    TEST("committed snapshot uses renamed function",
+                                         commitRes.functionName == renamedEntry);
+                                }
                             }
                         }
                     }

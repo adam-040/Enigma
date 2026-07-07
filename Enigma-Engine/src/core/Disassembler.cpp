@@ -166,12 +166,13 @@ public:
 
             if (insn->op_str[0] != '\0') {
                 std::string ops = insn->op_str;
+                size_t start = 0;
                 size_t pos = 0;
-                while ((pos = ops.find(',')) != std::string::npos) {
-                    result.operands.push_back(ops.substr(0, pos));
-                    ops.erase(0, pos + 1);
+                while ((pos = ops.find(',', start)) != std::string::npos) {
+                    result.operands.push_back(ops.substr(start, pos - start));
+                    start = pos + 1;
                 }
-                if (!ops.empty()) result.operands.push_back(ops);
+                if (start < ops.size()) result.operands.push_back(ops.substr(start));
             }
 
             result.flowType = determineFlowType(result.mnemonic, result.operands);
@@ -209,12 +210,13 @@ public:
 
             if (insn[i].op_str[0] != '\0') {
                 std::string ops = insn[i].op_str;
+                size_t start = 0;
                 size_t pos = 0;
-                while ((pos = ops.find(',')) != std::string::npos) {
-                    di.operands.push_back(ops.substr(0, pos));
-                    ops.erase(0, pos + 1);
+                while ((pos = ops.find(',', start)) != std::string::npos) {
+                    di.operands.push_back(ops.substr(start, pos - start));
+                    start = pos + 1;
                 }
-                if (!ops.empty()) di.operands.push_back(ops);
+                if (start < ops.size()) di.operands.push_back(ops.substr(start));
             }
 
             di.flowType = determineFlowType(di.mnemonic, di.operands);

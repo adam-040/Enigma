@@ -226,10 +226,10 @@ void SleighArchitecture::buildCoreTypes(DocumentStorage &store)
     types->setCoreType("float8",8,TYPE_FLOAT,false);
     types->setCoreType("float10",10,TYPE_FLOAT,false);
     types->setCoreType("float16",16,TYPE_FLOAT,false);
-    types->setCoreType("xunknown1",1,TYPE_UNKNOWN,false);
-    types->setCoreType("xunknown2",2,TYPE_UNKNOWN,false);
-    types->setCoreType("xunknown4",4,TYPE_UNKNOWN,false);
-    types->setCoreType("xunknown8",8,TYPE_UNKNOWN,false);
+    types->setCoreType("undefined1",1,TYPE_UNKNOWN,false);
+    types->setCoreType("undefined2",2,TYPE_UNKNOWN,false);
+    types->setCoreType("undefined4",4,TYPE_UNKNOWN,false);
+    types->setCoreType("undefined8",8,TYPE_UNKNOWN,false);
     types->setCoreType("code",1,TYPE_CODE,false);
     types->setCoreType("char",1,TYPE_INT,true);
     types->setCoreType("wchar2",2,TYPE_INT,true);

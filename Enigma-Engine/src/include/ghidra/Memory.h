@@ -148,6 +148,7 @@ private:
     std::vector<std::unique_ptr<DefaultMemoryBlock>> blocks_;
     bool bigEndian_;
     mutable int lastFoundIndex_ = -1;
+    mutable int blocksSorted_ = -1;
     int findBlockIndex(const Address& addr);
 
 public:

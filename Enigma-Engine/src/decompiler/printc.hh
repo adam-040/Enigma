@@ -72,8 +72,11 @@ protected:
   
   using SymbolProvider = std::function<std::string(const Address&)>;
   SymbolProvider symbolProvider;
+  using VariableNameProvider = std::function<std::string(const Address&, int4 size)>;
+  VariableNameProvider variableNameProvider;
 public:
   void setSymbolProvider(SymbolProvider sp) { symbolProvider = sp; }
+  void setVariableNameProvider(VariableNameProvider vnp) { variableNameProvider = vnp; }
   static OpToken scope;			///< The sub-scope/namespace operator
   static OpToken object_member;		///< The \e member operator
   static OpToken pointer_member;	///< The \e points \e to \e member operator

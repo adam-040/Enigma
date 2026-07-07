@@ -122,31 +122,18 @@ std::string resolveLanguageId(ProgramDB* program) {
 class LoadImageEnigma : public ghidra_decompiler::RawLoadImage {
 private:
     ProgramDB* program_;
-    std::vector<uint8_t> binaryData_;
-    ghidra_decompiler::uintb baseAddr_;
+    AddressSpace* ramSpace_;
 
 public:
     LoadImageEnigma(ProgramDB* program, const std::string& path)
-        : ghidra_decompiler::RawLoadImage(path), program_(program), baseAddr_(0) {
+        : ghidra_decompiler::RawLoadImage(path), program_(program), ramSpace_(nullptr) {
         if (program_) {
-            auto* memory = program_->getMemory();
-            if (memory) {
-                auto blocks = memory->getBlocks();
-                if (!blocks.empty()) {
-                    auto* firstBlock = blocks[0];
-                    if (firstBlock->isInitialized()) {
-                        baseAddr_ = firstBlock->getStart().getOffset();
-                        size_t blockSize = static_cast<size_t>(firstBlock->getSize());
-                        binaryData_.resize(blockSize);
-                        Address addr = firstBlock->getStart();
-                        for (size_t i = 0; i < blockSize; i++) {
-                            try {
-                                binaryData_[i] = firstBlock->getByte(addr);
-                            } catch (...) {
-                                binaryData_[i] = 0;
-                            }
-                            addr = addr.addWrap(1);
-                        }
+            auto* addrFactory = dynamic_cast<ProgramAddressFactory*>(program_->getAddressFactory());
+            if (addrFactory) {
+                for (const auto* space : addrFactory->getAddressSpaces()) {
+                    if (space->isMemorySpace()) {
+                        ramSpace_ = const_cast<AddressSpace*>(space);
+                        break;
                     }
                 }
             }
@@ -154,23 +141,33 @@ public:
     }
 
     void loadFill(ghidra_decompiler::uint1* ptr, ghidra_decompiler::int4 size, const ghidra_decompiler::Address &addr) override {
-        ghidra_decompiler::uintb offset = addr.getOffset() - baseAddr_;
-        if (offset < binaryData_.size()) {
-            ghidra_decompiler::uintb available = binaryData_.size() - offset;
-            ghidra_decompiler::uintb requested = static_cast<ghidra_decompiler::uintb>(size);
-            ghidra_decompiler::int4 toCopy =
-                static_cast<ghidra_decompiler::int4>(std::min(requested, available));
-            std::memcpy(ptr, binaryData_.data() + offset, toCopy);
-            if (toCopy < size) {
-                std::memset(ptr + toCopy, 0, size - toCopy);
-            }
-        } else {
+        if (!program_ || !ramSpace_) {
             std::memset(ptr, 0, size);
+            return;
+        }
+        auto* memory = program_->getMemory();
+        if (!memory) {
+            std::memset(ptr, 0, size);
+            return;
+        }
+        ghidra_decompiler::uintb currentOffset = addr.getOffset();
+        ghidra_decompiler::int4 remaining = size;
+        while (remaining > 0) {
+            Address readAddr(ramSpace_, static_cast<int64_t>(currentOffset));
+            ghidra_decompiler::int4 chunk = std::min(remaining, 4096);
+            int got = memory->getBytes(readAddr, ptr, chunk);
+            if (got < 0) got = 0;
+            if (got < chunk) {
+                std::memset(ptr + got, 0, chunk - got);
+            }
+            ptr += chunk;
+            currentOffset += chunk;
+            remaining -= chunk;
         }
     }
 
     std::string getArchType(void) const override { return "enigma"; }
-    void adjustVma(long adjust) override { baseAddr_ += adjust; }
+    void adjustVma(long adjust) override { (void)adjust; }
 };
 
 class EnigmaArchitecture : public ghidra_decompiler::RawBinaryArchitecture {

@@ -185,7 +185,8 @@ int main() {
         if (loadedBlocks.size() >= 1) {
             TEST("loaded block name", loadedBlocks[0]->getName() == ".init");
             uint8_t restoredBytes[sizeof(initBytes)] = {};
-            int nread = loadedMem->getBytes(initStart, restoredBytes,
+            Address loadedStart = loadedBlocks[0]->getStart();
+            int nread = loadedMem->getBytes(loadedStart, restoredBytes,
                                             static_cast<int>(sizeof(restoredBytes)));
             TEST("loaded memory bytes read", nread == static_cast<int>(sizeof(initBytes)));
             TEST("loaded memory bytes preserved",

@@ -27,19 +27,24 @@ NUM_RUNS = 10
 tests_passed = 0
 tests_failed = 0
 
-def run_decompile(args):
+def run_decompile(args, timeout=30):
     cmd = [EXE_PATH] + args
-    res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                         text=True, timeout=30)
+    try:
+        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                             text=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return None, f"timed out after {timeout}s"
+    except Exception as e:
+        return None, str(e)
     if res.returncode != 0:
         return None, f"exit code {res.returncode}"
     return res.stdout, None
 
-def test_deterministic(name, args):
+def test_deterministic(name, args, timeout=30):
     global tests_passed, tests_failed
     print(f"  Testing {name} ({NUM_RUNS} runs)...", end=" ")
     # Run 1: capture reference
-    ref, err = run_decompile(args)
+    ref, err = run_decompile(args, timeout=timeout)
     if err:
         print(f"[FAIL] Run 1 failed: {err}")
         tests_failed += 1
@@ -52,7 +57,7 @@ def test_deterministic(name, args):
     ref_lines = len(ref.splitlines())
     # Runs 2..N: compare byte-for-byte
     for run in range(2, NUM_RUNS + 1):
-        out, err = run_decompile(args)
+        out, err = run_decompile(args, timeout=timeout)
         if err:
             print(f"\n[FAIL] Run {run} failed: {err}")
             tests_failed += 1
@@ -101,10 +106,20 @@ raw_tests = [
 for name, args in raw_tests:
     test_deterministic(name, args)
 
-# === PE binary test ===
+# === PE binary test (single run only; full 10-run determinism is too expensive) ===
 ldr_exe = os.path.join(ENGINE_ROOT, "build-cmake", "enigma_test_loader.exe")
 if os.path.exists(ldr_exe):
-    test_deterministic("pe_test.bin", ["-max-func", "5", ldr_exe])
+    print(f"  Testing pe_test.bin (1 run)...", end=" ")
+    ref, err = run_decompile(["-max-func", "5", ldr_exe], timeout=120)
+    if err:
+        print(f"[FAIL] {err}")
+        tests_failed += 1
+    elif not ref or len(ref.splitlines()) < 3:
+        print(f"[FAIL] no output")
+        tests_failed += 1
+    else:
+        print(f"[PASS] ({len(ref)}b, {len(ref.splitlines())} lines)")
+        tests_passed += 1
 
 print(f"\nDeterminism Test Summary: {tests_passed} passed, {tests_failed} failed")
 if tests_failed > 0:

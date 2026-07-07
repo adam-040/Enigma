@@ -21,10 +21,10 @@ SLEIGH_DIR = os.path.join(ENGINE_ROOT, "sleigh")
 os.environ["ENIGMA_SLEIGH_DIR"] = SLEIGH_DIR
 os.makedirs(EXPECTED, exist_ok=True)
 
-def regen(name, args):
+def regen(name, args, timeout=30):
     expected_path = os.path.join(EXPECTED, f"{name}.c")
     cmd = [EXE_PATH] + args
-    res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=30)
+    res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=timeout)
     if res.returncode != 0:
         print(f"  [SKIP] {name}: exit code {res.returncode}"); return
     with open(expected_path, "w") as f:
@@ -56,7 +56,7 @@ regen("call_test.bin", ["-base", "1000", "-entry", "1000", corpus_bin("call_test
 
 ldr_exe = os.path.join(ENGINE_ROOT, "build-cmake", "enigma_test_loader.exe")
 if os.path.exists(ldr_exe):
-    regen("pe_test.bin", ["-max-func", "5", ldr_exe])
+    regen("pe_test.bin", ["-max-func", "5", ldr_exe], timeout=120)
 else:
     print("  [SKIP] pe_test.bin: enigma_test_loader.exe not found")
 

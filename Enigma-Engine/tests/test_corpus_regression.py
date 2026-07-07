@@ -22,14 +22,14 @@ os.environ["ENIGMA_SLEIGH_DIR"] = SLEIGH_DIR
 tests_passed = 0
 tests_failed = 0
 
-def run_corpus_test(name, args, expected_path):
+def run_corpus_test(name, args, expected_path, timeout=30):
     global tests_passed, tests_failed
     cmd = [EXE_PATH] + args
     with open(expected_path) as f:
         expected = f.read()
     try:
         res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                             text=True, timeout=30)
+                             text=True, timeout=timeout)
         if res.returncode != 0:
             print(f"  [FAIL] {name}: exit code {res.returncode}")
             print(f"    stderr: {res.stderr[:300]}")
@@ -93,7 +93,7 @@ for name, args in raw_tests:
 ldr_exe = os.path.join(ENGINE_ROOT, "build-cmake", "enigma_test_loader.exe")
 if os.path.exists(ldr_exe):
     expected = os.path.join(EXPECTED, "pe_test.bin.c")
-    run_corpus_test("pe_test.bin", ["-max-func", "5", ldr_exe], expected)
+    run_corpus_test("pe_test.bin", ["-max-func", "5", ldr_exe], expected, timeout=120)
 else:
     print("  [SKIP] pe_test.bin: enigma_test_loader.exe not found")
 

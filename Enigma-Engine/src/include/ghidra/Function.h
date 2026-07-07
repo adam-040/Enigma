@@ -62,7 +62,7 @@ public:
         if (static_cast<uint8_t>(signatureSource_) > static_cast<uint8_t>(s)) s = signatureSource_;
         return s;
     }
-    void setSignatureSource(SignatureSource s) { returnTypeSource_ = s; }
+    void setSignatureSource(SignatureSource s) { signatureSource_ = s; }
 
     PrototypeModel* getCallingConvention() const { return callingConvention_; }
     void setCallingConvention(PrototypeModel* model) { callingConvention_ = model; }

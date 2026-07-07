@@ -167,15 +167,17 @@ bool FunctionBodyFinalizer::added(Program* program, const AddressSetView& set,
         try {
             funcMgr->createFunction(name, entryAddr, newBody, src);
             extended++;
-            Msg::debug(getName(), "Extended 0x" + std::to_string(entryVal) +
-                       " from " + std::to_string(bodySize) + " to " + std::to_string(newSize) +
-                       " bytes (t=" + (foundTerminator ? "1" : "0") + ")");
         } catch (const std::exception& e) {
             log.append(getName(), "Failed to re-create function at 0x" +
                        std::to_string(entryVal) + ": " + e.what());
-            funcMgr->createFunction(name, entryAddr,
-                                    AddressSet(entryAddr, entryAddr),
-                                    SourceType::ANALYSIS);
+            try {
+                funcMgr->createFunction(name, entryAddr,
+                                        AddressSet(entryAddr, entryAddr),
+                                        SourceType::ANALYSIS);
+            } catch (const std::exception& e2) {
+                log.append(getName(), "CRITICAL: Lost function at 0x" +
+                           std::to_string(entryVal) + ": " + e2.what());
+            }
         }
     }
 

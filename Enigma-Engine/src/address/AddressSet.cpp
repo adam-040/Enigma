@@ -36,6 +36,10 @@ void AddressSet::add(const AddressRange& range) {
 }
 
 void AddressSet::add(const Address& start, const Address& end) {
+    if (end < start) {
+        add(end, start);
+        return;
+    }
     AddressRange::checkValidRange(start, end);
 
     if (lastNode != nullptr && !lastNode->isDisposed()) {

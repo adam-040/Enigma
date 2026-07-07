@@ -1,9 +1,9 @@
-#include <ghidra/ExtCodeBlockImpl.h>
-#include <ghidra/CodeBlockModel.h>
+#include <ghidra/pcode/ExtCodeBlockImpl.h>
+#include <ghidra/pcode/CodeBlockModel.h>
 #include <ghidra/SymbolTable.h>
 #include <ghidra/Program.h>
 
-namespace ghidra {
+namespace ghidra::pcode {
 
 ExtCodeBlockImpl::ExtCodeBlockImpl(CodeBlockModel* model, const Address& extAddr)
     : AddressSet(extAddr), model_(model), extAddr_(extAddr) {
@@ -31,4 +31,4 @@ CodeBlockReferenceIterator* ExtCodeBlockImpl::getSources(TaskMonitor* monitor) {
     return model_->getSources(this, monitor);
 }
 
-} // namespace ghidra
+} // namespace ghidra::pcode

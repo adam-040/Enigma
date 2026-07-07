@@ -3146,7 +3146,7 @@ bool TypePointerRel::isPtrsubMatching(int8 off,int8 extra,int8 multiplier) const
 /// \brief Given a containing data-type and offset, find the "pointed to" data-type suitable for a TypePointerRel
 ///
 /// The biggest contained data-type that starts at the exact offset is returned. If the offset is negative
-/// or the is no data-type starting exactly there, an \b xunknown1 data-type is returned.
+/// or the is no data-type starting exactly there, an \b undefined1 data-type is returned.
 /// \param base is the given container data-type
 /// \param off is the offset relative to the start of the container
 /// \param typegrp is the factory owning the data-types

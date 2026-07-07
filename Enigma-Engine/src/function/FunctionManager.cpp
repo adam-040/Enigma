@@ -62,7 +62,7 @@ Function* FunctionManager::createFunction(const std::string& name, Address entry
             --it;
             // Check if this range overlaps with [newStart, newEnd]
             if (it->first <= newEnd && newStart <= it->second) {
-                return nullptr;
+                throw std::invalid_argument("Overlapping function body");
             }
         }
     }
@@ -71,6 +71,9 @@ Function* FunctionManager::createFunction(const std::string& name, Address entry
     func->setProgram(program_);
     func->setBody(body);
     Function* raw = func.get();
+    long id = nextFunctionId_++;
+    raw->setID(id);
+    idIndex_[id] = raw;
     functions_[static_cast<uint64_t>(entryPoint.getOffset())] = std::move(func);
     functionsDirty_ = true;
     // PHASE 10: O(log N) insert into sorted body range set (no shift, no full rebuild)
@@ -114,6 +117,9 @@ Function* FunctionManager::createFunction(const std::string& name, Namespace* na
     func->setProgram(program_);
     func->setBody(body);
     Function* raw = func.get();
+    long id = nextFunctionId_++;
+    raw->setID(id);
+    idIndex_[id] = raw;
     functions_[static_cast<uint64_t>(entryPoint.getOffset())] = std::move(func);
     functionsDirty_ = true;
     // PHASE 10: O(log N) insert into sorted body range set
@@ -132,6 +138,7 @@ bool FunctionManager::removeFunction(Address entryPoint) {
         sortedBodyRanges_.erase({static_cast<uint64_t>(body.getMinAddress().getOffset()),
                                   static_cast<uint64_t>(body.getMaxAddress().getOffset())});
     }
+    idIndex_.erase(it->second->getID());
     functions_.erase(it);
     functionsDirty_ = true;
     return true;
@@ -181,43 +188,38 @@ Function* FunctionManager::getReferencedFunction(Address address) const {
 }
 
 FunctionIterator FunctionManager::getFunctions(bool forward) const {
-    std::vector<Function*> funcs;
-    for (const auto& pair : functions_) {
-        funcs.push_back(pair.second.get());
-    }
-    std::sort(funcs.begin(), funcs.end(), [](Function* a, Function* b) {
-        return a->getEntryPoint() < b->getEntryPoint();
-    });
+    if (functionsDirty_) rebuildSortedFunctions();
     if (!forward) {
+        std::vector<Function*> rev(sortedFunctions_.rbegin(), sortedFunctions_.rend());
+        return FunctionIterator(rev);
+    }
+    return FunctionIterator(sortedFunctions_);
+}
+
+FunctionIterator FunctionManager::getFunctions(Address start, bool forward) const {
+    if (functionsDirty_) rebuildSortedFunctions();
+    std::vector<Function*> funcs;
+    if (forward) {
+        auto it = std::lower_bound(sortedFunctions_.begin(), sortedFunctions_.end(), start,
+            [](Function* a, const Address& addr) { return a->getEntryPoint() < addr; });
+        funcs.insert(funcs.end(), it, sortedFunctions_.end());
+    } else {
+        auto it = std::upper_bound(sortedFunctions_.begin(), sortedFunctions_.end(), start,
+            [](const Address& addr, Function* a) { return addr < a->getEntryPoint(); });
+        funcs.insert(funcs.end(), sortedFunctions_.begin(), it);
         std::reverse(funcs.begin(), funcs.end());
     }
     return FunctionIterator(funcs);
 }
 
-FunctionIterator FunctionManager::getFunctions(Address start, bool forward) const {
-    std::vector<Function*> funcs;
-    for (const auto& pair : functions_) {
-        if (forward ? pair.second->getEntryPoint() >= start : pair.second->getEntryPoint() <= start) {
-            funcs.push_back(pair.second.get());
-        }
-    }
-    std::sort(funcs.begin(), funcs.end(), [forward](Function* a, Function* b) {
-        return forward ? (a->getEntryPoint() < b->getEntryPoint())
-                       : (a->getEntryPoint() > b->getEntryPoint());
-    });
-    return FunctionIterator(funcs);
-}
-
 FunctionIterator FunctionManager::getFunctions(const AddressSetView& asv, bool forward) const {
+    if (functionsDirty_) rebuildSortedFunctions();
     std::vector<Function*> funcs;
-    for (const auto& pair : functions_) {
-        if (asv.contains(pair.second->getEntryPoint())) {
-            funcs.push_back(pair.second.get());
+    for (auto* f : sortedFunctions_) {
+        if (asv.contains(f->getEntryPoint())) {
+            funcs.push_back(f);
         }
     }
-    std::sort(funcs.begin(), funcs.end(), [](Function* a, Function* b) {
-        return a->getEntryPoint() < b->getEntryPoint();
-    });
     if (!forward) {
         std::reverse(funcs.begin(), funcs.end());
     }
@@ -229,12 +231,8 @@ bool FunctionManager::isInFunction(Address addr) const {
 }
 
 Function* FunctionManager::getFunction(long key) const {
-    for (const auto& pair : functions_) {
-        if (pair.second->getID() == key) {
-            return pair.second.get();
-        }
-    }
-    return nullptr;
+    auto it = idIndex_.find(key);
+    return (it != idIndex_.end()) ? it->second : nullptr;
 }
 
 Variable* FunctionManager::getReferencedVariable(Address instrAddr, Address storageAddr,

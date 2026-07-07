@@ -1,7 +1,7 @@
-#include <ghidra/CodeBlockReferenceImpl.h>
-#include <ghidra/CodeBlock.h>
+#include <ghidra/pcode/CodeBlockReferenceImpl.h>
+#include <ghidra/pcode/CodeBlock.h>
 
-namespace ghidra {
+namespace ghidra::pcode {
 
 CodeBlockReferenceImpl::CodeBlockReferenceImpl(CodeBlock* source, CodeBlock* destination,
                                                FlowType flowType, const Address& reference,
@@ -23,4 +23,4 @@ std::string CodeBlockReferenceImpl::toString() const {
     return referent_.toString() + " -> " + reference_.toString();
 }
 
-} // namespace ghidra
+} // namespace ghidra::pcode
