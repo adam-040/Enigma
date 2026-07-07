@@ -14,7 +14,7 @@ Build a production-grade reverse engineering IDE with:
 
 - **Platform**: MSYS2/MINGW64, g++ 15.2.0, C++17
 - **Build tool**: `make` (`D:/msys64/usr/bin/make.exe`), `cmake` (`D:/msys64/mingw64/bin/cmake.exe`)
-- **Build dir**: `build-cmake/` (MSYS Makefiles)
+- **Build dir**: `build/` (Ninja, Debug config)
 - **Test binaries**: `test_binaries/notepad_test.exe`, `test_binaries/shell32_test.dll`
 - **Python 3.11**: `C:/Users/pc/AppData/Local/Programs/Python/Python311/python.exe`
 

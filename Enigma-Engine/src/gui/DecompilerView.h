@@ -20,6 +20,8 @@ signals:
     void addressDoubleClicked(uint64_t addr);
 
 private:
+    QColor colorForKind(TokenKind kind) const override;
+    bool isBoldKind(TokenKind kind) const override;
     std::vector<Token> tokenizeCLine(const QString& line);
     std::unique_ptr<Document> documentFromMarkup(
         const QString& markupXml,

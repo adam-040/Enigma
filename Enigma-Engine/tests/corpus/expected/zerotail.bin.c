@@ -1,5 +1,5 @@
 void __stdcall entry()
 {
-  return;
+    return;
 }
 

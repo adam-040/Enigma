@@ -1,7 +1,7 @@
 void __stdcall entry()
 {
-  do {
+    do {
                     
-  } while( true );
+    } while( true );
 }
 

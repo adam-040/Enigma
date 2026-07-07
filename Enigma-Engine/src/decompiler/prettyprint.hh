@@ -100,7 +100,7 @@ protected:
   int4 parenlevel;			///< Current depth of parentheses
   int4 indentincrement;			///< Change in indentlevel per level of nesting
   PendPrint *pendPrint;			///< Pending print callback
-  void resetDefaultsInternal(void) { indentincrement = 2; }	///< Set options to default values for EmitMarkup
+  void resetDefaultsInternal(void) { indentincrement = 4; }	///< Set options to default values for EmitMarkup
   void emitPending(void);		///< Emit any pending print commands
 public:
   Emit(void) { indentlevel=0; parenlevel=0; pendPrint=(PendPrint *)0; resetDefaultsInternal(); }	///< Constructor
@@ -1089,7 +1089,7 @@ class EmitPrettyPrint : public Emit {
   void print(const TokenSplit &tok);	///< Output the given token to the low-level emitter
   void advanceleft(void);	///< Emit tokens that have been fully committed
   void scan(void);		///< Process a new token
-  void resetDefaultsPrettyPrint(void) { setMaxLineSize(100); } ///< Reset the defaults
+  void resetDefaultsPrettyPrint(void) { setMaxLineSize(90); } ///< Reset the defaults
 public:
   EmitPrettyPrint(void);	///< Construct with an initial maximum line size
   virtual ~EmitPrettyPrint(void);

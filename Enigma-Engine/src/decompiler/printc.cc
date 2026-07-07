@@ -25,7 +25,7 @@ OpToken PrintC::scope = { "::", "", 2, 70, true, OpToken::binary, 0, 0, (OpToken
 OpToken PrintC::object_member = { ".", "", 2, 66, true, OpToken::binary, 0, 0, (OpToken *)0  };
 OpToken PrintC::pointer_member = { "->", "", 2, 66, true, OpToken::binary, 0, 0, (OpToken *)0 };
 OpToken PrintC::subscript = { "[", "]", 2, 66, false, OpToken::postsurround, 0, 0, (OpToken *)0 };
-OpToken PrintC::function_call = { "(", ")", 2, 66, false, OpToken::postsurround, 0, 10, (OpToken *)0 };
+OpToken PrintC::function_call = { "(", ")", 2, 66, false, OpToken::postsurround, 1, 10, (OpToken *)0 };
 OpToken PrintC::bitwise_not = { "~", "", 1, 62, false, OpToken::unary_prefix, 0, 0, (OpToken *)0 };
 OpToken PrintC::boolean_not = { "!", "", 1, 62, false, OpToken::unary_prefix, 0, 0, (OpToken *)0 };
 OpToken PrintC::unary_minus = { "-", "", 1, 62, false, OpToken::unary_prefix, 0, 0, (OpToken *)0 };
@@ -36,23 +36,23 @@ OpToken PrintC::typecast = { "(", ")", 2, 62, false, OpToken::presurround, 0, 0,
 OpToken PrintC::multiply = { "*", "", 2, 54, true, OpToken::binary, 1, 0, (OpToken *)0 };
 OpToken PrintC::divide = { "/", "", 2, 54, false, OpToken::binary, 1, 0, (OpToken *)0 };
 OpToken PrintC::modulo = { "%", "", 2, 54, false, OpToken::binary, 1, 0, (OpToken *)0 };
-OpToken PrintC::binary_plus = { "+", "", 2, 50, true, OpToken::binary, 1, 0, (OpToken *)0 };
-OpToken PrintC::binary_minus = { "-", "", 2, 50, false, OpToken::binary, 1, 0, (OpToken *)0 };
+OpToken PrintC::binary_plus = { "+", "", 2, 50, true, OpToken::binary, 1, 4, (OpToken *)0 };
+OpToken PrintC::binary_minus = { "-", "", 2, 50, false, OpToken::binary, 1, 4, (OpToken *)0 };
 OpToken PrintC::shift_left = { "<<", "", 2, 46, false, OpToken::binary, 1, 0, (OpToken *)0 };
 OpToken PrintC::shift_right = { ">>", "", 2, 46, false, OpToken::binary, 1, 0, (OpToken *)0 };
 OpToken PrintC::shift_sright = { ">>", "", 2, 46, false, OpToken::binary, 1, 0, (OpToken *)0 };
-OpToken PrintC::less_than = { "<", "", 2, 42, false, OpToken::binary, 1, 0, (OpToken *)0 };
-OpToken PrintC::less_equal = { "<=", "", 2, 42, false, OpToken::binary, 1, 0, (OpToken *)0 };
-OpToken PrintC::greater_than = { ">", "", 2, 42, false, OpToken::binary, 1, 0, (OpToken *)0 };
-OpToken PrintC::greater_equal = { ">=", "", 2, 42, false, OpToken::binary, 1, 0, (OpToken *)0 };
-OpToken PrintC::equal = { "==", "", 2, 38, false, OpToken::binary, 1, 0, (OpToken *)0 };
-OpToken PrintC::not_equal = { "!=", "", 2, 38, false, OpToken::binary, 1, 0, (OpToken *)0 };
-OpToken PrintC::bitwise_and = { "&", "", 2, 34, true, OpToken::binary, 1, 0, (OpToken *)0 };
-OpToken PrintC::bitwise_xor = { "^", "", 2, 30, true, OpToken::binary, 1, 0, (OpToken *)0 };
-OpToken PrintC::bitwise_or = { "|", "", 2, 26, true, OpToken::binary, 1, 0, (OpToken *)0 };
-OpToken PrintC::boolean_and = { "&&", "", 2, 22, false, OpToken::binary, 1, 0, (OpToken *)0 };
-OpToken PrintC::boolean_xor = { "^^", "", 2, 20, false, OpToken::binary, 1, 0, (OpToken *)0 };
-OpToken PrintC::boolean_or = { "||", "", 2, 18, false, OpToken::binary, 1, 0, (OpToken *)0 };
+OpToken PrintC::less_than = { "<", "", 2, 42, false, OpToken::binary, 1, 4, (OpToken *)0 };
+OpToken PrintC::less_equal = { "<=", "", 2, 42, false, OpToken::binary, 1, 4, (OpToken *)0 };
+OpToken PrintC::greater_than = { ">", "", 2, 42, false, OpToken::binary, 1, 4, (OpToken *)0 };
+OpToken PrintC::greater_equal = { ">=", "", 2, 42, false, OpToken::binary, 1, 4, (OpToken *)0 };
+OpToken PrintC::equal = { "==", "", 2, 38, false, OpToken::binary, 1, 4, (OpToken *)0 };
+OpToken PrintC::not_equal = { "!=", "", 2, 38, false, OpToken::binary, 1, 4, (OpToken *)0 };
+OpToken PrintC::bitwise_and = { "&", "", 2, 34, true, OpToken::binary, 1, 4, (OpToken *)0 };
+OpToken PrintC::bitwise_xor = { "^", "", 2, 30, true, OpToken::binary, 1, 4, (OpToken *)0 };
+OpToken PrintC::bitwise_or = { "|", "", 2, 26, true, OpToken::binary, 1, 4, (OpToken *)0 };
+OpToken PrintC::boolean_and = { "&&", "", 2, 22, false, OpToken::binary, 1, 4, (OpToken *)0 };
+OpToken PrintC::boolean_xor = { "^^", "", 2, 20, false, OpToken::binary, 1, 4, (OpToken *)0 };
+OpToken PrintC::boolean_or = { "||", "", 2, 18, false, OpToken::binary, 1, 4, (OpToken *)0 };
 OpToken PrintC::assignment = { "=", "", 2, 14, false, OpToken::binary, 1, 5, (OpToken *)0 };
 OpToken PrintC::comma = { ",", "", 2, 2, true, OpToken::binary, 0, 0, (OpToken *)0 };
 OpToken PrintC::new_op = { "", "", 2, 62, false, OpToken::space, 1, 0, (OpToken *)0 };
@@ -656,6 +656,61 @@ void PrintC::opCall(const PcodeOp *op)
 void PrintC::opCallind(const PcodeOp *op)
 
 {
+  const Varnode *callee = op->getIn(0);
+  uintb funcAddr = 0;
+  bool isKnownFunc = false;
+  if (callee->isConstant()) {
+    funcAddr = callee->getOffset();
+    isKnownFunc = true;
+  }
+  else if (callee->isWritten() && callee->getDef()->code() == CPUI_COPY) {
+    const Varnode *src = callee->getDef()->getIn(0);
+    if (src->isConstant()) {
+      funcAddr = src->getOffset();
+      isKnownFunc = true;
+    }
+  }
+  else if (callee->isWritten() && callee->getDef()->code() == CPUI_CAST) {
+    const Varnode *src = callee->getDef()->getIn(0);
+    if (src->isConstant()) {
+      funcAddr = src->getOffset();
+      isKnownFunc = true;
+    }
+  }
+  if (isKnownFunc) {
+    AddrSpace *spc = glb->getDefaultCodeSpace();
+    uintb byteAddr = AddrSpace::addressToByte(funcAddr, spc->getWordSize());
+    Funcdata *knownFd = glb->symboltab->getGlobalScope()->queryFunction(Address(spc, byteAddr));
+    if (knownFd != (Funcdata *)0) {
+      pushOp(&function_call, op);
+      pushAtom(Atom(knownFd->getDisplayName(), functoken, EmitMarkup::funcname_color, op, knownFd));
+      const Funcdata *fd = op->getParent()->getFuncdata();
+      FuncCallSpecs *fc = fd->getCallSpecs(op);
+      if (fc == (FuncCallSpecs *)0)
+        throw LowlevelError("Missing indirect function callspec");
+      int4 skip = getHiddenThisSlot(op, fc);
+      int4 count = op->numInput() - 1;
+      count -= (skip < 0) ? 0 : 1;
+      if (count > 1) {
+        for(int4 i=0;i<count-1;++i)
+          pushOp(&comma,op);
+        for(int4 i=op->numInput()-1;i>=1;--i) {
+          if (i == skip) continue;
+          pushVn(op->getIn(i),op,mods);
+        }
+      }
+      else if (count == 1) {
+        if (skip == 1)
+          pushVn(op->getIn(2),op,mods);
+        else
+          pushVn(op->getIn(1),op,mods);
+      }
+      else {
+        pushAtom(Atom(EMPTY_STRING,blanktoken,EmitMarkup::no_color));
+      }
+      return;
+    }
+  }
   pushOp(&function_call,op);
   pushOp(&dereference,op);
   const Funcdata *fd = op->getParent()->getFuncdata();
@@ -886,7 +941,7 @@ void PrintC::opSubpiece(const PcodeOp *op)
       if (field != (const TypeField*)0 && offset == 0) {		// A formal structure field
 	pushOp(&object_member,op);
 	pushVn(vn,op,mods);
-	pushAtom(Atom(field->name,fieldtoken,EmitMarkup::no_color,ct,field->ident,op));
+	pushAtom(Atom(field->name,fieldtoken,EmitMarkup::var_color,ct,field->ident,op));
 	return;
       }
       // Fall thru to functional printing
@@ -1045,7 +1100,7 @@ void PrintC::opPtrsub(const PcodeOp *op)
 	if (ptrel != (TypePointerRel *)0)
 	  pushTypePointerRel(op);
 	pushVn(in0,op,m | print_load_value);
-	pushAtom(Atom(fieldname,fieldtoken,EmitMarkup::no_color,ct,fieldid,op));
+	pushAtom(Atom(fieldname,fieldtoken,EmitMarkup::var_color,ct,fieldid,op));
       }
       else {			// EMIT  &( )->name
 	pushOp(&addressof,op);
@@ -1053,7 +1108,7 @@ void PrintC::opPtrsub(const PcodeOp *op)
 	if (ptrel != (TypePointerRel *)0)
 	  pushTypePointerRel(op);
 	pushVn(in0,op,m);
-	pushAtom(Atom(fieldname,fieldtoken,EmitMarkup::no_color,ct,fieldid,op));
+	pushAtom(Atom(fieldname,fieldtoken,EmitMarkup::var_color,ct,fieldid,op));
       }
     }
     else {			// Not printing an ampersand
@@ -1064,14 +1119,14 @@ void PrintC::opPtrsub(const PcodeOp *op)
 	if (ptrel != (TypePointerRel *)0)
 	  pushTypePointerRel(op);
 	pushVn(in0,op,m | print_load_value);
-	pushAtom(Atom(fieldname,fieldtoken,EmitMarkup::no_color,ct,fieldid,op));
+	pushAtom(Atom(fieldname,fieldtoken,EmitMarkup::var_color,ct,fieldid,op));
       }
       else {			// EMIT  ( )->name
 	pushOp(&pointer_member,op);
 	if (ptrel != (TypePointerRel *)0)
 	  pushTypePointerRel(op);
 	pushVn(in0,op,m);
-	pushAtom(Atom(fieldname,fieldtoken,EmitMarkup::no_color,ct,fieldid,op));
+	pushAtom(Atom(fieldname,fieldtoken,EmitMarkup::var_color,ct,fieldid,op));
       }
       if (arrayvalue)
 	push_integer(0,4,false,syntax,(Varnode *)0,op,0);
@@ -1307,12 +1362,12 @@ void PrintC::opZpullOp(const PcodeOp *op)
     else
       pushOp(&pointer_member,op);
     pushVn(expr.structPtr,expr.loadOp,m);
-    pushAtom(Atom(expr.bitfield->name,bitfieldtoken,EmitMarkup::no_color,expr.theStruct,expr.bitfield->ident,op));
+    pushAtom(Atom(expr.bitfield->name,bitfieldtoken,EmitMarkup::var_color,expr.theStruct,expr.bitfield->ident,op));
   }
   else {
     pushOp(&object_member,op);
     pushSymbolDetail(op->getIn(0),op,true);
-    pushAtom(Atom(expr.bitfield->name,bitfieldtoken,EmitMarkup::no_color,expr.theStruct,expr.bitfield->ident,op));
+    pushAtom(Atom(expr.bitfield->name,bitfieldtoken,EmitMarkup::var_color,expr.theStruct,expr.bitfield->ident,op));
   }
 }
 
@@ -1333,12 +1388,12 @@ void PrintC::opSpullOp(const PcodeOp *op)
     else
       pushOp(&pointer_member,op);
     pushVn(expr.structPtr,expr.loadOp,m);
-    pushAtom(Atom(expr.bitfield->name,bitfieldtoken,EmitMarkup::no_color,expr.theStruct,expr.bitfield->ident,op));
+    pushAtom(Atom(expr.bitfield->name,bitfieldtoken,EmitMarkup::var_color,expr.theStruct,expr.bitfield->ident,op));
   }
   else {
     pushOp(&object_member,op);
     pushSymbolDetail(op->getIn(0),op,true);
-    pushAtom(Atom(expr.bitfield->name,bitfieldtoken,EmitMarkup::no_color,expr.theStruct,expr.bitfield->ident,op));
+    pushAtom(Atom(expr.bitfield->name,bitfieldtoken,EmitMarkup::var_color,expr.theStruct,expr.bitfield->ident,op));
   }
 }
 
@@ -2196,7 +2251,7 @@ void PrintC::pushImpliedField(const Varnode *vn,const PcodeOp *op)
   }
   pushOp(&object_member,op);
   defOp->getOpcode()->push(this,defOp,op);
-  pushAtom(Atom(field->name,fieldtoken,EmitMarkup::no_color,parent,field->ident,op));
+  pushAtom(Atom(field->name,fieldtoken,EmitMarkup::var_color,parent,field->ident,op));
 }
 
 /// Print all the components making up the data-type, using the \b struct keyword
@@ -2316,8 +2371,10 @@ void PrintC::emitPrototypeInputs(const FuncProto *proto)
   else {
     bool printComma = false;
     for(int4 i=0;i<sz;++i) {
-      if (printComma)
+      if (printComma) {
 	emit->print(COMMA);
+	emit->spaces(1,8);		// Allow parameter list wrapping
+      }
       ProtoParameter *param = proto->getParam(i);
       if (isSet(hide_thisparam) && param->isThisPointer())
 	continue;
@@ -2344,8 +2401,8 @@ void PrintC::emitPrototypeInputs(const FuncProto *proto)
 /// A formal variable declaration is emitted for every symbol in the given
 /// function scope. I.e. all local variables are declared.
 /// \param fd is the function being emitted
-void PrintC::emitLocalVarDecls(const Funcdata *fd)
-
+bool PrintC::emitLocalVarDecls(const Funcdata *fd)
+ 
 {
   bool notempty = false;
 
@@ -2361,8 +2418,7 @@ void PrintC::emitLocalVarDecls(const Funcdata *fd)
     ++iter;
   }
 
-  if (notempty)
-    emit->tagLine();
+  return notempty;
 }
 
 /// This emits an entire statement rooted at a given operation. All associated expressions
@@ -2623,7 +2679,7 @@ void PrintC::emitBitFieldStore(const PcodeOp *op)
   else
     pushOp(&pointer_member,expr.insertOp);
   pushVn(expr.structPtr,op,m);
-  pushAtom(Atom(expr.bitfield->name,bitfieldtoken,EmitMarkup::no_color,expr.theStruct,expr.bitfield->ident,op));
+  pushAtom(Atom(expr.bitfield->name,bitfieldtoken,EmitMarkup::var_color,expr.theStruct,expr.bitfield->ident,op));
   // implied vn's pushed on in reverse order for efficiency
   // see PrintLanguage::pushVnImplied
   pushVn(expr.insertOp->getIn(1),op,mods);
@@ -2642,7 +2698,7 @@ void PrintC::emitBitFieldExpression(const PcodeOp *op)
   pushOp(&assignment,op);	// This is an assignment
   pushOp(&object_member,expr.insertOp);
   pushPartialSymbol(expr.symbol, expr.offsetToBitStruct, expr.theStruct->getSize(), op->getOut(), op, -1, false);
-  pushAtom(Atom(expr.bitfield->name,bitfieldtoken,EmitMarkup::no_color,expr.theStruct,expr.bitfield->ident,op));
+  pushAtom(Atom(expr.bitfield->name,bitfieldtoken,EmitMarkup::var_color,expr.theStruct,expr.bitfield->ident,op));
   pushVn(op->getIn(1),op,mods);
   recurse();
 }
@@ -2683,7 +2739,9 @@ bool PrintC::emitScopeVarDecls(const Scope *symScope,int4 cat)
       notempty = true;
       emitVarDeclStatement(sym);
     }
-    return notempty;
+  if (notempty)
+    emit->tagLine();
+  return notempty;
   }
   MapIterator iter = symScope->begin();
   MapIterator enditer = symScope->end();
@@ -2900,8 +2958,12 @@ void PrintC::emitBlockGraph(const BlockGraph *bl)
 {
   const vector<FlowBlock *> &list(bl->getList());
   vector<FlowBlock *>::const_iterator iter;
+  bool first = true;
 
   for(iter=list.begin();iter!=list.end();++iter) {
+    if (!first)
+      emit->tagLine();
+    first = false;
     int4 id = emit->beginBlock(*iter);
     (*iter)->emit(this);
     emit->endBlock(id);
@@ -2997,6 +3059,7 @@ void PrintC::emitBlockCondition(const BlockCondition *bl)
   }
   if (isSet(only_branch) || isSet(comma_separate)) {
     int4 id = emit->openParen(OPEN_PAREN);
+    emit->spaces(0,4);		// Allow line break after opening paren
     bl->getBlock(0)->emit(this);
     pushMod();
     unsetMod(only_branch);
@@ -3013,10 +3076,12 @@ void PrintC::emitBlockCondition(const BlockCondition *bl)
       pol.tok = &boolean_or;
     emitOp(pol);
 
+    emit->spaces(0,4);		// Allow line break before second operand
     int4 id2 = emit->openParen(OPEN_PAREN);
     bl->getBlock(1)->emit(this);
     emit->closeParen(CLOSE_PAREN,id2);
     popMod();
+    emit->spaces(0,4);		// Allow line break before closing paren
     emit->closeParen(CLOSE_PAREN,id);
   }
 }

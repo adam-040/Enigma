@@ -8,6 +8,26 @@ DecompilerView::DecompilerView(QWidget* parent)
 {
 }
 
+// ── Decompiler color scheme (balanced to match disassembler aesthetic) ───────
+
+QColor DecompilerView::colorForKind(TokenKind kind) const {
+    switch (kind) {
+    case TokenKind::Keyword:     return QColor(0x00, 0x00, 0xff); // blue
+    case TokenKind::Type:        return QColor(0x0e, 0x8a, 0x8a); // teal
+    case TokenKind::Function:    return QColor(0x6f, 0x42, 0xc1); // purple (emphasis, like labels in disasm)
+    case TokenKind::String:      return QColor(0xa3, 0x15, 0x15); // dark red
+    case TokenKind::Comment:     return QColor(0x6a, 0x99, 0x55); // green
+    case TokenKind::Immediate:
+    case TokenKind::Number:      return QColor(0xb8, 0x4e, 0x4e); // brown (like immediates in disasm)
+    case TokenKind::Register:    return QColor(0x00, 0x70, 0xc0); // blue
+    default:                     return QColor(0x1e, 0x1e, 0x1e); // dark text (variables, labels, punctuation)
+    }
+}
+
+bool DecompilerView::isBoldKind(TokenKind kind) const {
+    return kind == TokenKind::Keyword || kind == TokenKind::Type;
+}
+
 // ── C keyword / type classification ──────────────────────────────────────────
 
 static const QSet<QString>& cKeywords() {
@@ -34,13 +54,54 @@ static const QSet<QString>& cTypes() {
         "undefined", "undefined1", "undefined2", "undefined4", "undefined8",
         "byte", "ushort", "uint", "ulong", "longlong", "ulonglong",
         "code", "pointer",
+        "int4", "uint4", "int8", "uint8",
+        "float4", "float8", "float16", "bool4",
     };
     return ty;
+}
+
+// Decompiler-specific identifier prefixes
+static TokenKind classifyDecompilerWord(const QString& id) {
+    if (id.startsWith(QStringLiteral("func_0x")) ||
+        id.startsWith(QStringLiteral("thunk_0x")) ||
+        id.startsWith(QStringLiteral("code_0x")) ||
+        id.startsWith(QStringLiteral("entry_0x")))
+        return TokenKind::Function;
+
+    if (id.startsWith(QStringLiteral("data_0x")) ||
+        id.startsWith(QStringLiteral("label_0x")) ||
+        id.startsWith(QStringLiteral("unk_0x")) ||
+        id.startsWith(QStringLiteral("ext_0x")) ||
+        id.startsWith(QStringLiteral("off_0x")) ||
+        id.startsWith(QStringLiteral("ord_0x")))
+        return TokenKind::Label;
+
+    if (id.startsWith(QStringLiteral("local_0x")) ||
+        id.startsWith(QStringLiteral("ptr_0x")))
+        return TokenKind::Variable;
+
+    if (id.startsWith(QStringLiteral("param_")))
+        return TokenKind::Variable;
+
+    if (id.startsWith(QStringLiteral("arg_")) ||
+        id.startsWith(QStringLiteral("out_")) ||
+        id.startsWith(QStringLiteral("unaff_")))
+        return TokenKind::Register;
+
+    if (id.startsWith(QStringLiteral("v_")) && id.length() > 2) {
+        bool ok = false;
+        id.mid(2).toInt(&ok);
+        if (ok) return TokenKind::Variable;
+    }
+
+    return TokenKind::Plain;
 }
 
 TokenKind DecompilerView::classifyCWord(const QString& id) {
     if (cTypes().contains(id))    return TokenKind::Type;
     if (cKeywords().contains(id)) return TokenKind::Keyword;
+    TokenKind decKind = classifyDecompilerWord(id);
+    if (decKind != TokenKind::Plain) return decKind;
     return TokenKind::Plain;
 }
 
@@ -189,7 +250,7 @@ std::vector<Token> DecompilerView::tokenizeCLine(const QString& line) {
 
 // ── Public API ───────────────────────────────────────────────────────────────
 
-static TokenKind kindForMarkupElement(const QString& name, const QString& content) {
+static TokenKind kindForMarkupElement(const QString& name, int color, const QString& content) {
     if (name == QStringLiteral("variable")) return TokenKind::Variable;
     if (name == QStringLiteral("funcname")) return TokenKind::Function;
     if (name == QStringLiteral("type")) return TokenKind::Type;
@@ -197,7 +258,10 @@ static TokenKind kindForMarkupElement(const QString& name, const QString& conten
     if (name == QStringLiteral("label")) return TokenKind::Label;
     if (name == QStringLiteral("field")) return TokenKind::Variable;
     if (name == QStringLiteral("value")) return TokenKind::Immediate;
-    if (name == QStringLiteral("op")) return TokenKind::Punctuation;
+    if (name == QStringLiteral("op")) {
+        if (color == 0) return TokenKind::Keyword;
+        return TokenKind::Punctuation;
+    }
     if (name == QStringLiteral("syntax"))
         return content.trimmed().isEmpty() ? TokenKind::Plain : TokenKind::Punctuation;
     return TokenKind::Plain;
@@ -291,6 +355,9 @@ std::unique_ptr<Document> DecompilerView::documentFromMarkup(
             continue;
         }
 
+        bool colorOk = false;
+        int color = static_cast<int>(attrULL(attrs, QStringLiteral("color"), &colorOk));
+
         const QString content = xml.readElementText();
         if (content.isEmpty())
             continue;
@@ -316,7 +383,13 @@ std::unique_ptr<Document> DecompilerView::documentFromMarkup(
                 continue;
             Token t;
             t.text = parts[i];
-            t.kind = kindForMarkupElement(name, parts[i]);
+            t.kind = kindForMarkupElement(name, colorOk ? color : -1, parts[i]);
+            // Refine tokens that look like decompiler identifiers
+            if (t.kind == TokenKind::Plain) {
+                TokenKind refined = classifyCWord(parts[i]);
+                if (refined != TokenKind::Plain)
+                    t.kind = refined;
+            }
             t.addr = tokenAddr != 0 ? tokenAddr : (statementAddr != 0 ? statementAddr : funcAddr);
             if (line.addr == 0)
                 line.addr = t.addr;

@@ -2,6 +2,31 @@
 
 Single-line-per-event changelog of significant changes.
 
+## 2026-07-07 — Pretty-Printing Overhaul (2nd pass)
+
+- **Space before `(`**: `function_call` token `spacing` 0→1 → `func(...)` → `func (...)`
+- **Function pointer calls**: `opCallind()` checks if callee (constant/COPY/CAST) resolves to a known function symbol → emits `func_0xADDR()` instead of `(*cast)ptr_0xADDR()`
+- **Blank lines between blocks**: `emitBlockGraph()` adds `tagLine()` between consecutive top-level blocks
+- **Condition wrapping**: `emitBlockCondition()` adds `spaces(0,4)` break opportunities after `(`, before `&&`/`||`, and before `)` in `if`/`while` conditions
+- **Parameter list wrapping**: `emitPrototypeInputs()` adds `spaces(1,8)` break after commas in function signatures
+- `prettyprint.hh`: `indentincrement` 2→4 (4-space indent); `maxlinesize` 100→90 (tighter wrapping)
+- `printc.cc`: all logical, comparison, bitwise, and arithmetic operators got `bump=4` for continuation indent on line wrap
+- All 52/52 tests pass
+
+## 2026-07-07 — Syntax Highlighting Improvements
+
+- **Operator color**: `printlanguage.cc:emitOp` — all binary and unary_prefix operators changed from `no_color` to `special_color`
+- **Field/bitfield color**: `printc.cc` — all `fieldtoken` tokens changed from `no_color` to `var_color` (6 field, 6 bitfield)
+- **CppHighlighter**: added decompiler-specific patterns:
+  - Calling conventions (`__stdcall`, etc.) → keyword blue
+  - Decompiler types (`int4`, `uint4`, `float8`, `code`, etc.) → teal bold
+  - Function refs (`func_0x...`, `thunk_0x...`, `code_0x...`) → yellow
+  - Data/variable refs (`local_0x...`, `ptr_0x...`, `data_0x...`, etc.) → light blue
+  - Parameters (`param_1`, ...) → orange
+  - Register args (`arg_eax`, `out_rcx`, ...) → purple
+  - Temp variables (`v_0`, `v_1`, ...) → light blue
+- All tests pass
+
 ## 2026-07-07 — Automatic Naming Convention Overhaul
 
 - `AutoNaming.h` created — central `name(prefix, addr)` / `nameVal(prefix, val)` formatter
