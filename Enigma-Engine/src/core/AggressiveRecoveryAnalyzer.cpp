@@ -3,6 +3,7 @@
 #include <ghidra/ProgramDB.h>
 #include <ghidra/Language.h>
 #include <ghidra/Disassembler.h>
+#include <ghidra/AutoNaming.h>
 #include <ghidra/Memory.h>
 #include <ghidra/MemoryBlock.h>
 #include <ghidra/Listing.h>
@@ -390,7 +391,7 @@ int AggressiveRecoveryAnalyzer::scanGapCallTargets(
                 try {
                     AddressSet body(tgtAddr, tgtAddr);
                     std::ostringstream funcName;
-                    funcName << "func_gap_agg_0x" << std::hex << std::nouppercase << callTgt;
+                    funcName << AutoNaming::nameVal("func", callTgt);
                     funcMgr->createFunction(funcName.str(), tgtAddr, body, SourceType::ANALYSIS);
                     gapFuncs++;
                 } catch (const std::exception&) {}

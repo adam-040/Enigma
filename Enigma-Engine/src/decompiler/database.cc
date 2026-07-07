@@ -2449,8 +2449,7 @@ string ScopeInternal::buildVariableName(const Address &addr,
       string unaffname;
       unaffname = glb->translate->getRegisterName(addr.getSpace(),addr.getOffset(),sz);
       if (unaffname.empty()) {
-	s << "unaff_";
-	s << setw(8) << setfill('0') << hex << addr.getOffset();
+	s << "unaff_0x" << hex << addr.getOffset();
       }
       else
 	s << "unaff_" << unaffname;
@@ -2462,56 +2461,50 @@ string ScopeInternal::buildVariableName(const Address &addr,
     if (!spacename.empty())
       s << spacename;
     else {
-      if (ct != (Datatype *)0)
-	ct->printNameBase(s);
-      spacename = addr.getSpace()->getName();
-      spacename[0] = toupper( spacename[0] ); // Capitalize space
-      s << spacename;
-      s << hex << setfill('0') << setw(2*addr.getAddrSize());
-      s << AddrSpace::byteToAddress( addr.getOffset(), addr.getSpace()->getWordSize() );
+      if (addr.getSpace()->getType() == IPTR_SPACEBASE)
+	s << "local_0x" << hex << addr.getOffset();
+      else
+	s << "ptr_0x" << hex << addr.getOffset();
     }
   }
   else if (((flags & Varnode::input)!=0)&&(index<0)) { // Irregular input
     string regname;
     regname = glb->translate->getRegisterName(addr.getSpace(),addr.getOffset(),sz);
     if (regname.empty()) {
-      s << "in_" << addr.getSpace()->getName() << '_';
-      s << setw(8) << setfill('0') << hex << addr.getOffset();
+      s << "arg_0x" << hex << addr.getOffset();
     }
-    else
-      s << "in_" << regname;
+    else {
+      s << "arg_";
+      for (char& c : regname) c = tolower((unsigned char)c);
+      s << regname;
+    }
   }
   else if ((flags & Varnode::input)!=0) { // Regular parameter
     s << "param_" << dec << index;
   }
   else if ((flags & Varnode::addrtied)!=0) {
-    if (ct != (Datatype *)0)
-      ct->printNameBase(s);
-    string spacename = addr.getSpace()->getName();
-    spacename[0] = toupper( spacename[0] ); // Capitalize space
-    s << spacename;
-    s << hex << setfill('0') << setw(2*addr.getAddrSize());
-    s << AddrSpace::byteToAddress(addr.getOffset(),addr.getSpace()->getWordSize());
+    if (addr.getSpace()->getType() == IPTR_SPACEBASE)
+      s << "local_0x" << hex << addr.getOffset();
+    else
+      s << "ptr_0x" << hex << addr.getOffset();
   }
   else if ((flags & Varnode::indirect_creation)!=0) {
     string regname;
-    s << "extraout_";
+    s << "out_";
     regname = glb->translate->getRegisterName(addr.getSpace(),addr.getOffset(),sz);
-    if (!regname.empty())
+    if (!regname.empty()) {
+      for (char& c : regname) c = tolower((unsigned char)c);
       s << regname;
+    }
     else
       s << "var";
   }
   else {			// Some sort of local variable
-    if (ct != (Datatype *)0)
-      ct->printNameBase(s);
-    s << "Var" << dec << index++;
+    s << "v_" << dec << index++;
     if (findFirstByName(s.str()) != nametree.end()) {	// If the name already exists
       for(int4 i=0;i<10;++i) {	// Try bumping up the index a few times before calling makeNameUnique
 	ostringstream s2;
-	if (ct != (Datatype *)0)
-	  ct->printNameBase(s2);
-	s2 << "Var" << dec << index++;
+	s2 << "v_" << dec << index++;
 	if (findFirstByName(s2.str()) == nametree.end()) {
 	  return s2.str();
 	}

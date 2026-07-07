@@ -139,7 +139,7 @@ void AnalysisBridge::bridgeFunctions() {
         if (existingFd) {
             auto it = symbolNames_.find(mappedAddr);
             if (it == symbolNames_.end() ||
-                (it->second.rfind("sub_0x", 0) == 0 && funcName.rfind("sub_0x", 0) != 0)) {
+                (it->second.rfind("func_0x", 0) == 0 && funcName.rfind("func_0x", 0) != 0)) {
                 symbolNames_[mappedAddr] = funcName;
             }
             continue;
@@ -719,7 +719,7 @@ void AnalysisBridge::bridgeImportSignatures() {
         if (funcName.empty()) continue;
 
         // Skip auto-generated names
-        if (funcName.rfind("func_", 0) == 0 || funcName.rfind("FUN_", 0) == 0)
+        if (funcName.rfind("func_0x", 0) == 0)
             continue;
 
         // Strip import name decorations for TypeDatabase lookup

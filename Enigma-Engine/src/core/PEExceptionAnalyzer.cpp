@@ -13,6 +13,7 @@
 #include <ghidra/SourceType.h>
 #include <ghidra/AddressSetView.h>
 #include <ghidra/TaskMonitor.h>
+#include <ghidra/AutoNaming.h>
 #include <ghidra/MessageLog.h>
 
 #include <cstdint>
@@ -142,7 +143,7 @@ bool PEExceptionAnalyzer::added(Program* program, const AddressSetView& set,
         Address unwindAddr = imageBase.add(unwindRVA);
 
         // Create label at function start
-        std::string funcName = "exception_func_0x" + beginAddr.toString();
+        std::string funcName = AutoNaming::name("func", beginAddr);
         symTable->createLabel(beginAddr, funcName, SourceType::ANALYSIS);
 
         // Add references from the struct to the function and unwind info

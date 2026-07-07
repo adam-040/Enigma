@@ -6980,8 +6980,8 @@ int main() {
 
         // 1) getOrdinalValue
         {
-            TEST("W74.SymUtil.getOrdinal", ghidra::SymbolUtilities::getOrdinalValue("Ordinal_5") == 5);
-            TEST("W74.SymUtil.getOrdinal.zero", ghidra::SymbolUtilities::getOrdinalValue("Ordinal_0") == 0);
+            TEST("W74.SymUtil.getOrdinal", ghidra::SymbolUtilities::getOrdinalValue("ord_5") == 5);
+            TEST("W74.SymUtil.getOrdinal.zero", ghidra::SymbolUtilities::getOrdinalValue("ord_0") == 0);
             TEST("W74.SymUtil.getOrdinal.none", ghidra::SymbolUtilities::getOrdinalValue("main") == -1);
             TEST("W74.SymUtil.getOrdinal.empty", ghidra::SymbolUtilities::getOrdinalValue("") == -1);
             TEST("W74.SymUtil.getOrdinal.badPrefix", ghidra::SymbolUtilities::getOrdinalValue("Ordinal_abc") == -1);
@@ -7011,7 +7011,7 @@ int main() {
         // 4) getDefaultFunctionName
         {
             std::string fn = ghidra::SymbolUtilities::getDefaultFunctionName(addr74a);
-            TEST("W74.SymUtil.defaultFuncName.prefix", fn.find("FUN_") == 0);
+            TEST("W74.SymUtil.defaultFuncName.prefix", fn.find("func_0x") == 0);
             TEST("W74.SymUtil.defaultFuncName.nonEmpty", !fn.empty());
         }
 
@@ -7026,29 +7026,29 @@ int main() {
         // 6) getDefaultExternalFunctionName
         {
             std::string extFn = ghidra::SymbolUtilities::getDefaultExternalFunctionName(addr74a);
-            TEST("W74.SymUtil.extFuncName.prefix", extFn.find("EXT_FUN_") == 0);
+            TEST("W74.SymUtil.extFuncName.prefix", extFn.find("ext_0x") == 0);
         }
 
         // 7) getDynamicOffcutName
         {
             std::string offcut = ghidra::SymbolUtilities::getDynamicOffcutName(addr74a);
-            TEST("W74.SymUtil.offcut.prefix", offcut.find("OFF_") == 0);
+            TEST("W74.SymUtil.offcut.prefix", offcut.find("off_0x") == 0);
         }
 
         // 8) getDynamicName
         {
             std::string dyn1 = ghidra::SymbolUtilities::getDynamicName(0, addr74a);
-            TEST("W74.SymUtil.dynName.0.prefix", dyn1.find("UNK_") == 0);
+            TEST("W74.SymUtil.dynName.0.prefix", dyn1.find("unk_0x") == 0);
 
             std::string dyn3 = ghidra::SymbolUtilities::getDynamicName(3, addr74a);
-            TEST("W74.SymUtil.dynName.3.prefix", dyn3.find("SUB_") == 0);
+            TEST("W74.SymUtil.dynName.3.prefix", dyn3.find("func_0x") == 0);
 
             std::string dyn6 = ghidra::SymbolUtilities::getDynamicName(6, addr74a);
-            TEST("W74.SymUtil.dynName.6.prefix", dyn6.find("FUN_") == 0);
+            TEST("W74.SymUtil.dynName.6.prefix", dyn6.find("func_0x") == 0);
 
             // Invalid level returns just address string
             std::string dynInv = ghidra::SymbolUtilities::getDynamicName(99, addr74a);
-            TEST("W74.SymUtil.dynName.invalid.noPrefix", dynInv.find("UNK_") == std::string::npos && dynInv.find("FUN_") == std::string::npos);
+            TEST("W74.SymUtil.dynName.invalid.noPrefix", dynInv.find("unk_") == std::string::npos && dynInv.find("func_") == std::string::npos);
         }
 
         // 9) getDiffString
@@ -7061,14 +7061,14 @@ int main() {
 
         // 10) startsWithDefaultDynamicPrefix
         {
-            TEST("W74.SymUtil.startsPrefix.FUN", ghidra::SymbolUtilities::startsWithDefaultDynamicPrefix("FUN_0010"));
-            TEST("W74.SymUtil.startsPrefix.SUB", ghidra::SymbolUtilities::startsWithDefaultDynamicPrefix("SUB_0010"));
-            TEST("W74.SymUtil.startsPrefix.LAB", ghidra::SymbolUtilities::startsWithDefaultDynamicPrefix("LAB_0010"));
-            TEST("W74.SymUtil.startsPrefix.DAT", ghidra::SymbolUtilities::startsWithDefaultDynamicPrefix("DAT_0010"));
-            TEST("W74.SymUtil.startsPrefix.UNK", ghidra::SymbolUtilities::startsWithDefaultDynamicPrefix("UNK_0010"));
-            TEST("W74.SymUtil.startsPrefix.EXT", ghidra::SymbolUtilities::startsWithDefaultDynamicPrefix("EXT_0010"));
-            // OFF_ (DEFAULT_INTERNAL_REF_PREFIX) is not in DYNAMIC_PREFIX_ARRAY
-            TEST("W74.SymUtil.startsPrefix.OFF.not", !ghidra::SymbolUtilities::startsWithDefaultDynamicPrefix("OFF_0010"));
+            TEST("W74.SymUtil.startsPrefix.FUN", ghidra::SymbolUtilities::startsWithDefaultDynamicPrefix("func_0x0010"));
+            TEST("W74.SymUtil.startsPrefix.SUB", ghidra::SymbolUtilities::startsWithDefaultDynamicPrefix("func_0x0010"));
+            TEST("W74.SymUtil.startsPrefix.LAB", ghidra::SymbolUtilities::startsWithDefaultDynamicPrefix("label_0x0010"));
+            TEST("W74.SymUtil.startsPrefix.DAT", ghidra::SymbolUtilities::startsWithDefaultDynamicPrefix("data_0x0010"));
+            TEST("W74.SymUtil.startsPrefix.UNK", ghidra::SymbolUtilities::startsWithDefaultDynamicPrefix("unk_0x0010"));
+            TEST("W74.SymUtil.startsPrefix.EXT", ghidra::SymbolUtilities::startsWithDefaultDynamicPrefix("ext_0x0010"));
+            // off_ is not in DYNAMIC_PREFIX_ARRAY
+            TEST("W74.SymUtil.startsPrefix.OFF.not", !ghidra::SymbolUtilities::startsWithDefaultDynamicPrefix("off_0x0010"));
             TEST("W74.SymUtil.startsPrefix.no", !ghidra::SymbolUtilities::startsWithDefaultDynamicPrefix("myFunction"));
             TEST("W74.SymUtil.startsPrefix.empty", !ghidra::SymbolUtilities::startsWithDefaultDynamicPrefix(""));
         }
@@ -9854,7 +9854,7 @@ int main() {
         const auto& candidates = analyzer.getCandidates();
         TEST("W111.FDA.candidate.count", candidates.size() == 4);
         TEST("W111.FDA.kind.entry", candidates[0].kind == ghidra::FunctionCandidateKind::ENTRY);
-        TEST("W111.FDA.defaultName", ghidra::FunctionDiscoveryAnalyzer::defaultFunctionName(0x4000) == "sub_4000");
+        TEST("W111.FDA.defaultName", ghidra::FunctionDiscoveryAnalyzer::defaultFunctionName(0x4000) == "func_0x4000");
         TEST("W111.FDA.kindToString", std::string(ghidra::FunctionDiscoveryAnalyzer::kindToString(ghidra::FunctionCandidateKind::IMPORT)) == "import");
 
         ghidra::GenericAddressSpace space("ram", 64, ghidra::AddressSpace::TYPE_RAM, 0);

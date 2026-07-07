@@ -1962,12 +1962,11 @@ void PrintC::pushAnnotation(const Varnode *vn,const PcodeOp *op)
     }
     if (regname.empty()) {
       AddrSpace *spc = vn->getSpace();
-      string spacename = spc->getName();
-      spacename[0] = toupper( spacename[0] ); // Capitalize space
       ostringstream s;
-      s << spacename;
-      s << hex << setfill('0') << setw(2*spc->getAddrSize());
-      s << AddrSpace::byteToAddress( vn->getOffset(), spc->getWordSize() );
+      if (spc->getType() == IPTR_SPACEBASE)
+	s << "local_0x" << hex << vn->getOffset();
+      else
+	s << "ptr_0x" << hex << vn->getOffset();
       regname = s.str();
     }
     pushAtom(Atom(regname,vartoken,EmitMarkup::special_color,op,vn));
@@ -2018,8 +2017,10 @@ void PrintC::pushUnnamedLocation(const Address &addr,
     }
   }
   ostringstream s;
-  s << addr.getSpace()->getName();
-  addr.printRaw(s);
+  if (addr.getSpace()->getType() == IPTR_SPACEBASE)
+    s << "local_0x" << hex << addr.getOffset();
+  else
+    s << "ptr_0x" << hex << addr.getOffset();
   pushAtom(Atom(s.str(),vartoken,EmitMarkup::var_color,op,vn));
 }
 
@@ -3336,13 +3337,11 @@ void PrintC::emitLabel(const FlowBlock *bl)
   }
   ostringstream lb;
   if (bb->isJoined())
-    lb << "joined_";
+    lb << "joined_0x" << hex << addr.getOffset();
   else if (bb->isDuplicated())
-    lb << "dup_";
+    lb << "dup_0x" << hex << addr.getOffset();
   else
-    lb << "code_";
-  lb << addr.getShortcut();
-  addr.printRaw(lb);
+    lb << "code_0x" << hex << addr.getOffset();
   emit->tagLabel(lb.str(),EmitMarkup::no_color,spc,off);
 }
 
@@ -3518,8 +3517,7 @@ string PrintC::genericFunctionName(const Address &addr)
   }
 
   ostringstream s;
-  s << "function_";
-  addr.printRaw(s);
+  s << "func_0x" << hex << addr.getOffset();
   return s.str();
 }
 

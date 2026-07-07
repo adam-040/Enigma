@@ -1,4 +1,4 @@
-void __stdcall FUN_ENTRY()
+void __stdcall entry()
 {
   return;
 }

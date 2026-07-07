@@ -1,4 +1,4 @@
-float8 __stdcall FUN_ENTRY(uint64_t param_1,uint64_t param_2,uint64_t param_3,float8 param_4)
+float8 __stdcall entry(uint64_t param_1,uint64_t param_2,uint64_t param_3,float8 param_4)
 {
   return (float8)SUB84((float8)CONCAT44(((float4)((uint8)param_1 >> 0x20) +
                                         (float4)((uint8)param_2 >> 0x20)) *

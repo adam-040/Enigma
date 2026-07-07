@@ -13,6 +13,7 @@
 #include <ghidra/TaskMonitor.h>
 #include <ghidra/MessageLog.h>
 #include <ghidra/SourceType.h>
+#include <ghidra/AutoNaming.h>
 #include <ghidra/Msg.h>
 
 namespace ghidra {
@@ -60,7 +61,7 @@ bool DataRefFunctionAnalyzer::added(Program* program, const AddressSetView& set,
                 if (funcMgr->getFunctionAt(toAddr) || funcMgr->getFunctionContaining(toAddr)) continue;
 
                 AddressSet body(toAddr, toAddr);
-                funcMgr->createFunction("data_func_" + std::to_string(toAddr.getOffset()),
+                funcMgr->createFunction(AutoNaming::nameVal("func", static_cast<uint64_t>(toAddr.getOffset())),
                                         toAddr, body, SourceType::ANALYSIS);
                 ++created;
                 if (created >= MAX_CREATE) break;
@@ -88,7 +89,7 @@ bool DataRefFunctionAnalyzer::added(Program* program, const AddressSetView& set,
                 // This address has a CALL to it and an instruction but no function.
                 // It's an uncalled function or split point.
                 AddressSet body(toAddr, toAddr);
-                funcMgr->createFunction("call_target_" + std::to_string(toAddr.getOffset()),
+                funcMgr->createFunction(AutoNaming::nameVal("func", static_cast<uint64_t>(toAddr.getOffset())),
                                         toAddr, body, SourceType::ANALYSIS);
                 ++created;
                 if (created >= MAX_CREATE) break;

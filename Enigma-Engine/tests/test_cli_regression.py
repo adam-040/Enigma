@@ -68,24 +68,24 @@ run_test("help-flag", ["-h"], expected_code=0, expect_in_stderr=["Usage:", "Opti
 
 # === 2. Raw binary decompilation — all 5 .bin files ===
 run_test("simple.bin", ["-base", "1000", "-entry", "1000", bin_path("simple.bin")],
-         expect_in_stdout=[r"FUN_ENTRY", r"uint64_t", r"return\s+0x2a"],
+         expect_in_stdout=[r"entry\(", r"uint64_t", r"return\s+0x2a"],
          expect_not_in_stdout=[r"\(void\)", r"xunknown"])
 run_test("simple.bin-rebase", ["-base", "2000", "-entry", "2000", bin_path("simple.bin")],
-         expect_in_stdout=[r"FUN_ENTRY", r"return\s+0x2a"])
+         expect_in_stdout=[r"entry\(", r"return\s+0x2a"])
 run_test("ret.bin", ["-base", "1000", "-entry", "1000", bin_path("ret.bin")],
-         expect_in_stdout=[r"FUN_ENTRY", r"return;"])
+         expect_in_stdout=[r"entry\(", r"return;"])
 run_test("ret.bin-rebase", ["-base", "2000", "-entry", "2000", bin_path("ret.bin")],
-         expect_in_stdout=[r"FUN_ENTRY", r"return;"])
+         expect_in_stdout=[r"entry\(", r"return;"])
 run_test("nopfall.bin", ["-base", "1000", "-entry", "1000", bin_path("nopfall.bin")],
          expect_in_stdout=[r"halt_missing"])
 run_test("jmptail.bin", ["-base", "1000", "-entry", "1000", bin_path("jmptail.bin")],
          expect_in_stdout=[r"while\( true \)"])
 run_test("zerotail.bin", ["-base", "1000", "-entry", "1000", bin_path("zerotail.bin")],
-         expect_in_stdout=[r"FUN_ENTRY", r"return;"])
+         expect_in_stdout=[r"entry\(", r"return;"])
 
 # === 3. CLI flags ===
 run_test("max-func-1", ["-base", "1000", "-entry", "1000", "-max-func", "1",
-         bin_path("simple.bin")], expect_in_stdout=[r"FUN_ENTRY"])
+         bin_path("simple.bin")], expect_in_stdout=[r"entry\("])
 
 # Output file
 out_dir = os.path.dirname(EXE_PATH)
@@ -98,7 +98,7 @@ run_test("output-file", ["-base", "1000", "-entry", "1000", "-o", out_file,
 if os.path.exists(out_file):
     with open(out_file) as f:
         c = f.read()
-    if "FUN_ENTRY" in c and "0x2a" in c:
+    if "entry(" in c and "0x2a" in c:
         print("  [PASS] output-file: content verified"); tests_passed += 1
     else:
         print("  [FAIL] output-file: bad content"); tests_failed += 1
@@ -116,7 +116,7 @@ run_test("timing-flag", ["-base", "1000", "-entry", "1000", "-time",
 ldr_exe = os.path.join(ENGINE_ROOT, "build-cmake", "enigma_test_loader.exe")
 if os.path.exists(ldr_exe):
     run_test("PE-auto-detect", ["-max-func", "5", ldr_exe],
-             expect_in_stdout=[r"entry\(", r"func_(pdata|start|call)_0x", r"return"],
+             expect_in_stdout=[r"entry\(", r"func_0x", r"return"],
              timeout=120)
     # Symbol resolution: known import names should appear
     run_test("PE-imports", ["-max-func", "3", ldr_exe],
@@ -140,7 +140,7 @@ run_test("bad-lang", ["-lang", "nonexistent:arch:be:32:default", "-base", "1000"
 
 # Binary smaller than requested address range — tool fills with 0s
 run_test("base-beyond-file", ["-base", "FFFFFF00", bin_path("simple.bin")],
-         expected_code=0, expect_in_stdout=[r"FUN_ENTRY"])
+         expected_code=0, expect_in_stdout=[r"entry\("])
 
 print(f"\nCLI Regression Summary: {tests_passed} passed, {tests_failed} failed")
 if tests_failed > 0:

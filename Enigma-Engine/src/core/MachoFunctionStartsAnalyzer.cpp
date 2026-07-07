@@ -8,6 +8,7 @@
 #include <ghidra/AddressSpace.h>
 #include <ghidra/AddressSetView.h>
 #include <ghidra/TaskMonitor.h>
+#include <ghidra/AutoNaming.h>
 #include <ghidra/MessageLog.h>
 
 #include <cstdint>
@@ -180,7 +181,7 @@ bool MachoFunctionStartsAnalyzer::added(Program* program, const AddressSetView& 
         cumulativeOffset += delta;
         Address funcAddr = imageBase.add(static_cast<int64_t>(cumulativeOffset));
 
-        std::string labelName = "func_0x" + funcAddr.toString();
+        std::string labelName = AutoNaming::name("func", funcAddr);
         symTable->createLabel(funcAddr, labelName, SourceType::ANALYSIS);
         ++funcCount;
     }

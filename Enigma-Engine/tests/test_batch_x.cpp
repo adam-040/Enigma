@@ -930,7 +930,7 @@ void test_function_manager_autoname() {
     AddressSet body(entry, entry);
     Function* f = mgr.createFunction("", entry, body, SourceType::DEFAULT);
     TEST("fmgr.auto.notNull", f != nullptr);
-    TEST("fmgr.auto.fun",     f->getName().find("FUN_") == 0);
+    TEST("fmgr.auto.fun",     f->getName().find("func_0x") == 0);
     // FunctionManager owns f via unique_ptr — do not delete.
 }
 

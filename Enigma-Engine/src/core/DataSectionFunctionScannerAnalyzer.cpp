@@ -10,6 +10,7 @@
 #include <ghidra/TaskMonitor.h>
 #include <ghidra/MessageLog.h>
 #include <ghidra/SourceType.h>
+#include <ghidra/AutoNaming.h>
 #include <ghidra/Msg.h>
 
 #include <algorithm>
@@ -394,7 +395,7 @@ bool DataSectionFunctionScannerAnalyzer::added(Program* program, const AddressSe
 
                 try {
                     AddressSet body(targetAddr, targetAddr);
-                    funcMgr->createFunction("func_data_0x" + std::to_string(tgt),
+                    funcMgr->createFunction(AutoNaming::nameVal("func", tgt),
                                             targetAddr, body, SourceType::ANALYSIS);
                     ++created;
                 } catch (const std::exception&) {

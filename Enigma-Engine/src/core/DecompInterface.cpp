@@ -276,7 +276,7 @@ struct DecompInterface::Impl {
         try {
             fd = arch->symboltab->getGlobalScope()->queryFunction(decAddr);
             if (!fd) {
-                std::string funcName = "FUN_ENTRY";
+                std::string funcName = "entry";
                 FunctionManager* fm = program ? program->getFunctionManager() : nullptr;
                 if (fm) {
                     Address progAddr = entryPoint;

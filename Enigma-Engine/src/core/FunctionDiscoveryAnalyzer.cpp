@@ -3,6 +3,7 @@
 #include <ghidra/AddressSpace.h>
 #include <ghidra/Function.h>
 #include <ghidra/FunctionManager.h>
+#include <ghidra/AutoNaming.h>
 #include <algorithm>
 #include <cctype>
 #include <iomanip>
@@ -205,8 +206,7 @@ FunctionDiscoveryResult FunctionDiscoveryAnalyzer::applyTo(FunctionManager& mana
 
 std::string FunctionDiscoveryAnalyzer::defaultFunctionName(uint64_t address) {
     std::ostringstream out;
-    out << "sub_" << std::hex << std::nouppercase << address;
-    return out.str();
+    return AutoNaming::nameVal("func", address);
 }
 
 const char* FunctionDiscoveryAnalyzer::kindToString(FunctionCandidateKind kind) {

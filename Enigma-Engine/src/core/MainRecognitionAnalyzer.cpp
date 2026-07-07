@@ -217,7 +217,7 @@ static void buildCallGraph(
         uint64_t ep = entryPoints[i];
         auto it = epNames.find(ep);
         bool isOverlap = false;
-        if (it != epNames.end() && it->second.rfind("func_start_", 0) == 0) {
+        if (it != epNames.end() && it->second.rfind("func_0x", 0) == 0) {
             if (i > 0 && ep - entryPoints[i - 1] < 256)
                 isOverlap = true;
         }

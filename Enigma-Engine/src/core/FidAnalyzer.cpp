@@ -309,8 +309,7 @@ bool FidAnalyzer::added(Program* program, const AddressSetView& set,
         for (Function* f : allFunctions) {
             if (f->getEntryPoint().getOffset() != entryAddr) continue;
             std::string cn = f->getName();
-            if (cn.rfind("FUN_", 0) == 0 || cn.rfind("sub_", 0) == 0 ||
-                cn.rfind("func_start_", 0) == 0) {
+            if (cn.rfind("func_0x", 0) == 0) {
                 std::string startupName = hasGuiImports ? "WinMainCRTStartup" : "mainCRTStartup";
                 if (tryRename(entryAddr, startupName)) ++identified;
             }

@@ -9,6 +9,7 @@
 #include <ghidra/TaskMonitor.h>
 #include <ghidra/MessageLog.h>
 #include <ghidra/Disassembler.h>
+#include <ghidra/AutoNaming.h>
 #include <ghidra/Memory.h>
 #include <ghidra/Listing.h>
 #include <algorithm>
@@ -67,8 +68,8 @@ bool FragmentMergeAnalyzer::added(Program* program, const AddressSetView& set,
         const std::string& name = funcs[i].second;
         uint64_t gap = addr - prevAddr;
 
-        if (name.rfind("func_start_", 0) == 0 &&
-            prevName.rfind("func_start_", 0) == 0 &&
+        if (name.rfind("func_0x", 0) == 0 &&
+            prevName.rfind("func_0x", 0) == 0 &&
             gap > 0 && gap <= 4) {
             toRemove.insert(addr);
         } else {
@@ -196,7 +197,7 @@ bool FragmentMergeAnalyzer::added(Program* program, const AddressSetView& set,
                     try {
                         AddressSet body(tgtAddr, tgtAddr);
                         std::ostringstream funcName;
-                        funcName << "func_gap_0x" << std::hex << std::nouppercase << callTgt;
+                        funcName << AutoNaming::nameVal("func", callTgt);
                         funcMgr->createFunction(funcName.str(), tgtAddr, body, SourceType::ANALYSIS);
                         gapFunctions++;
                     } catch (const std::exception&) {}

@@ -15,6 +15,7 @@
 #include <ghidra/SourceType.h>
 #include <ghidra/Msg.h>
 #include <ghidra/Disassembler.h>
+#include <ghidra/AutoNaming.h>
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
@@ -316,7 +317,7 @@ static int findPatternStarts(Program* program, TaskMonitor* monitor, int maxPerP
                 try {
                     AddressSet body(addr, addr);
                     std::ostringstream funcName;
-                    funcName << "func_start_0x" << std::hex << std::nouppercase << addr.getOffset();
+                    funcName << AutoNaming::nameVal("func", static_cast<uint64_t>(addr.getOffset()));
                     funcMgr->createFunction(funcName.str(),
                                             addr, body, SourceType::ANALYSIS);
                     createdCandidates.push_back(addr);
@@ -393,7 +394,7 @@ static int findCallDestinations(Program* program, TaskMonitor* monitor, int maxP
             try {
                 AddressSet body(target, target);
                 std::ostringstream funcName;
-                funcName << "func_call_0x" << std::hex << std::nouppercase << targetAddr;
+                funcName << AutoNaming::nameVal("func", targetAddr);
                 funcMgr->createFunction(funcName.str(), target, body, SourceType::ANALYSIS);
                 createdCandidates.push_back(target);
                 ++found;
@@ -457,7 +458,7 @@ static int findJmpThunks(Program* program, TaskMonitor* monitor, int maxPerPass,
             try {
                 AddressSet body(addr, addr);
                 std::ostringstream funcName;
-                funcName << "func_jmp_0x" << std::hex << std::nouppercase << addr.getOffset();
+                funcName << AutoNaming::nameVal("func", static_cast<uint64_t>(addr.getOffset()));
                 funcMgr->createFunction(funcName.str(), addr, body, SourceType::ANALYSIS);
                 createdCandidates.push_back(addr);
                 ++found;
@@ -593,7 +594,7 @@ static int findMultiInstructionPatterns(Program* program, TaskMonitor* monitor, 
             try {
                 AddressSet body(addr, addr);
                 std::ostringstream funcName;
-                funcName << "func_start_0x" << std::hex << std::nouppercase << addr.getOffset();
+                funcName << AutoNaming::nameVal("func", static_cast<uint64_t>(addr.getOffset()));
                 funcMgr->createFunction(funcName.str(), addr, body, SourceType::ANALYSIS);
                 createdCandidates.push_back(addr);
                 ++found;
@@ -734,7 +735,7 @@ static int findFunctionsFromPdata(Program* program, TaskMonitor* monitor, int ma
             body = AddressSet(targetAddr, lastAddr);
         }
         std::ostringstream funcName;
-        funcName << "func_pdata_0x" << std::hex << std::nouppercase << targetAddrVal;
+            funcName << AutoNaming::nameVal("func", targetAddrVal);
 
         // Fast containment check using precomputed ranges, avoids getFunctionContaining rebuilds.
         if (isInFuncRanges(funcRanges, targetAddrVal)) {
@@ -860,7 +861,7 @@ static int findTailCallWrappers(Program* program, TaskMonitor* monitor, int maxP
             try {
                 AddressSet body(target, target);
                 std::ostringstream funcName;
-                funcName << "func_wrapper_0x" << std::hex << std::nouppercase << targetAddr;
+                funcName << AutoNaming::nameVal("func", targetAddr);
                 funcMgr->createFunction(funcName.str(), target, body, SourceType::ANALYSIS);
                 createdCandidates.push_back(target);
                 ++found;
@@ -937,7 +938,7 @@ static int findZeroPrologueFunctions(Program* program, TaskMonitor* monitor, int
             try {
                 AddressSet body(target, target);
                 std::ostringstream funcName;
-                funcName << "func_call_0x" << std::hex << std::nouppercase << targetAddr;
+                funcName << AutoNaming::nameVal("func", targetAddr);
                 funcMgr->createFunction(funcName.str(), target, body, SourceType::ANALYSIS);
                 createdCandidates.push_back(target);
                 ++found;

@@ -10,6 +10,7 @@
 /// \file FunctionManager.cpp
 /// \brief Implementation of FunctionManager
 #include <ghidra/FunctionManager.h>
+#include <ghidra/AutoNaming.h>
 #include <algorithm>
 
 namespace ghidra {
@@ -38,7 +39,7 @@ Function* FunctionManager::createFunction(const std::string& name, Address entry
     perfCounters_.createFunction_calls++;
     std::string funcName = name;
     if (funcName.empty()) {
-        funcName = "FUN_" + entryPoint.toString();
+        funcName = AutoNaming::name("func", entryPoint);
     }
 
     // PHASE 10: O(log N) overlap check using std::set of body ranges
@@ -89,7 +90,7 @@ Function* FunctionManager::createFunction(const std::string& name, Namespace* na
     perfCounters_.createFunction_calls++;
     std::string funcName = name;
     if (funcName.empty()) {
-        funcName = "FUN_" + entryPoint.toString();
+        funcName = AutoNaming::name("func", entryPoint);
     }
     // PHASE 10: O(log N) overlap check using std::set
     if (sortedBodyRanges_.empty() && !functions_.empty()) {

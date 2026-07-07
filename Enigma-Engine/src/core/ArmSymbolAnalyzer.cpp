@@ -16,6 +16,7 @@
 #include <ghidra/Language.h>
 #include <ghidra/Processor.h>
 #include <ghidra/SourceType.h>
+#include <ghidra/AutoNaming.h>
 
 namespace ghidra {
 
@@ -133,7 +134,7 @@ void ArmSymbolAnalyzer::moveFunction(Program* program, const Address& address,
 
         try {
             AddressSet body(newAddress);
-            functionManager->createFunction("FUN_" + newAddress.toString(), newAddress, body, SourceType::DEFAULT);
+            functionManager->createFunction(AutoNaming::name("func", newAddress), newAddress, body, SourceType::DEFAULT);
         } catch (const std::exception&) {
             // Ignore errors creating the function at the corrected address
         }

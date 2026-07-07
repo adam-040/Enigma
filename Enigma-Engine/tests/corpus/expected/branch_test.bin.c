@@ -1,6 +1,6 @@
 
 
-uint64_t __stdcall FUN_ENTRY()
+uint64_t __stdcall entry()
 {
   return 10;
 }

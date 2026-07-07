@@ -12,6 +12,7 @@
 #include <ghidra/Processor.h>
 #include <ghidra/TaskMonitor.h>
 #include <ghidra/MessageLog.h>
+#include <ghidra/AutoNaming.h>
 #include <ghidra/Msg.h>
 #include <cstdint>
 
@@ -66,7 +67,7 @@ bool HexagonThunkAnalyzer::added(Program* program, const AddressSetView& set,
             funcMgr->getFunctionAt(target)) {
             AddressSet body(instr->getMinAddress(), instr->getMinAddress());
             Function* thunk = funcMgr->createFunction(
-                std::string("thunk_") + std::to_string(instr->getMinAddress().getOffset()),
+                AutoNaming::nameVal("thunk", static_cast<uint64_t>(instr->getMinAddress().getOffset())),
                 instr->getMinAddress(), body, SourceType::ANALYSIS);
             if (thunk) ++thunksFound;
         }

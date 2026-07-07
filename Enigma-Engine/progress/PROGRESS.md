@@ -1,33 +1,45 @@
-# Noise-Reduction Progress
+# Enigma Engine Progress
 
-## Objective
-Eliminate false-positive function entries in Enigma Engine's function detection pipeline, validated against Ghidra on real Windows system binaries.
+Single-line-per-event changelog of significant changes.
 
-## Fixes
+## 2026-07-07 — Automatic Naming Convention Overhaul
 
-| # | Fix | File(s) | Impact |
-|---|-----|---------|--------|
-| A | `isAtFunctionBoundary()` accepts only terminator bytes (`0xCC`/`0xC3`/`0xE9`/`0xEB`) | `DataSectionFunctionScannerAnalyzer.cpp` | Eliminated bulk of `func_data` false positives from alignment NOPs and zero-padding |
-| B | `isPlausibleFunctionPrologue()` rejects `0x00`/`0xFF`/`0xCC` | `DataSectionFunctionScannerAnalyzer.cpp` | Blocks non-instruction bytes from being treated as function starts |
-| C | Phase 2 `.rdata` scan capped at `MAX_FOUND` | `DataSectionFunctionScannerAnalyzer.cpp` | Prevents COM/C++ vtable over-scan |
-| D | First-byte + boundary validation | `FunctionStartDataPostAnalyzer.cpp` | Prevents data-ref functions at invalid addresses |
-| E | Multi-byte NOP (`0F 1F`) rejection | `DataSectionFunctionScannerAnalyzer.cpp`, `FunctionStartDataPostAnalyzer.cpp` | 95% of ntdll `func_data` were alignment NOPs |
-| F | REX-prefix XOR-zero rejection (`45 33 ...`) | `FunctionStartAnalyzer.cpp` | Mid-instruction XOR matches in multi-instr prologue detector |
+- `AutoNaming.h` created — central `name(prefix, addr)` / `nameVal(prefix, val)` formatter
+- `SymbolUtilities.{h,cpp}`: prefixes updated — `FUN_`→`func_`, `DAT_`→`data_`, `LAB_`→`label_`, `SUB_`→`func_`, `UNK_`→`unk_`, `EXT_`→`ext_`, `OFF_`→`off_`, `Ordinal_`→`ord_`
+- `FunctionManager.cpp`, `DecompInterface.cpp`: `FUN_` → `func_`, `FUN_ENTRY` → `entry`
+- 12 discovery/analyzer files: all `sub_`, `func_start_`, `func_call_`, `func_gap_`, `func_data_`, `func_sweep_`, `thunk_`, `data_func_`, `exception_func_` unified to `func_0xADDR` / `thunk_0xADDR`
+- `database.cc::buildVariableName`: 7 naming paths rewritten — `unaff_0x`, `local_0x`, `ptr_0x`, `arg_`, `param_`, `out_`, `v_`
+- `varmap.cc::ScopeLocal::buildVariableName`: `auStack_`/`uStack_` → `local_0x`
+- `printc.cc` (4 functions): `RAM0x...`→`ptr_0x...`, `code_r0x...`→`code_0x...`, `Ram0x...`→`ptr_0x...`, `function_`→`func_`
+- `enigma_decompile_full.cpp`: removed `FUN_ENTRY`→`entry` post-processing
+- `AnalysisBridge.cpp`, `FidAnalyzer.cpp`, `MainRecognitionAnalyzer.cpp`: prefix checks updated
+- `tests/test_compile.cpp`: 14 W74.SymUtil prefix expectations updated
+- `tests/test_batch_x.cpp`: `"FUN_"` → `"func_0x"`
+- `tests/test_cli_regression.py`: 9 regex patterns updated
+- `tests/corpus/expected/*.c`: all 16 regenerated — output sizes dropped ~10%
+- All 52/52 tests pass (100%)
 
-## Results
+## 2026-07-?? — Noise-Reduction Phase
 
-| Binary | Before | After | Reduction |
-|--------|--------|-------|-----------|
-| kernel32 | 3,584 funcs | **2,814** | −770 |
-| ntdll | 6,447 funcs | **5,918** | −529 |
-| user32 | 3,076 funcs | **3,048** | −28 |
+- `DataSectionFunctionScannerAnalyzer.cpp`: `isAtFunctionBoundary()` accepts only `0xCC`/`0xC3`/`0xE9`/`0xEB`; `isPlausibleFunctionPrologue()` rejects `0x00`/`0xFF`/`0xCC`; Phase 2 .rdata scan capped at `MAX_FOUND`
+- `FunctionStartDataPostAnalyzer.cpp`: first-byte + boundary validation for data-ref functions
+- `FunctionStartAnalyzer.cpp`: multi-byte NOP (`0F 1F`) and REX-prefix XOR-zero (`45 33 C0/C9/D2/DB`) rejection
+- Results: kernel32 extras 993→495, ntdll 2143→1614, user32 725→697; `func_data` extras ≤1.4% of all extras
+- `AggressiveRecoveryAnalyzer.cpp` inspected — .pdata scoring is hint-only, no action needed
 
-### Extras vs Ghidra
+## Earlier
 
-| Binary | Extras | func_data | func_start | func_pdata |
-|--------|--------|-----------|------------|------------|
-| kernel32 | 495 | **3 (0.6%)** | 51 (10%) | 316 (64%) |
-| ntdll | 1,614 | **22 (1.4%)** | 161 (10%) | 1,172 (73%) |
-| user32 | 697 | **5 (0.7%)** | 78 (11%) | 476 (68%) |
-
-Noise category (`func_data`) reduced from ~50% of extras to ≤1.4%.
+- Stress-test pipeline: all 10 system DLLs audited (function/instruction counts, timing, peak memory)
+- 4 .pdata ordering/splitting fixes in `FunctionStartAnalyzer.cpp`
+- Ghidra comparison baseline established for kernel32, ntdll, user32
+- Tooling: `classify_extras.py`, `investigate_missing.py`, `compare_function_lists.py`, `check_pdata.py`, `phase4_sampling.py`, `phase5_funcstart.py`, `phase5c_preceding.py`
+- TypeDatabase: abstract base + WindowsTypeDatabase (~3200 signatures across 20+ DLL sections) + Linux/MacOS stubs + factory
+- Call-site type annotation in `enigma_decompile_full.cpp` (notepad 53 types, shell32 298 types)
+- Project cleanup: removed `tmp/`, `root build/`, `duplicate include/`, `builds/` (1.28 GB), temp files, logs, CSVs, `.bak` backups
+- ADS dock layout: Explorer/Disassembly/Decompiler/Hex/Console; FetchContent + static build
+- Full-window proportional drop zones (25% per edge, center tabs); compass arrows hidden; drag threshold 4×
+- View menu toggles for Disassembly/Decompiler/Hex with sync on close
+- Console: title bar hidden via `HideSingleWidgetTitleBar`
+- Explorer tree: A-Z sort, address column monospace, tooltips, filter box
+- `CutterSeekable` navigation sync: HexView/DisassemblyView/DecompilerView all implement seek/click/highlight
+- `seekAll()` hub in MainWindow with history (navigateTo/onNavigateBack)

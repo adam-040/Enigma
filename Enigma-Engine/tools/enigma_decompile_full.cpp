@@ -208,16 +208,7 @@ static std::string cleanOutput(const std::string& raw, bool skipTypeNorm = false
         }
     }
 
-    // 4. Match Ghidra's public undefined type spelling.
-    {
-        for (size_t pos = 0; (pos = s.find("xunknown", pos)) != std::string::npos; ) {
-            s.replace(pos, 8, "undefined");
-            pos += 9;
-        }
-
-    }
-
-    // 5. Normalize unknown-size types to standard C fixed-width types.
+    // 4. Normalize unknown-size types to standard C fixed-width types.
     //    undefined1/2/4/8 become uint8_t/uint16_t/uint32_t/uint64_t.
     //    Skipped when skipTypeNorm is true (for type audit purposes).
     if (!skipTypeNorm) {
@@ -1205,7 +1196,7 @@ int main(int argc, char** argv) {
             std::string entryName;
             auto entryIt = symbolNames.find(entryPoint);
             if (entryIt != symbolNames.end()) entryName = entryIt->second;
-            if (entryName.empty()) entryName = "FUN_ENTRY";
+            if (entryName.empty()) entryName = "entry";
             FunctionSymbol* fsym = arch->symboltab->getGlobalScope()->addFunction(entryAddr, entryName);
             if (!fsym) {
                 std::cerr << "Error: Could not create function symbol at entry point.\n";

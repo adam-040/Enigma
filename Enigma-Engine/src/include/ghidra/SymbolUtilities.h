@@ -15,14 +15,14 @@ class SymbolUtilities {
 public:
     static constexpr int MAX_SYMBOL_NAME_LENGTH = 2000;
 
-    static constexpr const char* DEFAULT_SUBROUTINE_PREFIX = "SUB_";
-    static constexpr const char* DEFAULT_SYMBOL_PREFIX = "LAB_";
-    static constexpr const char* DEFAULT_DATA_PREFIX = "DAT_";
-    static constexpr const char* DEFAULT_UNKNOWN_PREFIX = "UNK_";
-    static constexpr const char* DEFAULT_EXTERNAL_ENTRY_PREFIX = "EXT_";
-    static constexpr const char* DEFAULT_FUNCTION_PREFIX = "FUN_";
-    static constexpr const char* DEFAULT_INTERNAL_REF_PREFIX = "OFF_";
-    static constexpr const char* ORDINAL_PREFIX = "Ordinal_";
+    static constexpr const char* DEFAULT_SUBROUTINE_PREFIX = "func_";
+    static constexpr const char* DEFAULT_SYMBOL_PREFIX = "label_";
+    static constexpr const char* DEFAULT_DATA_PREFIX = "data_";
+    static constexpr const char* DEFAULT_UNKNOWN_PREFIX = "unk_";
+    static constexpr const char* DEFAULT_EXTERNAL_ENTRY_PREFIX = "ext_";
+    static constexpr const char* DEFAULT_FUNCTION_PREFIX = "func_";
+    static constexpr const char* DEFAULT_INTERNAL_REF_PREFIX = "off_";
+    static constexpr const char* ORDINAL_PREFIX = "ord_";
 
     static constexpr int UNK_LEVEL = 0;
     static constexpr int DAT_LEVEL = 1;

@@ -11,6 +11,7 @@
 #include <ghidra/TaskMonitor.h>
 #include <ghidra/MessageLog.h>
 #include <ghidra/SourceType.h>
+#include <ghidra/AutoNaming.h>
 #include <ghidra/Msg.h>
 
 namespace ghidra {
@@ -86,7 +87,7 @@ bool FunctionStartPostAnalyzer::added(Program* program, const AddressSetView& se
             }
             if (!allZero && !allFF && (addr.getOffset() % 2 == 0)) {
                 AddressSet body(addr, addr);
-                funcMgr->createFunction("func_sweep_" + std::to_string(addr.getOffset()),
+                funcMgr->createFunction(AutoNaming::nameVal("func", static_cast<uint64_t>(addr.getOffset())),
                                         addr, body, SourceType::ANALYSIS);
                 ++found;
                 try { addr = addr.add(1); } catch (...) { break; }

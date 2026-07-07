@@ -558,22 +558,7 @@ string ScopeLocal::buildVariableName(const Address &addr,
       if (stackGrowsNegative)
 	start = -start;
       ostringstream s;
-      if (ct != (Datatype *)0)
-	ct->printNameBase(s);
-      string spacename = addr.getSpace()->getName();
-      spacename[0] = toupper(spacename[0]);
-      s << spacename;
-      if (start <= 0) {
-	s << 'X';		// Indicate local stack space allocated by caller
-	start = -start;
-      }
-      else {
-	if ((minParamOffset < maxParamOffset) &&
-	    (stackGrowsNegative ? (addr.getOffset() < minParamOffset) : (addr.getOffset() > maxParamOffset))) {
-	  s << 'Y';		// Indicate unusual region of stack
-	}
-      }
-      s << '_' << hex << start;
+      s << "local_0x" << hex << (uintb)(start < 0 ? -start : start);
       return makeNameUnique(s.str());
     }
   }

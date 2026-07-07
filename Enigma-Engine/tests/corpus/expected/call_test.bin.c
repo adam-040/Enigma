@@ -1,4 +1,4 @@
-void __stdcall FUN_ENTRY()
+void __stdcall entry()
 {
   sub_0x100b();
   return;
@@ -6,8 +6,8 @@ void __stdcall FUN_ENTRY()
 
 int4 __stdcall sub_0x100b()
 {
-  int4 in_EAX;
+  int4 arg_eax;
   
-  return in_EAX + 1;
+  return arg_eax + 1;
 }
 
