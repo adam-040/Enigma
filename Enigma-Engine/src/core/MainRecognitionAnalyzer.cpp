@@ -48,10 +48,19 @@ namespace ghidra {
 // Known CRT startup import names — any function that directly calls one
 // of these is CRT regardless of its own (possibly stripped) name.
 // -----------------------------------------------------------------------
+// -----------------------------------------------------------------------
+// Known CRT startup APIs — functions called by the CRT startup wrappers
+// (mainCRTStartup, __tmainCRTStartup, WinMainCRTStartup, etc.).
+// When a function calls one of these, it is part of the CRT startup
+// chain.  Functions that call generic CRT runtime APIs (strlen, printf,
+// malloc …) are NOT classified as startup — those are user functions
+// using the standard library.
+// -----------------------------------------------------------------------
 static const std::unordered_set<std::string> kCrtStartupApis = {
     "__getmainargs",   "__wgetmainargs",
     "_initterm",       "_initterm_e",
-    "__set_app_type",  "SetUnhandledExceptionFilter",
+    "__set_app_type",
+    "SetUnhandledExceptionFilter",
     "__scrt_initialize_crt", "__scrt_acquire_startup_lock",
     "__scrt_release_startup_lock",
     "exit", "atexit", "_cexit", "_c_exit",
@@ -63,61 +72,64 @@ static const std::unordered_set<std::string> kCrtStartupApis = {
     "__p___argc", "__p___argv", "__p___wargv", "__p___envp",
     "__p__acmdln", "__p__wcmdln",
     "__initenv", "get_initial_narrow_environment",
-    // Common C library import thunks
-    "strlen", "strncpy", "strncmp", "strcmp", "strcpy", "strcat",
-    "memcpy", "memmove", "memset", "memcmp",
-    "malloc", "calloc", "realloc", "free",
-    "fprintf", "printf", "sprintf", "snprintf", "vfprintf", "vprintf", "vsprintf",
-    "fopen", "fclose", "fread", "fwrite", "fgets", "fputs",
-    "abort", "exit", "_exit", "_Exit",
-    "signal", "raise",
-    "atoi", "atol", "atof", "strtol", "strtoul", "strtod",
-    "__iob_func", "_amsg_exit",
+    "_amsg_exit", "__iob_func", "__acrt_iob_func",
     "_beginthreadex", "_endthreadex",
-    "InitializeCriticalSection", "EnterCriticalSection", "LeaveCriticalSection",
-    "GetLastError", "SetLastError",
-    "HeapAlloc", "HeapFree", "GetProcessHeap",
-    "VirtualAlloc", "VirtualFree",
-    "LoadLibraryA", "LoadLibraryW", "GetProcAddress", "FreeLibrary",
-    "GetModuleHandleA", "GetModuleHandleW",
-    "MultiByteToWideChar", "WideCharToMultiByte",
-    "GetVersionExA", "GetVersionExW", "GetVersion",
-    "InterlockedCompareExchange", "InterlockedExchange",
-    "QueryPerformanceCounter", "QueryPerformanceFrequency",
-    "GetSystemTimeAsFileTime", "GetCurrentProcessId", "GetCurrentThreadId",
-    "TerminateProcess", "GetCurrentProcess",
-    "UnhandledExceptionFilter", "SetUnhandledExceptionFilter",
     "__set_fmode", "__p__fmode", "__p__commode",
-    "_configthreadlocale", "_set_printf_count_output",
-    "__stdio_common_vfprintf", "__acrt_iob_func",
-    // Additional CRT / MinGW helpers
+    "_configthreadlocale",
     "_callnewh", "__dllonexit", "_onexit", "__pxcptinfoptrs",
-    "setlocale", "_set_new_handler", "_set_new_mode",
-    "__CppXcptFilter", "__except_handler4_common",
-    "_decode_pointer", "_encode_pointer",
-    "InitializeCriticalSectionEx", "InitializeCriticalSectionAndSpinCount",
-    "_initterm_e", "_except_handler2", "_except_handler3",
-    "_XcptFilter", "exit", "_exit", "_Exit",
-    "TerminateProcess", "ExitProcess",
-    "_amsg_exit", "__crt_debugger_hook",
+    "__CppXcptFilter", "_XcptFilter",
+    "_except_handler2", "_except_handler3",
+    "__crt_debugger_hook",
     "__setusermatherr", "_matherr",
     "__configure_narrow_argv", "__configure_wide_argv",
     "__initialize_narrow_environment", "__initialize_wide_environment",
-    "__set_app_type", "_set_fmode", "__p__fmode",
-    "IsDebuggerPresent", "GetModuleFileNameA", "GetModuleFileNameW",
-    "WriteFile", "GetStdHandle", "GetFileType",
-    "HeapCreate", "HeapDestroy", "HeapSize",
-    "VirtualProtect", "VirtualQuery",
+    "IsDebuggerPresent",
     "EncodePointer", "DecodePointer",
+    "__stdio_common_vfprintf",
+    "InitializeCriticalSectionEx", "InitializeCriticalSectionAndSpinCount",
     "FlsAlloc", "FlsGetValue", "FlsSetValue", "FlsFree",
     "InitializeSRWLock", "AcquireSRWLockExclusive", "ReleaseSRWLockExclusive",
     "SleepConditionVariableSRW", "WakeConditionVariable",
-    "GetModuleHandleExA", "GetModuleHandleExW",
 };
 
 // -----------------------------------------------------------------------
 // CRT name prefixes used when behavioral analysis is unavailable
 // -----------------------------------------------------------------------
+// -----------------------------------------------------------------------
+// Named imports that strongly indicate user code (not CRT startup).
+// A function calling ANY of these gets a confidence bonus for main().
+// Common CRT utility imports (malloc, memcpy, strlen, signal …) are
+// intentionally excluded — both CRT and user code call them.
+// -----------------------------------------------------------------------
+static const std::unordered_set<std::string> kUserCodeImports = {
+    // String comparison (password checkers, user logic)
+    "strcmp", "strncmp", "wcscmp", "wcsncmp",
+    "stricmp", "strnicmp", "strcasecmp", "strncasecmp",
+    // Formatted I/O (user-facing output)
+    "printf", "fprintf", "sprintf", "snprintf",
+    "wprintf", "fwprintf", "swprintf",
+    "_cprintf", "_cscanf",
+    // User input
+    "scanf", "fscanf", "sscanf",
+    "gets", "fgets", "getchar",
+    "puts", "fputs", "putchar",
+    // File operations
+    "fopen", "fclose", "freopen",
+    "fread", "fwrite",
+    "getc", "fgetc", "putc", "fputc",
+    "ungetc",
+    // String manipulation (user logic)
+    "strcpy", "strncpy", "strcat", "strncat",
+    "strstr", "strchr", "strrchr", "strtok",
+    // Math (user computation)
+    "rand", "srand", "time",
+    // Console/terminal
+    "system", "getenv",
+    // Windows user interaction
+    "MessageBoxA", "MessageBoxW",
+    "MessageBoxExA", "MessageBoxExW",
+};
+
 static const char* const kCrtPrefixes[] = {
     "__scrt_", "__acrt_", "__vcrt_", "_crt",
     "msvcrt_", "_set_se_translator",
@@ -182,6 +194,19 @@ static void buildSymbolMaps(
 // NOTE: We iterate ALL instructions in the listing (not filtered by the
 // AddressSetView) because the set passed to added() can have null-space
 // addresses on some platforms, causing getInstructions(set) to return 0.
+//
+// Strategy:
+//   • For each instruction, first try getFunctionContaining() which works
+//     for functions whose bodies have been expanded past the 1-byte
+//     placeholder. This correctly attributes instructions even when
+//     FunctionStartAnalyzer has created synthetic func_0x* entries
+//     overlapping real functions.
+//   • If getFunctionContaining() returns null (the function body is still
+//     the 1-byte placeholder), fall back to the nearest-entry-point proxy
+//     using std::upper_bound over ALL function entry points (no name-based
+//     filtering).  The old 256-byte / "func_0x" heuristic was removed
+//     because it could silently drop legitimate functions and distort the
+//     call graph.
 // -----------------------------------------------------------------------
 static void buildCallGraph(
         Program* program,
@@ -192,41 +217,17 @@ static void buildCallGraph(
     auto* refMgr = program->getReferenceManager();
     if (!funcMgr || !listing || !refMgr) return;
 
-    // 1. Collect and sort all function entry points.
-    // Filter out auto-generated func_start_* functions whose entry point
-    // falls inside another function (created by FunctionStartAnalyzer
-    // matching prologue patterns within real functions). These pollute the
-    // call-graph mapping by stealing instructions from their parent.
+    // 1. Collect and sort all function entry points (fallback attribution).
     std::vector<uint64_t> entryPoints;
-    std::unordered_map<uint64_t, std::string> epNames;
     FunctionIterator fit = funcMgr->getFunctions(true);
     while (fit.hasNext()) {
         Function* f = fit.next();
         if (f) {
-            uint64_t ep = f->getEntryPoint().getOffset();
-            std::string name = f->getName();
-            entryPoints.push_back(ep);
-            epNames[ep] = name;
+            entryPoints.push_back(f->getEntryPoint().getOffset());
         }
     }
-    std::sort(entryPoints.begin(), entryPoints.end());
-    // Remove func_start_* entries that overlap the previous function's
-    // expected range (within 256 bytes of the preceding entry point).
-    std::vector<uint64_t> filtered;
-    for (size_t i = 0; i < entryPoints.size(); i++) {
-        uint64_t ep = entryPoints[i];
-        auto it = epNames.find(ep);
-        bool isOverlap = false;
-        if (it != epNames.end() && it->second.rfind("func_0x", 0) == 0) {
-            if (i > 0 && ep - entryPoints[i - 1] < 256)
-                isOverlap = true;
-        }
-        if (!isOverlap)
-            filtered.push_back(ep);
-    }
-    entryPoints.swap(filtered);
-
     if (entryPoints.empty()) return;
+    std::sort(entryPoints.begin(), entryPoints.end());
 
     // 2. Iterate ALL instructions unconditionally (bypasses broken AddressSetView)
     std::vector<Instruction*> instructions = listing->getAllInstructions();
@@ -236,11 +237,20 @@ static void buildCallGraph(
         Address instAddr = inst->getAddress();
         uint64_t offset = static_cast<uint64_t>(instAddr.getOffset());
 
-        // Find the function entry point containing this instruction
-        auto it = std::upper_bound(entryPoints.begin(), entryPoints.end(), offset);
-        if (it == entryPoints.begin()) continue;
-        --it;
-        uint64_t callerOff = *it;
+        // Find the function containing this instruction.
+        // Preferred: getFunctionContaining() — works when function bodies
+        // have been expanded past the 1-byte placeholder.
+        uint64_t callerOff = 0;
+        Function* containingFunc = funcMgr->getFunctionContaining(instAddr);
+        if (containingFunc) {
+            callerOff = static_cast<uint64_t>(containingFunc->getEntryPoint().getOffset());
+        } else {
+            // Fallback: nearest entry point <= instruction address.
+            auto it = std::upper_bound(entryPoints.begin(), entryPoints.end(), offset);
+            if (it == entryPoints.begin()) continue;
+            --it;
+            callerOff = *it;
+        }
 
         // Get call references from this instruction
         std::vector<Reference*> refs = refMgr->getReferencesFrom(instAddr);
@@ -337,6 +347,9 @@ bool MainRecognitionAnalyzer::added(Program* program,
         }
     }
 
+    Msg::info("MainRecognition", "entry point at 0x" + std::to_string(entryPoint) +
+              ", call graph has " + std::to_string(callGraph.size()) + " callers");
+
     // ----------------------------------------------------------------
     // 4. Classify functions as CRT by behavioural signature
     // ----------------------------------------------------------------
@@ -403,6 +416,9 @@ bool MainRecognitionAnalyzer::added(Program* program,
         if (matchesCrtPrefix(name))           { classifiedCrt.insert(addr); continue; }
     }
 
+    Msg::info("MainRecognition",
+              std::to_string(classifiedCrt.size()) + " CRT-classified functions seeded");
+
     // Phase 2: propagate
     std::deque<uint64_t> propQueue(classifiedCrt.begin(), classifiedCrt.end());
     std::unordered_set<uint64_t> propVisited;
@@ -439,13 +455,24 @@ bool MainRecognitionAnalyzer::added(Program* program,
                 auto cit = callGraph.find(callee);
                 bool callsCrt = false;
                 size_t calleeCount = 0;
+                int  callsNamedImport = 0;  // ← count, not bool
                 if (cit != callGraph.end()) {
                     calleeCount = cit->second.size();
                     for (uint64_t gc : cit->second) {
                         if (classifiedCrt.count(gc)) { callsCrt = true; break; }
+                        // Named non-CRT import → user-code indicator
+                        auto gnit = addrToName.find(gc);
+                        if (gnit != addrToName.end() && !isAutoName(gnit->second)) {
+                            if (kUserCodeImports.count(gnit->second))
+                                ++callsNamedImport;
+                        }
                     }
                 }
                 if (!callsCrt) conf += 0.10f;
+                // Bonus for calling a named non-startup import (strcmp,
+                // printf, fopen …).  Most CRT internal helpers call 0
+                // named imports — only actual user code uses these APIs.
+                if (callsNamedImport >= 1) conf += 0.25f;
                 // Call-count heuristic: main is called by very few callers
                 auto rcit = reverseCallGraph.find(callee);
                 size_t callerCount = (rcit != reverseCallGraph.end()) ? rcit->second.size() : 0;
@@ -466,8 +493,10 @@ bool MainRecognitionAnalyzer::added(Program* program,
 
     // Also process direct callees of entry that are CRT seeds.
     // For MinGW, __tmainCRTStartup calls main directly without calling
-    // known CRT APIs, so we also classify entry callees as CRT when they
-    // don't look like user-named code.
+    // known CRT APIs, so we need to classify entry callees as CRT when
+    // they are reachable from the CRT graph (without assuming ALL unnamed
+    // entry callees are CRT — that would misclassify user main() when
+    // the entry calls it directly with no CRT startup).
     if (entryPoint != 0) {
         auto eit = callGraph.find(entryPoint);
         if (eit != callGraph.end()) {
@@ -478,10 +507,23 @@ bool MainRecognitionAnalyzer::added(Program* program,
                 if (_isCrt) {
                     isCrt = true;
                 } else {
-                    // Entry callees that are not user-named are CRT startup
-                    auto nit = addrToName.find(callee);
-                    bool userNamed = (nit != addrToName.end() && !isAutoName(nit->second));
-                    if (!userNamed) isCrt = true;
+                    // Entry callee was not classified by behavior alone.
+                    // Check if it calls any function that IS already
+                    // classified as CRT — if so, it is part of the CRT
+                    // startup chain (e.g. __mingw_CRTStartup → _main
+                    // where _main is classified by underscore name).
+                    // This avoids the old "all unnamed entry callees
+                    // are CRT" heuristic that misclassifies user main()
+                    // when the entry calls it directly (no CRT startup).
+                    auto cit = callGraph.find(callee);
+                    if (cit != callGraph.end()) {
+                        for (uint64_t gcallee : cit->second) {
+                            if (classifiedCrt.count(gcallee)) {
+                                isCrt = true;
+                                break;
+                            }
+                        }
+                    }
                 }
                 if (isCrt && classifiedCrt.insert(callee).second)
                     propQueue.push_back(callee);
@@ -505,6 +547,19 @@ bool MainRecognitionAnalyzer::added(Program* program,
                         auto nit = addrToName.find(callee);
                         bool anon = (nit == addrToName.end() || isAutoName(nit->second));
                         if (anon) conf += 0.10f;
+                        // User-code indicator: callee calls ≥2 named non-CRT imports
+                        auto cit2 = callGraph.find(callee);
+                        int callsNamedImport2 = 0;
+                        if (cit2 != callGraph.end()) {
+                            for (uint64_t gc : cit2->second) {
+                                auto gnit = addrToName.find(gc);
+                                if (gnit != addrToName.end() && !isAutoName(gnit->second)) {
+                                    if (kUserCodeImports.count(gnit->second))
+                                        { if (++callsNamedImport2 >= 2) break; }
+                                }
+                            }
+                        }
+                        if (callsNamedImport2 >= 1) conf += 0.25f;
                         auto rcit = reverseCallGraph.find(callee);
                         size_t callerCount = (rcit != reverseCallGraph.end()) ? rcit->second.size() : 0;
                         if (callerCount <= 1) conf += 0.15f;
@@ -523,9 +578,22 @@ bool MainRecognitionAnalyzer::added(Program* program,
     // 5. Select best candidate
     // ----------------------------------------------------------------
     if (mainCandidates.empty()) {
-        Msg::info("MainRecognition", "no main() candidate found");
+        Msg::info("MainRecognition", "no main() candidate found (" +
+                  std::to_string(classifiedCrt.size()) + " CRT functions, " +
+                  std::to_string(callGraph.size()) + " callers in graph)");
         log.append("MainRecognitionAnalyzer: no main() candidate found");
         return true;
+    }
+
+    {
+        std::string candMsg = "main candidates:";
+        for (auto& mc : mainCandidates) {
+            auto nit = addrToName.find(mc.first);
+            std::string name = (nit != addrToName.end()) ? nit->second : "(unnamed)";
+            candMsg += " 0x" + std::to_string(mc.first) + "[" + name + "]=" +
+                       std::to_string(mc.second);
+        }
+        Msg::info("MainRecognition", candMsg);
     }
 
     uint64_t bestAddr = 0;
@@ -588,6 +656,14 @@ bool MainRecognitionAnalyzer::added(Program* program,
         return true;
     }
 
+    {
+        auto nit = addrToName.find(bestAddr);
+        std::string bestName = (nit != addrToName.end()) ? nit->second : "(unnamed)";
+        Msg::info("MainRecognition", "selected candidate 0x" +
+                  std::to_string(bestAddr) + " [" + bestName + "] confidence=" +
+                  std::to_string(bestConf) + " wide=" + (wideChar ? "yes" : "no"));
+    }
+
     // ----------------------------------------------------------------
     // 6. Rename the selected function
     // ----------------------------------------------------------------
@@ -625,6 +701,127 @@ bool MainRecognitionAnalyzer::added(Program* program,
         log.append("MainRecognitionAnalyzer: candidate 0x" +
                    std::to_string(bestAddr) + " not in FunctionManager");
     }
+
+    // ----------------------------------------------------------------
+    // 7. MinGW CRT wrapper naming (transitive import thunk resolution)
+    //    Runs after ImportThunkAnalyzer has named all import thunks.
+    //    Only names functions that are direct callees of the user's
+    //    main() to avoid over-naming internal CRT helpers.
+    // ----------------------------------------------------------------
+    {
+        // Build the set of direct callees of main
+        std::set<uint64_t> mainDirectCallees;
+        auto mainCgIt = callGraph.find(bestAddr);
+        if (mainCgIt != callGraph.end()) {
+            for (uint64_t callee : mainCgIt->second) {
+                mainDirectCallees.insert(callee);
+            }
+        }
+        if (mainDirectCallees.empty()) goto skipMingwStep;
+
+        // Collect all import thunks: named functions with isThunk() == true.
+        std::set<uint64_t> importThunkAddresses;
+        std::unordered_map<uint64_t, std::string> thunkNameMap;
+        FunctionIterator fitAll = funcMgr->getFunctions(true);
+        while (fitAll.hasNext()) {
+            Function* f = fitAll.next();
+            if (f && f->isThunk()) {
+                uint64_t addr = f->getEntryPoint().getOffset();
+                importThunkAddresses.insert(addr);
+                thunkNameMap[addr] = f->getName();
+            }
+        }
+
+        if (!importThunkAddresses.empty()) {
+            AddressSpace* defaultSpace = const_cast<AddressSpace*>(
+                program->getAddressFactory()->getDefaultAddressSpace());
+
+            int mingwNamed = 0;
+            NamingService naming(program);
+
+            // Only process direct callees of main that are still unnamed
+            for (uint64_t calleeAddr : mainDirectCallees) {
+                Function* f = funcMgr->getFunctionAt(
+                    Address(defaultSpace, static_cast<int64_t>(calleeAddr)));
+                if (!f) continue;
+                std::string cn = f->getName();
+                if (!isAutoName(cn)) continue;
+
+                // BFS up to depth 6 to find reachable import thunks
+                std::set<uint64_t> reachable;
+                std::set<uint64_t> visited;
+                std::vector<std::pair<uint64_t, int>> queue;
+                queue.push_back({calleeAddr, 0});
+                visited.insert(calleeAddr);
+                size_t head = 0;
+                while (head < queue.size()) {
+                    auto [curAddr, depth] = queue[head++];
+                    if (depth >= 6) continue;
+                    auto cgIt = callGraph.find(curAddr);
+                    if (cgIt == callGraph.end()) continue;
+                    for (uint64_t callee : cgIt->second) {
+                        if (importThunkAddresses.count(callee)) {
+                            reachable.insert(callee);
+                        } else if (visited.insert(callee).second) {
+                            Function* calleeFunc = funcMgr->getFunctionAt(
+                                Address(defaultSpace, static_cast<int64_t>(callee)));
+                            if (calleeFunc && isAutoName(calleeFunc->getName())) {
+                                queue.push_back({callee, depth + 1});
+                            }
+                        }
+                    }
+                }
+
+                if (reachable.empty()) continue;
+
+                // Check reachable import thunks against known MinGW patterns
+                for (uint64_t t : reachable) {
+                    auto it = thunkNameMap.find(t);
+                    if (it == thunkNameMap.end()) continue;
+                    const std::string& importName = it->second;
+
+                    // __mingw_printf: wraps character-level output
+                    if (importName == "vfprintf" || importName == "fprintf" ||
+                        importName == "fputc") {
+                        auto result = naming.assignName(f, "__mingw_printf", SourceType::ANALYSIS);
+                        if (result.success) {
+                            naming.assignAlias(calleeAddr, "__mingw_printf", SourceType::ANALYSIS);
+                            ++mingwNamed;
+                            Msg::info("MainRecognition", "named 0x" +
+                                      std::to_string(calleeAddr) + " " + cn +
+                                      " -> __mingw_printf");
+                        }
+                        break;
+                    }
+
+                    // __mingw_scanf: wraps character-level input
+                    if (importName == "vfscanf" || importName == "fscanf" ||
+                        importName == "getc" || importName == "fgetc" ||
+                        importName == "ungetc") {
+                        auto result = naming.assignName(f, "__mingw_scanf", SourceType::ANALYSIS);
+                        if (result.success) {
+                            naming.assignAlias(calleeAddr, "__mingw_scanf", SourceType::ANALYSIS);
+                            ++mingwNamed;
+                            Msg::info("MainRecognition", "named 0x" +
+                                      std::to_string(calleeAddr) + " " + cn +
+                                      " -> __mingw_scanf");
+                        }
+                        break;
+                    }
+                }
+            }
+
+            if (mingwNamed > 0) {
+                Msg::info("MainRecognition",
+                          "MinGW CRT: named " + std::to_string(mingwNamed) +
+                          " wrapper functions via transitive import thunk resolution");
+                log.append("MainRecognitionAnalyzer: MinGW CRT: named " +
+                           std::to_string(mingwNamed) +
+                           " wrapper functions via transitive import thunk resolution");
+            }
+        }
+    }
+skipMingwStep:;
 
     return true;
 }

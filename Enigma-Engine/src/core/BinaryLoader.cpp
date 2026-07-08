@@ -24,6 +24,7 @@
 #include <fstream>
 #include <cstring>
 #include <limits>
+#include <sstream>
 
 namespace ghidra {
 
@@ -179,6 +180,28 @@ public:
         return result;
     }
 
+    std::vector<uint8_t> getRawDataCopy() const override {
+        return rawData_;
+    }
+
+    uint64_t virtualAddressToFileOffset(uint64_t vaddr) const override {
+        for (const auto& section : sections_) {
+            if (vaddr >= section.virtualAddress &&
+                vaddr < section.virtualAddress + section.virtualSize) {
+                uint64_t offset = vaddr - section.virtualAddress;
+                if (offset < section.fileSize) {
+                    return section.fileOffset + offset;
+                }
+                return UINT64_MAX;
+            }
+        }
+        uint64_t fileOffset = 0;
+        if (addressToFileOffset(vaddr, fileOffset)) {
+            return fileOffset;
+        }
+        return UINT64_MAX;
+    }
+
     bool populateProgram(ProgramDB* program) override {
         if (!program) return false;
 
@@ -236,7 +259,36 @@ public:
             }
         }
 
+        int unnamedCounter = 0;
         for (const auto& section : sections_) {
+            if (section.virtualSize == 0) continue;
+            // Sanitize section name: empty names and control characters are rejected
+            // by the memory block name validation.  Log and fix them here so the
+            // caller gets a clear error message and the load proceeds.
+            auto addrHex = [](uint64_t v) {
+                std::ostringstream oss;
+                oss << std::hex << v;
+                return oss.str();
+            };
+            std::string blockName = section.name;
+            if (blockName.empty()) {
+                blockName = "unnamed_" + std::to_string(unnamedCounter++);
+                Msg::warn("BinaryLoader",
+                    "Section with empty name at VA 0x" +
+                    addrHex(section.virtualAddress) +
+                    "; using '" + blockName + "'");
+            } else if (!Memory::isValidMemoryBlockName(blockName)) {
+                std::string sanitized;
+                for (char c : blockName) {
+                    sanitized += (c < 0x20) ? '_' : c;
+                }
+                Msg::warn("BinaryLoader",
+                    "Section name with invalid characters: '" + blockName +
+                    "' at VA 0x" + addrHex(section.virtualAddress) +
+                    "; sanitized to '" + sanitized + "'");
+                blockName = sanitized;
+            }
+
             Address startAddr(ramSpace, static_cast<int64_t>(section.virtualAddress));
             std::vector<uint8_t> bytes = getBytes(section.virtualAddress, section.virtualSize);
             if (bytes.empty() && section.fileSize > 0 && section.fileOffset + section.fileSize <= rawData_.size()) {
@@ -246,13 +298,13 @@ public:
 
             DefaultMemoryBlock* block = nullptr;
             if (!bytes.empty()) {
-                block = mem->createInitializedBlock(section.name, startAddr,
+                block = mem->createInitializedBlock(blockName, startAddr,
                     static_cast<long long>(bytes.size()), false);
                 if (block) {
                     mem->setBytes(startAddr, bytes.data(), static_cast<int>(bytes.size()));
                 }
             } else {
-                block = mem->createUninitializedBlock(section.name, startAddr,
+                block = mem->createUninitializedBlock(blockName, startAddr,
                     static_cast<long long>(section.virtualSize), false);
             }
 
@@ -758,7 +810,7 @@ private:
             section.virtualAddress = *reinterpret_cast<uint64_t*>(rawData_.data() + secOffset + 16);
             section.fileOffset = *reinterpret_cast<uint64_t*>(rawData_.data() + secOffset + 24);
             section.fileSize = *reinterpret_cast<uint64_t*>(rawData_.data() + secOffset + 32);
-            section.virtualSize = *reinterpret_cast<uint64_t*>(rawData_.data() + secOffset + 40);
+            section.virtualSize = section.fileSize;
 
             uint64_t flags = *reinterpret_cast<uint64_t*>(rawData_.data() + secOffset + 8);
             section.isReadable = (flags & 0x2) != 0;

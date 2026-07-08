@@ -36,6 +36,8 @@ class DecompilerView;
 class HexView;
 class ConsoleWidget;
 
+namespace ghidra::patch { class PatchManager; }
+
 class MainWindow : public QMainWindow {
     Q_OBJECT
 public:
@@ -81,6 +83,11 @@ private slots:
     void onAddBookmark();
     void onDeleteBookmark();
 
+    // Patch management
+    void onExportPatchedBinary();
+    void onShowPatchList();
+    void onRevertAllPatches();
+
     // Repository
     void onCommit();
     void onCommitHistory();
@@ -106,6 +113,7 @@ private:
     std::unique_ptr<ghidra::ProgramDB> program_;
     std::unique_ptr<ghidra::DecompInterface> decompInterface_;
     std::unique_ptr<ghidra::AutoAnalysisManager> analysisMgr_;
+    std::unique_ptr<ghidra::patch::PatchManager> patchManager_;
     ghidra::storage::EventLog eventLog_;
 
     ghidra::Function* currentFunction_ = nullptr;

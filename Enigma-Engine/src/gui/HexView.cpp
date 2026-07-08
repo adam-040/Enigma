@@ -4,9 +4,12 @@
 #include <ghidra/MemoryBlock.h>
 #include <ghidra/Address.h>
 #include <ghidra/AddressFactory.h>
+#include <ghidra/patch/PatchMemory.h>
 #include <QScrollBar>
 #include <QFile>
 #include <QPainter>
+#include <QMenu>
+#include <QInputDialog>
 #include "EditorTheme.h"
 
 HexView::HexView(QWidget* parent)
@@ -396,6 +399,20 @@ void HexView::paintEvent(QPaintEvent* event) {
             painter.fillRect(cx, y, cw, cellH, EditorTheme::primarySelectionColor());
         }
 
+        // Patch overlay — orange background for modified bytes
+        if (patchMemory_) {
+            for (const Token& t : l.tokens) {
+                if (t.byteIndex < 0) continue;
+                uint64_t byteAddr = l.addr + t.byteIndex;
+                if (patchMemory_->hasOverride(byteAddr)) {
+                    int px = baseX + t.startCol * cellW;
+                    int pw = t.len * cellW;
+                    QColor patchColor(0xff, 0x99, 0x33, 160);
+                    painter.fillRect(px, y, pw, cellH, patchColor);
+                }
+            }
+        }
+
         // --- Text pass ---
         for (const Token& tok : l.tokens) {
             int tx = baseX + tok.startCol * cellW;
@@ -451,5 +468,42 @@ void HexView::paintEvent(QPaintEvent* event) {
 
         // "Decoded text" aligned with the ASCII column content (col 63)
         painter.drawText(hx + 63 * cellW, ascent, QStringLiteral("Decoded text"));
+    }
+}
+
+void HexView::contextMenuEvent(QContextMenuEvent* event) {
+    uint64_t addr = addressAtCurrentLine();
+    if (addr == 0) {
+        QAbstractScrollArea::contextMenuEvent(event);
+        return;
+    }
+
+    // Adjust addr to the byte under cursor
+    auto hit = caretAtPos(event->pos());
+    int bi = byteIndexAt(hit.line, hit.col);
+    if (bi >= 0) addr += static_cast<uint64_t>(bi);
+
+    QMenu menu(this);
+    QAction* patchByte = menu.addAction(tr("Patch &Byte... @ 0x%1").arg(addr, 0, 16));
+    QAction* nopFill = menu.addAction(tr("&NOP Fill... @ 0x%1").arg(addr, 0, 16));
+    QAction* patchStr = menu.addAction(tr("Patch &String... @ 0x%1").arg(addr, 0, 16));
+    menu.addSeparator();
+    QAction* chosen = menu.exec(event->globalPos());
+
+    if (chosen == patchByte) {
+        emit patchByteRequested(addr);
+    } else if (chosen == nopFill) {
+        bool ok = false;
+        QString input = QInputDialog::getText(const_cast<HexView*>(this),
+            tr("NOP Fill Range"),
+            tr("End address (inclusive):\n(e.g. 0x1A2F)"),
+            QLineEdit::Normal,
+            QString("0x%1").arg(addr + 0x10, 0, 16), &ok);
+        if (!ok) return;
+        uint64_t endAddr = input.toULongLong(&ok, 16);
+        if (!ok || endAddr <= addr) return;
+        emit patchNopFillRequested(addr, endAddr);
+    } else if (chosen == patchStr) {
+        emit patchStringRequested(addr);
     }
 }

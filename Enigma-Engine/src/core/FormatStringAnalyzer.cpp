@@ -31,7 +31,10 @@ static bool isPrintfLike(const std::string& name) {
     for (char c : name) lower += static_cast<char>(std::tolower(c));
     return lower == "printf" || lower == "sprintf" || lower == "snprintf" ||
            lower == "fprintf" || lower == "dprintf" ||
-           lower == "syslog" || lower == "vsyslog";
+           lower == "syslog" || lower == "vsyslog" ||
+           lower == "__mingw_printf" || lower == "__mingw_sprintf" || lower == "__mingw_snprintf" ||
+           lower == "__mingw_fprintf" || lower == "__mingw_vfprintf" ||
+           lower == "__mingw_vsprintf" || lower == "__mingw_vsnprintf";
 }
 
 static bool isScanfLike(const std::string& name) {
@@ -39,7 +42,8 @@ static bool isScanfLike(const std::string& name) {
     lower.reserve(name.size());
     for (char c : name) lower += static_cast<char>(std::tolower(c));
     return lower == "scanf" || lower == "sscanf" || lower == "fscanf" ||
-           lower == "vscanf" || lower == "vsscanf" || lower == "vfscanf";
+           lower == "vscanf" || lower == "vsscanf" || lower == "vfscanf" ||
+           lower == "__mingw_scanf" || lower == "__mingw_sscanf" || lower == "__mingw_fscanf";
 }
 
 static int countFormatArgs(const std::string& fmt) {

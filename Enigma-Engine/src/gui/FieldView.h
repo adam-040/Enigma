@@ -120,7 +120,7 @@ protected:
     int currentLineIndex() const { return currentLine_; }
     bool isCaretVisible() const { return caretVisible_; }
 
-private:
+protected:
     struct CursorPos {
         int line = 0; int col = 0;
         bool operator==(const CursorPos& o) const { return line == o.line && col == o.col; }

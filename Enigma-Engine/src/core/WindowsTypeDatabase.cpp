@@ -475,6 +475,13 @@ const std::unordered_map<std::string, PrototypeEntry>& getTypeTable() {
 
         // ===== Standard C (also common) =====
         {"printf",                    {"int", {"const char*"}}},
+        {"__mingw_printf",            {"int", {"const char*"}}},
+        {"__mingw_fprintf",           {"int", {"FILE*", "const char*"}}},
+        {"__mingw_sprintf",           {"int", {"char*", "const char*"}}},
+        {"__mingw_snprintf",          {"int", {"char*", "size_t", "const char*"}}},
+        {"__mingw_vfprintf",          {"int", {"FILE*", "const char*", "va_list"}}},
+        {"__mingw_vsprintf",          {"int", {"char*", "const char*", "va_list"}}},
+        {"__mingw_vsnprintf",         {"int", {"char*", "size_t", "const char*", "va_list"}}},
         {"sprintf",                   {"int", {"char*", "const char*"}}},
         {"snprintf",                  {"int", {"char*", "size_t", "const char*"}}},
         {"fprintf",                   {"int", {"FILE*", "const char*"}}},
@@ -482,6 +489,9 @@ const std::unordered_map<std::string, PrototypeEntry>& getTypeTable() {
         {"fputs",                     {"int", {"const char*", "FILE*"}}},
         {"fgets",                     {"char*", {"char*", "int", "FILE*"}}},
         {"scanf",                     {"int", {"const char*"}}},
+        {"__mingw_scanf",             {"int", {"const char*"}}},
+        {"__mingw_fscanf",            {"int", {"FILE*", "const char*"}}},
+        {"__mingw_sscanf",            {"int", {"const char*", "const char*"}}},
         {"sscanf",                    {"int", {"const char*", "const char*"}}},
         {"fscanf",                    {"int", {"FILE*", "const char*"}}},
         {"fopen",                     {"FILE*", {"const char*", "const char*"}}},

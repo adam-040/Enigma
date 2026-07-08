@@ -37,6 +37,12 @@
 #include <QInputDialog>
 #include <QDir>
 #include <ghidra/storage/Repository.h>
+#include <ghidra/patch/PatchManager.h>
+#include <ghidra/patch/BytePatch.h>
+#include <ghidra/patch/NopFillPatch.h>
+#include <ghidra/patch/StringPatch.h>
+#include <ghidra/patch/MetadataPatch.h>
+#include <ghidra/BinaryLoader.h>
 #include <ghidra/storage/WorkingSnapshot.h>
 #include <ghidra/storage/BranchManager.h>
 #include <ghidra/storage/CommitManager.h>
@@ -112,6 +118,7 @@ MainWindow::MainWindow(QWidget* parent)
     createStatusBar();
 
     decompInterface_ = std::make_unique<ghidra::DecompInterface>();
+    patchManager_ = std::make_unique<ghidra::patch::PatchManager>();
 }
 
 MainWindow::~MainWindow() = default;
@@ -135,8 +142,42 @@ void MainWindow::createMenuBar() {
     connect(quit, &QAction::triggered, qApp, &QApplication::quit);
 
     auto* edit = menuBar()->addMenu(tr("&Edit"));
-    edit->addAction(tr("&Undo"));
-    edit->addAction(tr("&Redo"));
+    auto* undoAct = edit->addAction(tr("&Undo"));
+    undoAct->setShortcut(QKeySequence::Undo);
+    connect(undoAct, &QAction::triggered, this, &MainWindow::onUndo);
+    auto* redoAct = edit->addAction(tr("&Redo"));
+    redoAct->setShortcut(QKeySequence::Redo);
+    connect(redoAct, &QAction::triggered, this, &MainWindow::onRedo);
+
+    edit->addSeparator();
+    auto* renameFuncAct = edit->addAction(tr("Rename &Function"));
+    renameFuncAct->setShortcut(QKeySequence(Qt::Key_N));
+    connect(renameFuncAct, &QAction::triggered, this, &MainWindow::onRenameFunction);
+    auto* deleteFuncAct = edit->addAction(tr("&Delete Function"));
+    deleteFuncAct->setShortcut(QKeySequence(Qt::SHIFT | Qt::Key_Delete));
+    connect(deleteFuncAct, &QAction::triggered, this, &MainWindow::onDeleteFunction);
+
+    edit->addSeparator();
+    auto* addLabelAct = edit->addAction(tr("Add &Label..."));
+    addLabelAct->setShortcut(QKeySequence(Qt::Key_L));
+    connect(addLabelAct, &QAction::triggered, this, &MainWindow::onAddLabel);
+    auto* removeLabelAct = edit->addAction(tr("&Remove Label..."));
+    removeLabelAct->setShortcut(QKeySequence(Qt::SHIFT | Qt::Key_L));
+    connect(removeLabelAct, &QAction::triggered, this, &MainWindow::onRemoveLabel);
+
+    edit->addSeparator();
+    auto* setCommentAct = edit->addAction(tr("Set Co&mment..."));
+    setCommentAct->setShortcut(QKeySequence(Qt::Key_Semicolon));
+    connect(setCommentAct, &QAction::triggered, this, &MainWindow::onSetComment);
+    auto* removeCommentAct = edit->addAction(tr("&Remove Comment..."));
+    connect(removeCommentAct, &QAction::triggered, this, &MainWindow::onRemoveComment);
+
+    edit->addSeparator();
+    auto* addBmAct = edit->addAction(tr("Add &Bookmark..."));
+    addBmAct->setShortcut(QKeySequence(Qt::Key_B));
+    connect(addBmAct, &QAction::triggered, this, &MainWindow::onAddBookmark);
+    auto* deleteBmAct = edit->addAction(tr("Delete B&ookmark..."));
+    connect(deleteBmAct, &QAction::triggered, this, &MainWindow::onDeleteBookmark);
 
     auto* view = menuBar()->addMenu(tr("&View"));
 
@@ -202,6 +243,16 @@ void MainWindow::createMenuBar() {
     auto* clearNowAct = tools->addAction(tr("Clear Index Now"));
     connect(clearNowAct, &QAction::triggered, this, &MainWindow::onClearIndex);
 
+    auto* patchMenu = menuBar()->addMenu(tr("&Patch"));
+    auto* exportAct = patchMenu->addAction(tr("&Export Patched Binary..."));
+    connect(exportAct, &QAction::triggered, this, &MainWindow::onExportPatchedBinary);
+
+    auto* listAct = patchMenu->addAction(tr("&Show Patch List..."));
+    connect(listAct, &QAction::triggered, this, &MainWindow::onShowPatchList);
+
+    auto* revertAllAct = patchMenu->addAction(tr("&Revert All Patches"));
+    connect(revertAllAct, &QAction::triggered, this, &MainWindow::onRevertAllPatches);
+
     menuBar()->addMenu(tr("&Help"));
 }
 
@@ -264,6 +315,48 @@ void MainWindow::createDockWidgets() {
             this, &MainWindow::onAddressCursorSync);
     connect(hexView_, &HexView::cursorAddressChanged,
             this, &MainWindow::onAddressCursorSync);
+    connect(hexView_, &HexView::patchByteRequested, this, [this](uint64_t addr) {
+        if (!patchManager_ || !program_) return;
+        bool ok = false;
+        QString input = QInputDialog::getText(this, tr("Patch Byte"),
+            tr("New hex value at 0x%1:").arg(addr, 0, 16),
+            QLineEdit::Normal, QString(), &ok);
+        if (!ok) return;
+        uint32_t val = input.toUInt(&ok, 16);
+        if (!ok || val > 255) return;
+        std::vector<uint8_t> oldBytes(1), newBytes(1);
+        auto* mem = program_->getMemory();
+        if (mem) {
+            auto af = program_->getAddressFactory();
+            auto address = af->oldGetAddressFromLong(addr);
+            oldBytes[0] = mem->getByte(address);
+        }
+        newBytes[0] = static_cast<uint8_t>(val);
+        auto patch = std::make_unique<ghidra::patch::BytePatch>(
+            addr, oldBytes, newBytes, "");
+        patchManager_->addPatch(std::move(patch));
+        console_->log(QString("Patched byte @ 0x%1: -> 0x%2")
+            .arg(addr, 0, 16).arg(val, 2, 16, QChar('0')));
+    });
+    connect(hexView_, &HexView::patchNopFillRequested, this, [this](uint64_t start, uint64_t end) {
+        if (!patchManager_ || !program_ || end <= start) return;
+        uint64_t size = end - start + 1;
+        auto patch = std::make_unique<ghidra::patch::NopFillPatch>(start, size, 0x90, "");
+        patchManager_->addPatch(std::move(patch));
+        console_->log(QString("NOP-filled 0x%1 bytes @ 0x%2").arg(size).arg(start, 0, 16));
+    });
+    connect(hexView_, &HexView::patchStringRequested, this, [this](uint64_t addr) {
+        if (!patchManager_ || !program_) return;
+        bool ok = false;
+        QString newStr = QInputDialog::getText(this, tr("Patch String"),
+            tr("New string at 0x%1:").arg(addr, 0, 16),
+            QLineEdit::Normal, QString(), &ok);
+        if (!ok) return;
+        auto patch = std::make_unique<ghidra::patch::StringPatch>(
+            addr, newStr.toStdString(), "");
+        patchManager_->addPatch(std::move(patch));
+        console_->log(QString("Patched string @ 0x%1: \"%2\"").arg(addr, 0, 16).arg(newStr));
+    });
     connect(decompView_, &DecompilerView::cursorAddressChanged,
             this, &MainWindow::onAddressCursorSync);
 }
@@ -606,6 +699,16 @@ void MainWindow::loadBinary(const QString& path) {
     currentAddr_ = 0;
 
     program_.reset(prog);
+    DBG("[loadBinary] installing PatchMemory...\n");
+    patchManager_->setProgram(program_.get());
+    patchManager_->setBinaryLoader(loader.get());
+    patchManager_->installPatchMemory(program_.get());
+    patchManager_->patchMemory()->setOnBytesChanged(
+        [this](uint64_t, uint64_t) {
+            if (hexView_ && hexView_->isVisible())
+                hexView_->viewport()->update();
+        });
+    hexView_->setPatchMemory(patchManager_->patchMemory());
     DBG("[loadBinary] calling decompInterface_->closeProgram...\n");
     decompInterface_->closeProgram();
     // Log address factory details
@@ -1621,15 +1724,239 @@ void MainWindow::onAutoClearToggled(bool checked) {
     console_->log(QString("Auto clear index: %1").arg(checked ? "ON" : "OFF"));
 }
 
-void MainWindow::onUndo() {}
-void MainWindow::onRedo() {}
-void MainWindow::onRenameFunction() {}
-void MainWindow::onDeleteFunction() {}
-void MainWindow::onAddLabel() {}
-void MainWindow::onRemoveLabel() {}
-void MainWindow::onSetComment() {}
-void MainWindow::onRemoveComment() {}
-void MainWindow::onAddBookmark() {}
-void MainWindow::onDeleteBookmark() {}
+void MainWindow::onUndo() {
+    console_->log("Undo not yet implemented.");
+}
+void MainWindow::onRedo() {
+    console_->log("Redo not yet implemented.");
+}
+
+void MainWindow::onRenameFunction() {
+    if (!program_ || !currentFunction_ || !patchManager_) {
+        console_->log("No function selected.");
+        return;
+    }
+    bool ok = false;
+    QString newName = QInputDialog::getText(this, tr("Rename Function"),
+        tr("New name for '%1':")
+            .arg(QString::fromStdString(currentFunction_->getName())),
+        QLineEdit::Normal,
+        QString::fromStdString(currentFunction_->getName()), &ok);
+    if (!ok || newName.isEmpty()) return;
+
+    std::string oldName = currentFunction_->getName();
+    uint64_t entryAddr = currentFunction_->getEntryPoint().getOffset();
+    if (newName.toStdString() == oldName) {
+        console_->log("Name unchanged.");
+        return;
+    }
+
+    auto patch = std::make_unique<ghidra::patch::FunctionRenamePatch>(
+        entryAddr, oldName, newName.toStdString());
+    patchManager_->addPatch(std::move(patch));
+    console_->log(QString("Function renamed: \"%1\" -> \"%2\"")
+        .arg(QString::fromStdString(oldName)).arg(newName));
+}
+
+void MainWindow::onDeleteFunction() {
+    if (!program_ || !currentFunction_ || !patchManager_) {
+        console_->log("No function selected.");
+        return;
+    }
+    QString name = QString::fromStdString(currentFunction_->getName());
+    uint64_t addr = currentFunction_->getEntryPoint().getOffset();
+    auto ret = QMessageBox::question(this, tr("Delete Function"),
+        tr("Delete function '%1' @ 0x%2?")
+            .arg(name).arg(addr, 0, 16));
+    if (ret != QMessageBox::Yes) return;
+
+    auto patch = std::make_unique<ghidra::patch::FunctionDeletePatch>(
+        addr, name.toStdString());
+    patchManager_->addPatch(std::move(patch));
+    console_->log(QString("Function deleted: %1").arg(name));
+}
+
+void MainWindow::onAddLabel() {
+    if (!program_ || !patchManager_ || currentAddr_ == 0) {
+        console_->log("No address selected.");
+        return;
+    }
+    bool ok = false;
+    QString name = QInputDialog::getText(this, tr("Add Label"),
+        tr("Label name at 0x%1:").arg(currentAddr_, 0, 16),
+        QLineEdit::Normal, QString(), &ok);
+    if (!ok || name.isEmpty()) return;
+
+    auto patch = std::make_unique<ghidra::patch::SymbolCreatePatch>(
+        currentAddr_, name.toStdString());
+    patchManager_->addPatch(std::move(patch));
+    console_->log(QString("Label added: %1 @ 0x%2")
+        .arg(name).arg(currentAddr_, 0, 16));
+}
+
+void MainWindow::onRemoveLabel() {
+    if (!program_ || !patchManager_ || currentAddr_ == 0) {
+        console_->log("No address selected.");
+        return;
+    }
+    auto* symTable = program_->getSymbolTable();
+    if (!symTable) return;
+    auto af = program_->getAddressFactory();
+    ghidra::Address addr = af->oldGetAddressFromLong(currentAddr_);
+    auto symbols = symTable->getSymbols(addr);
+    if (symbols.empty()) {
+        console_->log("No labels at this address.");
+        return;
+    }
+    QStringList items;
+    for (auto* s : symbols) {
+        if (s) items << QString::fromStdString(s->getName());
+    }
+    bool ok = false;
+    QString chosen = QInputDialog::getItem(this, tr("Remove Label"),
+        tr("Select label to remove at 0x%1:").arg(currentAddr_, 0, 16),
+        items, 0, false, &ok);
+    if (!ok || chosen.isEmpty()) return;
+
+    auto patch = std::make_unique<ghidra::patch::SymbolDeletePatch>(
+        currentAddr_, chosen.toStdString());
+    patchManager_->addPatch(std::move(patch));
+    console_->log(QString("Label removed: %1 @ 0x%2")
+        .arg(chosen).arg(currentAddr_, 0, 16));
+}
+
+void MainWindow::onSetComment() {
+    if (!program_ || !patchManager_ || currentAddr_ == 0) {
+        console_->log("No address selected.");
+        return;
+    }
+    bool ok = false;
+    QString text = QInputDialog::getMultiLineText(this, tr("Set Comment"),
+        tr("Comment at 0x%1:").arg(currentAddr_, 0, 16),
+        QString(), &ok);
+    if (!ok) return;
+
+    // Read existing comment text for revert
+    std::string oldText;
+    auto* listing = program_->getListing();
+    if (listing) {
+        auto af = program_->getAddressFactory();
+        ghidra::Address addr = af->oldGetAddressFromLong(currentAddr_);
+        auto* cu = listing->getCodeUnitAt(addr);
+        if (cu) oldText = cu->getComment();
+    }
+
+    auto patch = std::make_unique<ghidra::patch::CommentPatch>(
+        currentAddr_,
+        ghidra::patch::CommentPatch::CommentType::EOL,
+        oldText, text.toStdString());
+    patchManager_->addPatch(std::move(patch));
+    console_->log(QString("Comment set @ 0x%1").arg(currentAddr_, 0, 16));
+}
+
+void MainWindow::onRemoveComment() {
+    if (!program_ || !patchManager_ || currentAddr_ == 0) {
+        console_->log("No address selected.");
+        return;
+    }
+    auto* listing = program_->getListing();
+    if (!listing) return;
+    auto af = program_->getAddressFactory();
+    ghidra::Address addr = af->oldGetAddressFromLong(currentAddr_);
+    auto* cu = listing->getCodeUnitAt(addr);
+    if (!cu || cu->getComment().empty()) {
+        console_->log("No comment at this address.");
+        return;
+    }
+    std::string oldText = cu->getComment();
+
+    auto patch = std::make_unique<ghidra::patch::CommentPatch>(
+        currentAddr_,
+        ghidra::patch::CommentPatch::CommentType::EOL,
+        oldText, "");
+    patchManager_->addPatch(std::move(patch));
+    console_->log(QString("Comment removed @ 0x%1").arg(currentAddr_, 0, 16));
+}
+
+void MainWindow::onAddBookmark() {
+    if (!program_ || !patchManager_ || currentAddr_ == 0) {
+        console_->log("No address selected.");
+        return;
+    }
+    bool ok = false;
+    QString text = QInputDialog::getText(this, tr("Add Bookmark"),
+        tr("Bookmark note at 0x%1:").arg(currentAddr_, 0, 16),
+        QLineEdit::Normal, QString(), &ok);
+    if (!ok || text.isEmpty()) return;
+
+    auto patch = std::make_unique<ghidra::patch::BookmarkPatch>(
+        currentAddr_, text.toStdString(), true);
+    patchManager_->addPatch(std::move(patch));
+    console_->log(QString("Bookmark added @ 0x%1").arg(currentAddr_, 0, 16));
+}
+
+void MainWindow::onDeleteBookmark() {
+    if (!program_ || !patchManager_ || currentAddr_ == 0) {
+        console_->log("No address selected.");
+        return;
+    }
+    auto af = program_->getAddressFactory();
+    ghidra::Address addr = af->oldGetAddressFromLong(currentAddr_);
+    auto* bmMgr = program_->getBookmarkManager();
+    if (!bmMgr) return;
+    if (!bmMgr->getBookmark(addr, "Note")) {
+        console_->log("No bookmark at this address.");
+        return;
+    }
+
+    auto patch = std::make_unique<ghidra::patch::BookmarkPatch>(
+        currentAddr_, "", false);
+    patchManager_->addPatch(std::move(patch));
+    console_->log(QString("Bookmark deleted @ 0x%1").arg(currentAddr_, 0, 16));
+}
+
+void MainWindow::onExportPatchedBinary() {
+    if (!patchManager_ || patchManager_->patchCount() == 0) {
+        console_->log("No patches to export.");
+        return;
+    }
+    QString path = QFileDialog::getSaveFileName(this, tr("Export Patched Binary"),
+        QString(), tr("Executable (*.exe *.dll *.elf *.so *.bin);;All Files (*)"));
+    if (path.isEmpty()) return;
+    if (patchManager_->exportPatchedBinary(path.toStdString())) {
+        console_->log("Patched binary exported to: " + path);
+    } else {
+        console_->log("Failed to export patched binary.");
+    }
+}
+
+void MainWindow::onShowPatchList() {
+    if (!patchManager_) return;
+    auto patches = patchManager_->getAllPatches();
+    if (patches.empty()) {
+        console_->log("No patches applied.");
+        return;
+    }
+    console_->log(QString("--- Patch List (%1 patches) ---").arg(patches.size()));
+    for (const auto* p : patches) {
+        QString status = (p->enabled() && p->applied()) ? "ACTIVE" : "DISABLED";
+        console_->log(QString("  [%1] %2").arg(status).arg(QString::fromStdString(p->previewText())));
+    }
+}
+
+void MainWindow::onRevertAllPatches() {
+    if (!patchManager_ || patchManager_->patchCount() == 0) {
+        console_->log("No patches to revert.");
+        return;
+    }
+    auto ret = QMessageBox::question(this, tr("Revert All"),
+        tr("Revert all %1 patches?\nThis will undo all pending changes.")
+            .arg(patchManager_->patchCount()));
+    if (ret != QMessageBox::Yes) return;
+    patchManager_->revertAll();
+    console_->log("All patches reverted.");
+    if (hexView_) hexView_->viewport()->update();
+}
+
 void MainWindow::executeWithEvent(std::unique_ptr<ghidra::storage::Event> event) {}
 void MainWindow::updateUndoRedoActions() {}

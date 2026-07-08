@@ -13,19 +13,24 @@
 #include <ghidra/MessageLog.h>
 #include <ghidra/SourceType.h>
 #include <ghidra/Msg.h>
+#include <ghidra/Memory.h>
+#include <ghidra/MemoryBlock.h>
 
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <unordered_map>
 #include <cstdint>
 
 namespace ghidra {
 
+static constexpr uint64_t kBodyFinalizerMaxScan = 512;
+
 FunctionBodyFinalizer::FunctionBodyFinalizer()
     : AbstractAnalyzer(
           "Function Body Finalizer",
-          "Extends degenerate function bodies (<=2 bytes) to their real end "
-          "by walking existing instructions until RET/JMP/INT3/next function boundary.",
+          "Extends function bodies to cover all decoded instructions between "
+          "the function entry and the next function boundary.",
           AnalyzerType::FUNCTION_ANALYZER) {
     setDefaultEnablement(true);
     setSupportsOneTimeAnalysis(true);
@@ -34,13 +39,6 @@ FunctionBodyFinalizer::FunctionBodyFinalizer()
 
 bool FunctionBodyFinalizer::canAnalyze(Program* program) const {
     return program != nullptr;
-}
-
-static bool isTerminator(const std::string& mn) {
-    return mn == "ret" || mn == "retn" || mn == "retf"
-        || mn == "int3" || mn == "hlt"
-        || mn == "jmp" || mn == "ljmp" || mn == "jmps"
-        || mn == "ud2";
 }
 
 bool FunctionBodyFinalizer::added(Program* program, const AddressSetView& set,
@@ -55,6 +53,7 @@ bool FunctionBodyFinalizer::added(Program* program, const AddressSetView& set,
 
     if (monitor) monitor->setMessage(getName() + ": Starting");
 
+    // 1. Collect all functions and their entry points.
     std::vector<Function*> allFuncs;
     {
         FunctionIterator fit = funcMgr->getFunctions(true);
@@ -70,97 +69,102 @@ bool FunctionBodyFinalizer::added(Program* program, const AddressSetView& set,
     }
 
     std::vector<uint64_t> funcEntries;
-    for (Function* f : allFuncs)
-        funcEntries.push_back(f->getEntryPoint().getOffset());
+    std::unordered_map<uint64_t, Function*> entryToFunc;
+    for (Function* f : allFuncs) {
+        uint64_t ep = static_cast<uint64_t>(f->getEntryPoint().getOffset());
+        funcEntries.push_back(ep);
+        entryToFunc[ep] = f;
+    }
     std::sort(funcEntries.begin(), funcEntries.end());
 
+    // 2. Single pass over all decoded instructions: attribute each to the
+    //     nearest preceding function entry, then record the extent.
+    //     This is O(N log M) — N instructions, M function entries.
+    std::unordered_map<uint64_t, uint64_t> funcMaxAddr;  // entry → last covered addr
+    Memory* memory = program->getMemory();
+
+    std::vector<Instruction*> allInsts = listing->getAllInstructions();
+    for (Instruction* inst : allInsts) {
+        if (!inst) continue;
+        uint64_t addr = static_cast<uint64_t>(inst->getAddress().getOffset());
+        uint64_t addrEnd = addr + inst->getLength() - 1;
+
+        // Skip instructions in non-executable memory blocks
+        // (e.g. import thunks decoded data in .idata as garbage instructions)
+        Address instAddr = inst->getAddress();
+        MemoryBlock* block = memory ? memory->getBlock(instAddr) : nullptr;
+        if (block && !block->isExecute()) continue;
+
+        // Nearest function entry ≤ addr
+        auto it = std::upper_bound(funcEntries.begin(), funcEntries.end(), addr);
+        if (it == funcEntries.begin()) continue;
+        --it;
+        uint64_t entry = *it;
+
+        // Clamp to the next function boundary or max scan distance
+        auto nextIt = std::upper_bound(funcEntries.begin(), funcEntries.end(), entry);
+        uint64_t maxBound = entry + kBodyFinalizerMaxScan;
+        if (nextIt != funcEntries.end()) {
+            uint64_t nextEntry = *nextIt;
+            if (nextEntry > entry && nextEntry - 1 < maxBound)
+                maxBound = nextEntry - 1;
+        }
+
+        if (addrEnd > maxBound)
+            addrEnd = maxBound;
+
+        auto& stored = funcMaxAddr[entry];
+        if (addrEnd > stored)
+            stored = addrEnd;
+    }
+
+    // 3. For each function whose body is smaller than the instruction range,
+    //     remove and re-create with the expanded body.
     int extended = 0;
-    int skippedLarge = 0;
+    int skipped = 0;
+    int removedFail = 0;
+    int recreateFail = 0;
     int noInstr = 0;
-    int skippedExisting = 0;
 
     for (Function* func : allFuncs) {
         if (monitor && monitor->isCancelled()) break;
 
-        uint64_t entry = func->getEntryPoint().getOffset();
+        uint64_t entry = static_cast<uint64_t>(func->getEntryPoint().getOffset());
 
         const AddressSet& body = func->getBody();
-        uint64_t bodyStart = body.getMinAddress().isValid() ? body.getMinAddress().getOffset() : entry;
-        uint64_t bodyEnd = body.getMaxAddress().isValid() ? body.getMaxAddress().getOffset() : entry;
+        uint64_t bodyStart = body.getMinAddress().isValid()
+                                 ? static_cast<uint64_t>(body.getMinAddress().getOffset())
+                                 : entry;
+        uint64_t bodyEnd = body.getMaxAddress().isValid()
+                               ? static_cast<uint64_t>(body.getMaxAddress().getOffset())
+                               : entry;
         uint64_t bodySize = (bodyEnd >= bodyStart) ? (bodyEnd - bodyStart + 1) : 0;
 
-        if (bodySize > 2 && bodyStart == entry) {
-            skippedLarge++;
+        auto maxIt = funcMaxAddr.find(entry);
+        if (maxIt == funcMaxAddr.end()) {
+            if (bodySize <= 2)
+                noInstr++;
             continue;
         }
 
-        Address entryAddr = af->oldGetAddressFromLong(entry);
-        Instruction* inst = listing->getInstructionAt(entryAddr);
-        if (!inst) {
-            if (bodySize <= 2) {
-                Msg::debug(getName(), "Small body func (no instr): 0x" + std::to_string(entry) +
-                           " size=" + std::to_string(bodySize) +
-                           " name=" + func->getName());
-            }
-            noInstr++;
-            continue;
-        }
+        uint64_t realEnd = maxIt->second;
+        if (realEnd <= entry) continue;
 
-        uint64_t maxAddr = entry + kMaxScanBytes;
-        auto nextIt = std::upper_bound(funcEntries.begin(), funcEntries.end(), entry);
-        if (nextIt != funcEntries.end() && *nextIt > entry && *nextIt - 1 < maxAddr)
-            maxAddr = *nextIt - 1;
-
-        if (bodySize <= 2) {
-            Msg::debug(getName(), "Small body func (extending): 0x" + std::to_string(entry) +
-                       " size=" + std::to_string(bodySize) +
-                       " name=" + func->getName() +
-                       " maxAddr=0x" + std::to_string(maxAddr));
-        }
-
-        Instruction* lastInst = inst;
-        uint64_t lastAddr = entry;
-        bool foundTerminator = false;
-
-        while (inst) {
-            uint64_t instAddr = inst->getAddress().getOffset();
-            uint64_t instEnd = instAddr + inst->getLength() - 1;
-
-            if (instAddr > maxAddr) break;
-
-            lastInst = inst;
-            lastAddr = instEnd;
-
-            if (isTerminator(inst->getMnemonicString())) {
-                foundTerminator = true;
-                break;
-            }
-
-            Address nextAddr = af->oldGetAddressFromLong(instAddr + inst->getLength());
-            inst = listing->getInstructionAt(nextAddr);
-            if (!inst) {
-                inst = listing->getInstructionAfter(nextAddr);
-                if (inst && inst->getAddress().getOffset() > maxAddr)
-                    break;
-            }
-        }
-
-        uint64_t realEnd = lastAddr;
         uint64_t newSize = realEnd - entry + 1;
-
         if (newSize <= bodySize) {
-            skippedExisting++;
+            skipped++;
             continue;
         }
 
+        // Expand the body
+        Address entryAddr = af->oldGetAddressFromLong(entry);
         AddressSet newBody(entryAddr, af->oldGetAddressFromLong(realEnd));
 
         SourceType src = func->getSource();
         std::string name = func->getName();
-        uint64_t entryVal = entry;
 
         if (!funcMgr->removeFunction(func->getEntryPoint())) {
-            log.append(getName(), "Failed to remove function at " + std::to_string(entryVal));
+            removedFail++;
             continue;
         }
 
@@ -168,23 +172,25 @@ bool FunctionBodyFinalizer::added(Program* program, const AddressSetView& set,
             funcMgr->createFunction(name, entryAddr, newBody, src);
             extended++;
         } catch (const std::exception& e) {
-            log.append(getName(), "Failed to re-create function at 0x" +
-                       std::to_string(entryVal) + ": " + e.what());
+            recreateFail++;
+            log.append(getName(), "Failed to re-create 0x" + std::to_string(entry) +
+                       ": " + e.what());
             try {
                 funcMgr->createFunction(name, entryAddr,
                                         AddressSet(entryAddr, entryAddr),
                                         SourceType::ANALYSIS);
             } catch (const std::exception& e2) {
-                log.append(getName(), "CRITICAL: Lost function at 0x" +
-                           std::to_string(entryVal) + ": " + e2.what());
+                log.append(getName(), "CRITICAL: lost function at 0x" +
+                           std::to_string(entry) + ": " + e2.what());
             }
         }
     }
 
-    Msg::info(getName(), "Complete: extended " + std::to_string(extended) +
-              " large=" + std::to_string(skippedLarge) +
+    Msg::info(getName(), "Complete: extended=" + std::to_string(extended) +
+              " skipped=" + std::to_string(skipped) +
               " noInstr=" + std::to_string(noInstr) +
-              " skipped=" + std::to_string(skippedExisting));
+              " removeFail=" + std::to_string(removedFail) +
+              " recreateFail=" + std::to_string(recreateFail));
     if (monitor) monitor->setMessage(getName() + ": Done (" + std::to_string(extended) + " extended)");
     return true;
 }

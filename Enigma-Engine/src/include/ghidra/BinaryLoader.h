@@ -93,7 +93,8 @@ public:
     virtual std::vector<RelocationInfo> getRelocations() const = 0;
 
     virtual std::vector<uint8_t> getBytes(uint64_t address, size_t size) const = 0;
-
+    virtual std::vector<uint8_t> getRawDataCopy() const = 0;
+    virtual uint64_t virtualAddressToFileOffset(uint64_t vaddr) const = 0;
     virtual bool populateProgram(ProgramDB* program) = 0;
 
     static std::string guessLanguageFromArch(const std::string& arch, int bitness);

@@ -110,6 +110,7 @@ public:
 
     Memory* getMemory() const override { return memory_.get(); }
     void setMemory(Memory* mem) { memory_.reset(mem); }
+    std::unique_ptr<Memory> releaseMemory() { return std::move(memory_); }
 
     SymbolTable* getSymbolTable() const override { return symbolTable_.get(); }
 

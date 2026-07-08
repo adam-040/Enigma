@@ -9840,6 +9840,8 @@ int main() {
             std::vector<ghidra::RelocationInfo> getRelocations() const override { return {}; }
             std::vector<uint8_t> getBytes(uint64_t, size_t) const override { return {}; }
             bool populateProgram(ghidra::ProgramDB*) override { return false; }
+            std::vector<uint8_t> getRawDataCopy() const override { return {}; }
+            uint64_t virtualAddressToFileOffset(uint64_t) const override { return 0; }
         };
 
         FakeDiscoveryLoader loader;
@@ -9945,6 +9947,8 @@ int main() {
             std::vector<ghidra::RelocationInfo> getRelocations() const override { return {}; }
             std::vector<uint8_t> getBytes(uint64_t, size_t) const override { return {}; }
             bool populateProgram(ghidra::ProgramDB*) override { return false; }
+            std::vector<uint8_t> getRawDataCopy() const override { return {}; }
+            uint64_t virtualAddressToFileOffset(uint64_t) const override { return 0; }
         };
 
         FakeW112Loader loader;
