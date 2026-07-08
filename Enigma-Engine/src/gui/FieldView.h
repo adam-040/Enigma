@@ -26,6 +26,7 @@ struct Token {
     int startCol = 0;
     int len = 0;
     int spaceAfter = 0; // columns of whitespace that follow this token in the line
+    int byteIndex = -1;   // 0-15 for hex/ascii data bytes, -1 for other tokens
 };
 
 struct Line {
@@ -96,6 +97,28 @@ protected:
     virtual bool isBoldKind(TokenKind kind) const;
 
     int visibleLineCount() const;
+    void setHeaderHeight(int h) { headerHeight_ = h; }
+
+    struct SelectedToken {
+        int line = -1;
+        int startCol = -1;
+        int len = 0;
+        bool contains(int l, int c) const {
+            return line == l && c >= startCol && c < startCol + len;
+        }
+        bool operator==(const SelectedToken& o) const {
+            return line == o.line && startCol == o.startCol && len == o.len;
+        }
+        bool operator!=(const SelectedToken& o) const { return !(*this == o); }
+    };
+    SelectedToken selectedToken_;
+    int headerHeight_ = 0;
+    int anchorLine() const { return anchor_.line; }
+    int anchorCol() const { return anchor_.col; }
+    int caretLine() const { return caret_.line; }
+    int caretCol() const { return caret_.col; }
+    int currentLineIndex() const { return currentLine_; }
+    bool isCaretVisible() const { return caretVisible_; }
 
 private:
     struct CursorPos {
@@ -139,18 +162,4 @@ private:
     QTimer* caretBlinkTimer_ = nullptr;
     bool caretVisible_ = true;
     bool dragging_ = false;
-
-    struct SelectedToken {
-        int line = -1;
-        int startCol = -1;
-        int len = 0;
-        bool contains(int l, int c) const {
-            return line == l && c >= startCol && c < startCol + len;
-        }
-        bool operator==(const SelectedToken& o) const {
-            return line == o.line && startCol == o.startCol && len == o.len;
-        }
-        bool operator!=(const SelectedToken& o) const { return !(*this == o); }
-    };
-    SelectedToken selectedToken_;
 };

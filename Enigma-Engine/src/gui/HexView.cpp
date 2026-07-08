@@ -6,10 +6,22 @@
 #include <ghidra/AddressFactory.h>
 #include <QScrollBar>
 #include <QFile>
+#include <QPainter>
+#include "EditorTheme.h"
 
 HexView::HexView(QWidget* parent)
     : FieldView(parent)
 {
+    setHeaderHeight(EditorTheme::cellHeight());
+
+    // Adjust vertical scroll range to account for fixed column header row
+    connect(verticalScrollBar(), &QScrollBar::rangeChanged, this, [this](int, int) {
+        int hdr = EditorTheme::cellHeight();
+        QScrollBar* sb = verticalScrollBar();
+        sb->blockSignals(true);
+        sb->setMaximum(sb->maximum() + hdr);
+        sb->blockSignals(false);
+    });
 }
 
 void HexView::setData(uint64_t baseAddr, const std::vector<uint8_t>& data) {
@@ -22,15 +34,6 @@ void HexView::setData(uint64_t baseAddr, const std::vector<uint8_t>& data) {
         line.addr = baseAddr + offset;
 
         QString addrStr = QString("%1").arg(baseAddr + offset, 8, 16, QChar('0'));
-        QString asciiStr;
-        for (int i = 0; i < 16; ++i) {
-            if (offset + i < data.size()) {
-                uint8_t b = data[offset + i];
-                asciiStr += (b >= 0x20 && b <= 0x7e) ? QChar(b) : QChar('.');
-            } else {
-                asciiStr += QChar(' ');
-            }
-        }
 
         // 1. Address token
         Token addrTok;
@@ -48,20 +51,38 @@ void HexView::setData(uint64_t baseAddr, const std::vector<uint8_t>& data) {
                 hexTok.kind = TokenKind::Plain;
             } else {
                 hexTok.text = QStringLiteral("  ");
-                hexTok.kind = TokenKind::Bytes; // Draw dummy/empty bytes in a light-grey style
+                hexTok.kind = TokenKind::Bytes;
             }
             hexTok.spaceAfter = (i == 7) ? 2 : ((i == 15) ? 2 : 1);
             hexTok.addr = line.addr;
+            hexTok.byteIndex = i;
             line.tokens.push_back(hexTok);
         }
 
-        // 3. ASCII token
-        Token asciiTok;
-        asciiTok.text = asciiStr;
-        asciiTok.kind = TokenKind::Plain;
-        asciiTok.spaceAfter = 0;
-        asciiTok.addr = line.addr;
-        line.tokens.push_back(asciiTok);
+        // 3. Separator between hex and ASCII
+        Token sepTok;
+        sepTok.text = QStringLiteral("|");
+        sepTok.kind = TokenKind::Punctuation;
+        sepTok.spaceAfter = 1;
+        sepTok.addr = line.addr;
+        line.tokens.push_back(sepTok);
+
+        // 4. ASCII tokens (individual per byte)
+        for (int i = 0; i < 16; ++i) {
+            Token asciiTok;
+            if (offset + i < data.size()) {
+                uint8_t b = data[offset + i];
+                asciiTok.text = (b >= 0x20 && b <= 0x7e) ? QChar(b) : QChar('.');
+                asciiTok.kind = TokenKind::Plain;
+            } else {
+                asciiTok.text = QChar(' ');
+                asciiTok.kind = TokenKind::Plain;
+            }
+            asciiTok.spaceAfter = 0;
+            asciiTok.addr = line.addr;
+            asciiTok.byteIndex = i;
+            line.tokens.push_back(asciiTok);
+        }
 
         doc->addLine(std::move(line));
     }
@@ -97,7 +118,6 @@ void HexView::buildFullHex(ghidra::ProgramDB* program, const QString& binaryPath
             addrTok.addr = lineAddr;
             line.tokens.push_back(addrTok);
 
-            QString asciiStr;
             for (int i = 0; i < 16; ++i) {
                 Token hexTok;
                 int idx = offset + i;
@@ -105,23 +125,39 @@ void HexView::buildFullHex(ghidra::ProgramDB* program, const QString& binaryPath
                     uint8_t b = data[idx];
                     hexTok.text = QString("%1").arg(b, 2, 16, QChar('0'));
                     hexTok.kind = TokenKind::Plain;
-                    asciiStr += (b >= 0x20 && b <= 0x7e) ? QChar(b) : QChar('.');
                 } else {
                     hexTok.text = QStringLiteral("00");
                     hexTok.kind = TokenKind::Bytes;
-                    asciiStr += QChar('.');
                 }
                 hexTok.spaceAfter = (i == 7) ? 2 : ((i == 15) ? 2 : 1);
                 hexTok.addr = lineAddr;
+                hexTok.byteIndex = i;
                 line.tokens.push_back(hexTok);
             }
 
-            Token asciiTok;
-            asciiTok.text = asciiStr;
-            asciiTok.kind = TokenKind::Plain;
-            asciiTok.spaceAfter = 0;
-            asciiTok.addr = lineAddr;
-            line.tokens.push_back(asciiTok);
+            Token sepTok;
+            sepTok.text = QStringLiteral("|");
+            sepTok.kind = TokenKind::Punctuation;
+            sepTok.spaceAfter = 1;
+            sepTok.addr = lineAddr;
+            line.tokens.push_back(sepTok);
+
+            for (int i = 0; i < 16; ++i) {
+                Token asciiTok;
+                int idx = offset + i;
+                if (data && idx < dataLen) {
+                    uint8_t b = data[idx];
+                    asciiTok.text = (b >= 0x20 && b <= 0x7e) ? QChar(b) : QChar('.');
+                    asciiTok.kind = TokenKind::Plain;
+                } else {
+                    asciiTok.text = QChar('.');
+                    asciiTok.kind = TokenKind::Plain;
+                }
+                asciiTok.spaceAfter = 0;
+                asciiTok.addr = lineAddr;
+                asciiTok.byteIndex = i;
+                line.tokens.push_back(asciiTok);
+            }
 
             doc->addLine(std::move(line));
         }
@@ -195,4 +231,225 @@ void HexView::clear() {
 
 bool HexView::containsAddress(uint64_t addr) const {
     return baseAddr_ != endAddr_ && addr >= baseAddr_ && addr < endAddr_;
+}
+
+int HexView::byteIndexAt(int line, int col) const {
+    auto* doc = document();
+    if (!doc || line < 0 || line >= doc->lineCount())
+        return -1;
+    const Line& l = doc->line(line);
+    for (const Token& t : l.tokens) {
+        if (col >= t.startCol && col < t.startCol + t.len)
+            return t.byteIndex;
+    }
+    return -1;
+}
+
+void HexView::paintEvent(QPaintEvent* event) {
+    auto* doc = document();
+    int cellW = EditorTheme::cellWidth();
+    int cellH = EditorTheme::cellHeight();
+    int ascent = EditorTheme::ascent();
+    int glyphH = EditorTheme::glyphHeight();
+    int leftPad = EditorTheme::leftPadding();
+    int scrollY = verticalScrollBar()->value();
+    int scrollX = horizontalScrollBar()->value();
+    int vpH = viewport()->height();
+    int vpW = viewport()->width();
+
+    QPainter painter(viewport());
+    painter.fillRect(event->rect(), EditorTheme::backgroundColor());
+
+    if (!doc || doc->lineCount() == 0) return;
+
+    int first = scrollY / cellH;
+    int last = std::min((scrollY + vpH) / cellH + 1, doc->lineCount() - 1);
+    QFont baseFont = EditorTheme::baseFont();
+    QFont emphFont = EditorTheme::emphasisFont();
+    int headerH = cellH;
+
+    // Byte-index range selection
+    // selectedToken_ is set after a single click and cleared after a drag,
+    // so its presence reliably distinguishes single-click from drag.
+    int selByteIdx = -1;
+    if (selectedToken_.len > 0)
+        selByteIdx = byteIndexAt(selectedToken_.line, selectedToken_.startCol);
+
+    int aLine = anchorLine(), aCol = anchorCol();
+    int cLine = caretLine(), cCol = caretCol();
+    bool hasByteRange = false;
+    int byteL1 = 0, byteL2 = 0, byteB1 = 0, byteB2 = 0;
+
+    if (selByteIdx >= 0) {
+        // Single click on a byte token → 1-byte range at that index
+        hasByteRange = true;
+        byteL1 = byteL2 = selectedToken_.line;
+        byteB1 = byteB2 = selByteIdx;
+    } else {
+        // Drag or no selection — use anchor/caret byte indices directly
+        int ab = byteIndexAt(aLine, aCol);
+        int cb = byteIndexAt(cLine, cCol);
+        if (ab >= 0 && cb >= 0) {
+            hasByteRange = true;
+            byteL1 = aLine; byteL2 = cLine;
+            byteB1 = ab;    byteB2 = cb;
+        } else if (ab >= 0) {
+            hasByteRange = true;
+            byteL1 = byteL2 = aLine;
+            byteB1 = byteB2 = ab;
+        }
+    }
+    if (hasByteRange) {
+        if (byteL1 > byteL2 || (byteL1 == byteL2 && byteB1 > byteB2)) {
+            std::swap(byteL1, byteL2);
+            std::swap(byteB1, byteB2);
+        }
+    }
+
+    for (int li = first; li <= last; ++li) {
+        int y = headerH + li * cellH - scrollY;
+        int baseX = leftPad - scrollX;
+        const Line& l = doc->line(li);
+
+        // Per-line byte range
+        int byteStart = -1, byteEnd = -1;
+        if (hasByteRange && li >= byteL1 && li <= byteL2) {
+            byteStart = (li == byteL1) ? byteB1 : 0;
+            byteEnd   = (li == byteL2) ? byteB2 : 15;
+        }
+        // Contiguous selection bounds per column
+        int hexSelStart = INT_MAX, hexSelEnd = 0;
+        int ascSelStart = INT_MAX, ascSelEnd = 0;
+        // Primary selection info
+        bool primOnLine = false;
+        int primByteIdx = -1;
+        int primCol = -1, primLen = 0;
+        bool primIsHex = false;
+        int crossCol = -1, crossLen = 0;
+
+        for (const Token& t : l.tokens) {
+            if (t.byteIndex >= 0) {
+                if (byteStart >= 0 && t.byteIndex >= byteStart && t.byteIndex <= byteEnd) {
+                    if (t.len == 2) {
+                        hexSelStart = std::min(hexSelStart, t.startCol);
+                        hexSelEnd   = std::max(hexSelEnd,   t.startCol + t.len);
+                    } else {
+                        ascSelStart = std::min(ascSelStart, t.startCol);
+                        ascSelEnd   = std::max(ascSelEnd,   t.startCol + t.len);
+                    }
+                }
+            }
+
+            // Primary token detection
+            if (selectedToken_.line == li && selectedToken_.len > 0 &&
+                t.startCol == selectedToken_.startCol && t.len == selectedToken_.len &&
+                t.byteIndex >= 0) {
+                primOnLine = true;
+                primByteIdx = t.byteIndex;
+                primCol = t.startCol;
+                primLen = t.len;
+                primIsHex = (t.len == 2);
+            }
+        }
+
+        // Find cross-column counterpart for primary selection
+        if (primByteIdx >= 0) {
+            for (const Token& t : l.tokens) {
+                if (t.byteIndex == primByteIdx) {
+                    bool tIsHex = (t.len == 2);
+                    if (tIsHex != primIsHex) {
+                        crossCol = t.startCol;
+                        crossLen = t.len;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // --- Fill pass (all backgrounds before text) ---
+
+        // Hex byte-range selection — one solid contiguous block
+        if (hexSelStart < hexSelEnd) {
+            int hx = baseX + hexSelStart * cellW;
+            int hw = (hexSelEnd - hexSelStart) * cellW;
+            painter.fillRect(hx, y, hw, cellH, EditorTheme::selectionColor());
+        }
+
+        // ASCII byte-range selection — one solid contiguous block
+        if (ascSelStart < ascSelEnd) {
+            int ax = baseX + ascSelStart * cellW;
+            int aw = (ascSelEnd - ascSelStart) * cellW;
+            painter.fillRect(ax, y, aw, cellH, EditorTheme::selectionColor());
+        }
+
+        // Primary selection (only paint when byte-range does not already cover this token)
+        if (primOnLine && byteStart < 0) {
+            int px = baseX + primCol * cellW;
+            int pw = primLen * cellW;
+            painter.fillRect(px, y, pw, cellH, EditorTheme::primarySelectionColor());
+        }
+
+        // Cross-column sync for primary selection
+        if (crossCol >= 0 && byteStart < 0) {
+            int cx = baseX + crossCol * cellW;
+            int cw = crossLen * cellW;
+            painter.fillRect(cx, y, cw, cellH, EditorTheme::primarySelectionColor());
+        }
+
+        // --- Text pass ---
+        for (const Token& tok : l.tokens) {
+            int tx = baseX + tok.startCol * cellW;
+            int ty = y + ascent;
+
+            bool isPrimary = primOnLine &&
+                tok.startCol == primCol && tok.len == primLen;
+            bool isCross = (crossCol >= 0 &&
+                tok.startCol == crossCol && tok.len == crossLen);
+
+            if ((isPrimary || isCross) && byteStart < 0)
+                painter.setPen(Qt::white);
+            else
+                painter.setPen(EditorTheme::colorFor(tok.kind));
+
+            painter.setFont(isBoldKind(tok.kind) ? emphFont : baseFont);
+            painter.drawText(tx, ty, tok.text);
+        }
+    }
+
+    // Caret
+    if (hasFocus() && isCaretVisible()) {
+        int cx = leftPad - scrollX + caretCol() * cellW;
+        int cy = headerH + caretLine() * cellH - scrollY;
+        painter.fillRect(cx, cy, 2, glyphH, EditorTheme::textColor());
+    }
+
+    // --- Column header row (painted last so it stays on top and does not scroll vertically) ---
+    {
+        int hx = leftPad - scrollX + 2;
+        painter.fillRect(0, 0, vpW, headerH, EditorTheme::backgroundColor());
+        painter.setFont(baseFont);
+        QColor headerColor(0x00, 0x70, 0xc0);
+        painter.setPen(headerColor);
+
+        // "Offset(h)" at address column (col 0)
+        painter.drawText(hx + 0 * cellW, ascent, QStringLiteral("Offset(h)"));
+
+        // Hex indices "00" - "0F" above each hex byte column
+        static const char* hexIdx[] = {
+            "00","01","02","03","04","05","06","07",
+            "08","09","0A","0B","0C","0D","0E","0F"
+        };
+        int hexCol[] = {
+            11, 14, 17, 20, 23, 26, 29, 32,
+            36, 39, 42, 45, 48, 51, 54, 57
+        };
+        for (int i = 0; i < 16; ++i)
+            painter.drawText(hx + hexCol[i] * cellW, ascent, QLatin1String(hexIdx[i]));
+
+        // Separator before decoded text column
+        painter.drawText(hx + 61 * cellW, ascent, QStringLiteral("|"));
+
+        // "Decoded text" aligned with the ASCII column content (col 63)
+        painter.drawText(hx + 63 * cellW, ascent, QStringLiteral("Decoded text"));
+    }
 }

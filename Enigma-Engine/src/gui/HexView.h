@@ -15,7 +15,12 @@ public:
     bool containsAddress(uint64_t addr) const;
     void clear();
 
+protected:
+    void paintEvent(QPaintEvent* event) override;
+
 private:
+    int byteIndexAt(int line, int col) const;
+
     uint64_t baseAddr_ = 0;
     uint64_t endAddr_ = 0;
 };

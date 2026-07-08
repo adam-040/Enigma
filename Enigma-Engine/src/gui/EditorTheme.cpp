@@ -82,7 +82,7 @@ QColor EditorTheme::occurrenceColor()        { return QColor(255, 226, 138, 0x88
 QColor EditorTheme::colorFor(TokenKind kind) {
     switch (kind) {
     case TokenKind::Address:     return QColor(0x6a, 0x73, 0x7d);
-    case TokenKind::Bytes:       return QColor(0x99, 0x99, 0x99);
+    case TokenKind::Bytes:       return QColor(0x55, 0x55, 0x55);
     case TokenKind::Mnemonic:    return QColor(0x00, 0x00, 0xc0);
     case TokenKind::Branch:      return QColor(0xd7, 0x3a, 0x49);
     case TokenKind::Register:    return QColor(0x00, 0x70, 0xc0);

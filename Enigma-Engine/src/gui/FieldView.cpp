@@ -270,10 +270,46 @@ FieldView::HitResult FieldView::caretAtPos(const QPoint& pos) const {
     int cellH = EditorTheme::cellHeight();
     int scrollY = verticalScrollBar()->value();
     int scrollX = horizontalScrollBar()->value();
-    int line = (pos.y() + scrollY) / cellH;
+    int line = (pos.y() + scrollY - headerHeight_) / cellH;
     line = std::clamp(line, 0, doc_->lineCount() - 1);
-    int col = qRound(static_cast<qreal>(pos.x() + scrollX - EditorTheme::leftPadding()) / cellW);
+    int col = (pos.x() + scrollX - EditorTheme::leftPadding()) / cellW;
     col = std::clamp(col, 0, static_cast<int>(doc_->line(line).text.size()));
+
+    // Snap to nearest byte token when header is present (HexView).
+    // Only applies within the hex/ASCII data columns (col >= 11) so the
+    // address column remains clickable for navigation.
+    // Prevents clicks in visual spacing gaps from silently cancelling selection.
+    if (headerHeight_ > 0 && col >= 11) {
+        const Line& l = doc_->line(line);
+        // Fast path: check direct hit on any byte token
+        bool directHit = false;
+        for (const Token& t : l.tokens) {
+            if (t.byteIndex >= 0 && col >= t.startCol && col < t.startCol + t.len) {
+                directHit = true;
+                break;
+            }
+        }
+        if (!directHit) {
+            int bestCol = -1;
+            int bestDist = INT_MAX;
+            for (const Token& t : l.tokens) {
+                if (t.byteIndex >= 0) {
+                    int tokStart = t.startCol;
+                    int tokEnd = t.startCol + t.len;
+                    int dist = (col < tokStart) ? (tokStart - col)
+                             : (col >= tokEnd) ? (col - tokEnd + 1)
+                             : 0;
+                    if (dist < bestDist) {
+                        bestDist = dist;
+                        bestCol = tokStart;
+                    }
+                }
+            }
+            if (bestCol >= 0)
+                col = bestCol;
+        }
+    }
+
     return {line, col};
 }
 
