@@ -182,21 +182,22 @@ cmp, cmpl, cmpi, cmpli, cmplw
 8. ~~**Phase 3a: Type Database & Call-Site Annotation**~~ — **COMPLETE**. Abstract `TypeDatabase` base class + `WindowsTypeDatabase` (1487-entry table via `wintype_siggen.inc`) + `LinuxTypeDatabase`/`MacOSTypeDatabase` stubs + `TypeDatabaseFactory` with `detectPlatform()`/`createTypeDatabaseForPlatform()` + `AnalysisBridge::bridgeImportSignatures()` scope iteration + `applyTypeDatabaseToCallSpecs()` post-decompilation hook. Bridge stats: notepad 53 types applied (was 0), shell32 298 types applied (was 0). All 48/48 CTest suites pass (3050/3054 — same 4 pre-existing failures, no regressions).
 9. ~~**Phase 3b: Qt GUI Workspace**~~ — **COMPLETE (structure phase)**. Qt-Advanced-Docking-System (ADS v4.5.0, FetchContent, static build) replaces QDockWidget/QSplitter/QTabWidget. Five dock widgets: Explorer (Left), Disassembly (Center), Decompiler (Right tab 1), Hex (Right tab 2 via addDockWidgetTab), Console (Bottom). All views wrap `ads::CDockWidget` with 3-argument (`QString title`, `QIcon`, `QWidget*`) constructor. `CutterSeekable` pure virtual interface for navigation sync. Full-window proportional drop zones (ADS source patch: `cursorLocation()` → 25/25/25/25/center). Drag threshold 4× default. View menu toggle/sync checkmarks. Console title bar hidden. Explorer A-Z sort, monospace, bold categories, tooltips, clear button. Run: `cmake -S . -B build-cmake -G "MSYS Makefiles"` then `cmake --build build-cmake --target enigma_gui` then `./build-cmake/enigma_gui.exe`.
 10. **Phase 3c: GUI Feature Completion** — In progress:
-    - **Disassembly view (FieldView/DisassemblyFieldView)**: custom `QAbstractScrollArea` with cell-grid rendering, pixel scrolling, and viewport-based painting:
-      - Shared `EditorTheme` now owns the canonical monospace font and metrics used by Disassembly, Decompiler, and Hex views.
-      - Fixed cell-grid: each glyph painted at `leftPad + col * cellWidth`, caret drawn as a 1 px vertical line at cell boundaries, click→column uses `round((clickX + scrollX - leftPad) / cellWidth)`.
-      - Font family `JetBrains Mono` (10 pt) with Normal base weight (400) and Medium emphasis (500); cell width is computed from the base font to keep the grid stable regardless of token weight.
-      - Token model (`Token`/`Line`/`Document`) with kinds Address, Bytes, Mnemonic, Branch, Register, Immediate, Number, MemRef, Punctuation, Label, Function, Comment.
-      - Syntax coloring: Mnemonic/Branch/Type/Keyword colored via theme emphasis color, Register blue, Immediate/Number red, Address gray, Punctuation gray, Comment green, MemRef brown, Branch mnemonics (`CALL`/`JMP`/`RET`/conditionals) distinct red.
-      - Click selects line + caret-line highlight; double-click or Ctrl+click on an Address/Immediate/Function/Label token navigates via `seekRequested`.
-      - Occurrence highlight for Register/Immediate/Function/Label/Variable on plain click.
-      - Toggleable raw-bytes column between address and mnemonic (`View → Show Bytes`), computed from address deltas and `DecompInterface::instructionLengthAt()` fallback for the final instruction.
-      - Tabs expanded to spaces before tokenizing to keep column counts aligned with painted positions.
+     - **Disassembly view (FieldView/DisassemblyFieldView)**: custom `QAbstractScrollArea` with cell-grid rendering, pixel scrolling, and viewport-based painting:
+       - Shared `EditorTheme` now owns the canonical monospace font and metrics used by Disassembly, Decompiler, and Hex views.
+       - Fixed cell-grid: each glyph painted at `leftPad + col * cellWidth`, caret drawn as a 1 px vertical line at cell boundaries, click→column uses `round((clickX + scrollX - leftPad) / cellWidth)`.
+       - Font family `JetBrains Mono` (10 pt) with Normal base weight (400) and Medium emphasis (500); cell width is computed from the base font to keep the grid stable regardless of token kind.
+       - Token model (`Token`/`Line`/`Document`) with 21 kinds: Address, Bytes, Mnemonic, Branch, Register, Immediate, Number, MemRef, Punctuation, Label, Function, Variable, Type, Keyword, String, Comment, BracesOuter, BracesInner, Operator, Semicolon, Plain.
+       - Syntax coloring: Mnemonic/Branch/Type/Keyword/BracesOuter/BracesInner/Semicolon/Punctuation use emphasis font (Medium 500), all others use base font (Normal 400).
+       - Click selects line + caret-line highlight; double-click or Ctrl+click on an Address/Immediate/Function/Label token navigates via `seekRequested`.
+       - Occurrence highlight for Register/Immediate/Function/Label/Variable on plain click.
+       - Toggleable raw-bytes column between address and mnemonic (`View → Show Bytes`), computed from address deltas and `DecompInterface::instructionLengthAt()` fallback for the final instruction.
+       - Tabs expanded to spaces before tokenizing to keep column counts aligned with painted positions.
+     - **DecompilerView (custom FieldView)**: VSCode-style line number gutter, C syntax tokenization (`tokenizeCLine`), XML markup parsing (`documentFromMarkup`), 21-token-kind color scheme with K&R-style coloring (outer braces yellow, inner braces/red, semicolons red, operators dark, keywords blue bold, function names purple).
     - **EditorTheme**: central `src/gui/EditorTheme.h/.cpp` providing `baseFont()`, `emphasisFont()`, `cellWidth()`, `cellHeight()`, `ascent()`, `descent()`, `glyphHeight()`, `leftPadding()`, `lineSpacing()`, and `colorFor(TokenKind)`. Used by FieldView, DisassemblyFieldView, CodePlainTextEdit/DecompilerView, and HexView so all editors share identical family, size, weight, line spacing, and token palette.
     - **Caret polish**: glyph-height caret drawn with `EditorTheme::glyphHeight()`; blinking timer driven by `QApplication::cursorFlashTime()`, reset on every caret move/click/key; caret only drawn when the view has focus.
     - **Token/field-level selection**: single click in Disassembly selects the operand/register/address field under the cursor (not the whole line), with primary selection highlight and white text. Clicking a token also highlights all occurrences of that token in the view. The Decompiler uses `QTextCursor::WordUnderCursor` so clicking selects the word (e.g. `local_18`, `uint64_t`).
     - **Unified cross-view selection model**: `SelectionState`/`SelectionManager` owned by `MainWindow` holds the single program-wide selection (address + endAddress + token). All three views connect to it: selecting in any view resolves the instruction address range (via `Document::instructionRangeForAddress()` / `DecompInterface`) and broadcasts to the others. Disassembly highlights the token/field, Decompiler highlights the corresponding line, and Hex highlights the full instruction byte range with the caret on the first byte. Status bar updates with address and containing function name.
-    - **QScintilla Refactoring (Decompiler/Hex)**: DecompilerView and HexView remain `QsciScintilla`-based with dark theme; Disassembly moved to the custom FieldView above.
+     - **QScintilla Refactoring (Decompiler/Hex)**: DecompilerView is now a custom `QAbstractScrollArea` (`FieldView` subclass) with VSCode-style line number gutter, C syntax tokenization, XML markup parsing, and 21-token-kind color scheme. HexView remains `QsciScintilla`-based with dark theme; Disassembly moved to the custom FieldView above.
     - **Fusion style**: `QApplication::setStyle(QStyleFactory::create("Fusion"))` applied in main.cpp
     - **Navigation preserved**: `CutterSeekable` interface, `seekRequested` signals, double-click/Ctrl+click navigation, address↔line mapping
     - Persist layout state via `CDockManager::saveState()`/`restoreState()`
@@ -665,3 +666,54 @@ cmp, cmpl, cmpi, cmpli, cmplw
 - `src/gui/ConsoleWidget.h/.cpp` — Console widget
 - `build-cmake/_deps/qtadvanceddocking-src/src/DockOverlay.cpp` — patched `cursorLocation()` (full-window proportional zones)
 - `build-cmake/_deps/qtadvanceddocking-src/src/DockManager.cpp` — patched `startDragDistance()` (4× multiplier)
+
+## Decompiler Pipeline Fixes (W~BB)
+
+- **Root cause #1 (call graph corruption)**: Fixed `buildCallGraph()` in `MainRecognitionAnalyzer.cpp` — hybrid `getFunctionContaining()` + unfiltered `std::upper_bound` replaces broken `func_0x*` name lookup + 256-byte filter that misclassified user functions as CRT.
+- **Root cause #2 (entry callee over-classification)**: Required at least one outgoing call to a function already in `classifiedCrt` before marking an unnamed entry callee as CRT. Prevents user functions called only from entry from being hidden.
+- **Root cause #3 (body expansion fails for entry function)**: Rewrote `FunctionBodyFinalizer` — instruction-range scanning replaces linear walk, fixing halt_baddata for functions whose bodies span non-contiguous address ranges.
+- **Root cause #4 (runtime APIs in CRT startup list)**: Removed `strcmp`, `strlen`, `printf`, `malloc` from `kCrtStartupApis`. User functions calling these runtime APIs are no longer misclassified as startup.
+- **Root cause #5 (named import bonus too broad)**: Replaced generic callee check with `kUserCodeImports` whitelist in entry-callee propagation pass.
+- **MinGW CRT function naming**: Moved from `FidAnalyzer` to `MainRecognitionAnalyzer`. Named via BFS depth 6 from direct callees of user main(). `__main` at `0x140001610` identified via `atexit` call signature.
+- **String literal recovery**: Full MinGW printf/scanf family added to `libFuncs`, `WindowsTypeDatabase` bridge, `FormatStringAnalyzer`.
+- **halt_baddata**: 38→0. `FunctionBodyFinalizer` skips non-executable instructions; BFS `isExecutableAddress` guards at all 4 callee loops.
+- **Duplicate function names**: 0. Thunk detection skips non-executable sections.
+- **resolveFuncRefs**: Added `func_0x` prefix handling.
+
+## GUI Crash Fix & Performance (W~BB)
+
+- **Missing post-lookup `isExecutableAddress` check**: Added `if (fd2 && !isExecutableAddress(fd2->getAddress().getOffset())) continue;` in unresolved reference pass callee loop. Was the root cause of GUI crash under load — existing functions at non-executable addresses (`.idata` at `0x140018000–0x140018898`) were being decompiled.
+- **`isExecutableAddress` O(log N) optimization**: Replaced linear PE section scan with sorted `vector<SectionRange>` + `std::upper_bound` binary search. Returns `false` for addresses not in any known section.
+- **GUI paint performance**: `emphasisFont()` cached as static; `colorTable()` and `fontTable()` pre-computed arrays indexed by `TokenKind` — eliminates per-token switch/virtual calls.
+
+## GUI Visual Polish (W~BB)
+
+- **Line numbers**: VSCode-style gutter in decompiler view with gray background (`#f5f5f5`), right-aligned numbers, `#ddd` separator, dynamic width based on digit count.
+- **Token kinds**: Extended from 17→21: added `BracesOuter`, `BracesInner`, `Operator`, `Semicolon`.
+- **Color scheme**:
+  | Token | Color | Bold |
+  |-------|-------|------|
+  | Function names | Purple (`#6f42c1`) | No |
+  | Keywords (`if`, `else`, `while`, `for`, `do`, `return`) | Blue (`#0000ff`) | Yes |
+  | `__stdcall`, `__cdecl`, `.`, `,`, `=`, `+`, `-`, etc. | Dark (`#1e1e1e`) | No |
+  | Outer `{}` / `()` | Yellow (`#b58900`) | Yes |
+  | Inner `{}` / `()` | Red (`#c0392b`) | Yes |
+  | Semicolon `;` | Red (`#c0392b`) | Yes |
+  | Types | Teal (`#0e8a8a`) | Yes |
+  | Comments | Green (`#6a9955`) | No |
+  | Strings | Dark red (`#a31515`) | No |
+- **Markup path**: `kindForMarkupElement()` and `documentFromMarkup()` both classify keywords, types, operators, and semicolons from `<syntax>` elements.
+
+## CFormatter — Decompiler Output Formatter (W~BB)
+
+- **New files**: `src/decompiler/CFormatter.h` + `src/decompiler/CFormatter.cpp`
+- **Integrated in**: `src/core/DecompInterface.cpp` — applied to `cCode` after `cleanCOutput(stripMarkup(markup))`
+- **Formatting rules**:
+  1. **Indentation**: Exactly 4 spaces per nesting level, no tabs
+  2. **Braces**: K&R style — `{` on same line as statement, `}` on its own line
+  3. **`else`/`else if`**: `} else {` on same line as closing brace
+  4. **Blank lines**: Max 1 between functions/sections; consecutive blank lines collapsed
+  5. **Long lines**: Break at ~100 chars with one extra level of indent for continuation
+  6. **Variable declarations**: Grouped at top of function body (already done by decompiler)
+  7. **Spacing**: One space around binary operators, no space before `(` in function calls, one space after commas
+- **Tested on**: `pass.exe` (entry, __main, setvbuf, atexit, abort) — consistent formatting across all functions

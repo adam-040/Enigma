@@ -25,4 +25,8 @@ public:
     static QColor occurrenceColor();
     static QColor colorFor(TokenKind kind);
     static bool isEmphasis(TokenKind kind);
+
+    // Fast lookup arrays indexed by TokenKind (avoids per-token switch/virtual calls)
+    static const QColor* colorTable();
+    static const QFont* fontTable();
 };

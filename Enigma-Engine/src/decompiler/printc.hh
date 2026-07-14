@@ -344,7 +344,7 @@ public:
   virtual void opFloatRound(const PcodeOp *op) { opFunc(op); }
   virtual void opMultiequal(const PcodeOp *op) {}
   virtual void opIndirect(const PcodeOp *op) {}
-  virtual void opPiece(const PcodeOp *op) { opFunc(op); }
+  virtual void opPiece(const PcodeOp *op);
   virtual void opSubpiece(const PcodeOp *op);
   virtual void opCast(const PcodeOp *op) { opTypeCast(op); }
   virtual void opPtradd(const PcodeOp *op);

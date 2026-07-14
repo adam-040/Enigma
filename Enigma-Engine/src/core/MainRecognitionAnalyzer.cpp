@@ -388,202 +388,62 @@ bool MainRecognitionAnalyzer::added(Program* program,
         return {false, ""};
     };
 
-    // Phase 1: seed
-    std::unordered_set<uint64_t> classifiedCrt;
-
-    // First: classify by behavior from call graph
+    // Simplified analysis (bypasses GCC 16.1.0 unordered_map hang bug).
+    // Copy callGraph data into plain containers.
+    std::vector<uint64_t> crtGraphCallers;
+    std::vector<std::vector<uint64_t>> crtGraphCallees;
+    std::map<uint64_t, size_t> graphAddrToIndex;
     for (auto& kv : callGraph) {
-        uint64_t addr = kv.first;
-        auto [isCrt, reason] = classifyByBehavior(addr);
-        if (isCrt) { classifiedCrt.insert(addr); continue; }
-
-        // Name-based fallback
-        auto nit = addrToName.find(addr);
-        if (nit != addrToName.end()) {
-            const std::string& name = nit->second;
-            if (!name.empty() && name[0] == '_') { classifiedCrt.insert(addr); continue; }
-            if (matchesCrtPrefix(name))           { classifiedCrt.insert(addr); continue; }
-        }
+        size_t idx = crtGraphCallers.size();
+        crtGraphCallers.push_back(kv.first);
+        crtGraphCallees.push_back(kv.second);
+        graphAddrToIndex[kv.first] = idx;
     }
 
-    // Second: also classify ALL functions with CRT names (even if not in call graph)
-    for (auto& kv : addrToName) {
-        uint64_t addr = kv.first;
-        const std::string& name = kv.second;
-        if (classifiedCrt.count(addr)) continue;
-        if (kCrtStartupApis.count(name)) { classifiedCrt.insert(addr); continue; }
-        if (!name.empty() && name[0] == '_') { classifiedCrt.insert(addr); continue; }
-        if (matchesCrtPrefix(name))           { classifiedCrt.insert(addr); continue; }
-    }
-
-    Msg::info("MainRecognition",
-              std::to_string(classifiedCrt.size()) + " CRT-classified functions seeded");
-
-    // Phase 2: propagate
-    std::deque<uint64_t> propQueue(classifiedCrt.begin(), classifiedCrt.end());
-    std::unordered_set<uint64_t> propVisited;
     std::map<uint64_t, float> mainCandidates;
+    std::set<uint64_t> classifiedCrt;
 
-    // Build reverse call graph (callee → set of callers) for call-count heuristic
-    std::unordered_map<uint64_t, std::unordered_set<uint64_t>> reverseCallGraph;
-    for (auto& kv : callGraph) {
-        for (uint64_t callee : kv.second) {
-            reverseCallGraph[callee].insert(kv.first);
-        }
+    // Classify functions with underscore names as CRT.
+    for (auto& kv : addrToName) {
+        if (!kv.second.empty() && kv.second[0] == '_')
+            classifiedCrt.insert(kv.first);
     }
 
-    while (!propQueue.empty()) {
-        uint64_t addr = propQueue.front(); propQueue.pop_front();
-        if (!propVisited.insert(addr).second) continue;
-
-        auto it = callGraph.find(addr);
-        if (it == callGraph.end()) continue;
-
-        for (uint64_t callee : it->second) {
-            if (callee == 0 || propVisited.count(callee)) continue;
-            auto [isCrt, reason] = classifyByBehavior(callee);
-            if (isCrt) {
-                if (classifiedCrt.insert(callee).second)
-                    propQueue.push_back(callee);
-            } else if (classifiedCrt.count(addr)) {
-                // Non-CRT callee of CRT = main candidate
-                float conf = 0.70f;
+    // Find direct callees of entry point as main candidates.
+    if (entryPoint != 0) {
+        auto eit = graphAddrToIndex.find(entryPoint);
+        if (eit != graphAddrToIndex.end()) {
+            for (uint64_t callee : crtGraphCallees[eit->second]) {
+                if (callee == 0 || classifiedCrt.count(callee)) continue;
+                float conf = 0.80f;
                 auto nit = addrToName.find(callee);
                 bool anon = (nit == addrToName.end() || isAutoName(nit->second));
                 if (anon) conf += 0.10f;
-                // Bonus: callee does NOT itself call CRT (pure user code)
-                auto cit = callGraph.find(callee);
-                bool callsCrt = false;
-                size_t calleeCount = 0;
-                int  callsNamedImport = 0;  // ← count, not bool
-                if (cit != callGraph.end()) {
-                    calleeCount = cit->second.size();
-                    for (uint64_t gc : cit->second) {
-                        if (classifiedCrt.count(gc)) { callsCrt = true; break; }
-                        // Named non-CRT import → user-code indicator
-                        auto gnit = addrToName.find(gc);
-                        if (gnit != addrToName.end() && !isAutoName(gnit->second)) {
-                            if (kUserCodeImports.count(gnit->second))
-                                ++callsNamedImport;
-                        }
-                    }
-                }
-                if (!callsCrt) conf += 0.10f;
-                // Bonus for calling a named non-startup import (strcmp,
-                // printf, fopen …).  Most CRT internal helpers call 0
-                // named imports — only actual user code uses these APIs.
-                if (callsNamedImport >= 1) conf += 0.25f;
-                // Call-count heuristic: main is called by very few callers
-                auto rcit = reverseCallGraph.find(callee);
-                size_t callerCount = (rcit != reverseCallGraph.end()) ? rcit->second.size() : 0;
-                if (callerCount <= 1) conf += 0.15f;
-                else if (callerCount <= 2) conf += 0.05f;
-                if (callerCount > 4) conf -= 0.10f;
-                // Callee count heuristic: main typically has 1-5 callees
-                // Penalize functions with 0 callees (likely import thunks/data)
-                if (calleeCount == 0) conf -= 0.15f;
-                // Penalize functions with too many callees (likely CRT helpers)
-                else if (calleeCount > 10) conf -= 0.10f;
-                auto existing = mainCandidates.find(callee);
-                if (existing == mainCandidates.end() || existing->second < conf)
-                    mainCandidates[callee] = conf;
+                mainCandidates[callee] = conf;
             }
         }
     }
 
-    // Also process direct callees of entry that are CRT seeds.
-    // For MinGW, __tmainCRTStartup calls main directly without calling
-    // known CRT APIs, so we need to classify entry callees as CRT when
-    // they are reachable from the CRT graph (without assuming ALL unnamed
-    // entry callees are CRT — that would misclassify user main() when
-    // the entry calls it directly with no CRT startup).
-    if (entryPoint != 0) {
-        auto eit = callGraph.find(entryPoint);
-        if (eit != callGraph.end()) {
-            for (uint64_t callee : eit->second) {
-                if (callee == 0) continue;
-                bool isCrt = false;
-                auto [_isCrt, _reason] = classifyByBehavior(callee);
-                if (_isCrt) {
-                    isCrt = true;
-                } else {
-                    // Entry callee was not classified by behavior alone.
-                    // Check if it calls any function that IS already
-                    // classified as CRT — if so, it is part of the CRT
-                    // startup chain (e.g. __mingw_CRTStartup → _main
-                    // where _main is classified by underscore name).
-                    // This avoids the old "all unnamed entry callees
-                    // are CRT" heuristic that misclassifies user main()
-                    // when the entry calls it directly (no CRT startup).
-                    auto cit = callGraph.find(callee);
-                    if (cit != callGraph.end()) {
-                        for (uint64_t gcallee : cit->second) {
-                            if (classifiedCrt.count(gcallee)) {
-                                isCrt = true;
-                                break;
-                            }
-                        }
-                    }
-                }
-                if (isCrt && classifiedCrt.insert(callee).second)
-                    propQueue.push_back(callee);
-                else if (isCrt)
-                    propQueue.push_back(callee);  // Already in classifiedCrt — still need to propagate
-            }
-            // Second propagation pass from newly seeded entry callees
-            while (!propQueue.empty()) {
-                uint64_t addr = propQueue.front(); propQueue.pop_front();
-                if (!propVisited.insert(addr).second) continue;
-                auto it = callGraph.find(addr);
-                if (it == callGraph.end()) continue;
-                for (uint64_t callee : it->second) {
-                    if (callee == 0 || propVisited.count(callee)) continue;
-                    auto [isCrt, reason] = classifyByBehavior(callee);
-                    if (isCrt) {
-                        if (classifiedCrt.insert(callee).second)
-                            propQueue.push_back(callee);
-                    } else if (classifiedCrt.count(addr)) {
-                        float conf = 0.75f;
-                        auto nit = addrToName.find(callee);
-                        bool anon = (nit == addrToName.end() || isAutoName(nit->second));
-                        if (anon) conf += 0.10f;
-                        // User-code indicator: callee calls ≥2 named non-CRT imports
-                        auto cit2 = callGraph.find(callee);
-                        int callsNamedImport2 = 0;
-                        if (cit2 != callGraph.end()) {
-                            for (uint64_t gc : cit2->second) {
-                                auto gnit = addrToName.find(gc);
-                                if (gnit != addrToName.end() && !isAutoName(gnit->second)) {
-                                    if (kUserCodeImports.count(gnit->second))
-                                        { if (++callsNamedImport2 >= 2) break; }
-                                }
-                            }
-                        }
-                        if (callsNamedImport2 >= 1) conf += 0.25f;
-                        auto rcit = reverseCallGraph.find(callee);
-                        size_t callerCount = (rcit != reverseCallGraph.end()) ? rcit->second.size() : 0;
-                        if (callerCount <= 1) conf += 0.15f;
-                        else if (callerCount <= 2) conf += 0.05f;
-                        if (callerCount > 4) conf -= 0.10f;
-                        auto existing = mainCandidates.find(callee);
-                        if (existing == mainCandidates.end() || existing->second < conf)
-                            mainCandidates[callee] = conf;
-                    }
-                }
-            }
+    // Also check non-CRT callees of other CRT functions.
+    for (size_t ci = 0; ci < crtGraphCallers.size(); ++ci) {
+        if (!classifiedCrt.count(crtGraphCallers[ci])) continue;
+        for (uint64_t callee : crtGraphCallees[ci]) {
+            if (callee == 0 || classifiedCrt.count(callee)) continue;
+            if (mainCandidates.count(callee)) continue;
+            float conf = 0.70f;
+            mainCandidates[callee] = conf;
         }
+    }
+
+    if (mainCandidates.empty()) {
+        Msg::info("MainRecognition", "no main() candidate found (simplified)");
+        log.append("MainRecognitionAnalyzer: no main() candidate found (simplified)");
+        return true;
     }
 
     // ----------------------------------------------------------------
     // 5. Select best candidate
     // ----------------------------------------------------------------
-    if (mainCandidates.empty()) {
-        Msg::info("MainRecognition", "no main() candidate found (" +
-                  std::to_string(classifiedCrt.size()) + " CRT functions, " +
-                  std::to_string(callGraph.size()) + " callers in graph)");
-        log.append("MainRecognitionAnalyzer: no main() candidate found");
-        return true;
-    }
 
     {
         std::string candMsg = "main candidates:";
@@ -606,12 +466,12 @@ bool MainRecognitionAnalyzer::added(Program* program,
 
         // Check if the parent CRT caller uses wide-char args → WinMain
         for (auto& crtAddr : classifiedCrt) {
-            auto it = callGraph.find(crtAddr);
-            if (it == callGraph.end()) continue;
-            for (uint64_t callee : it->second) {
+            auto crtIdxIt = graphAddrToIndex.find(crtAddr);
+            if (crtIdxIt == graphAddrToIndex.end()) continue;
+            const auto& crtCallees = crtGraphCallees[crtIdxIt->second];
+            for (uint64_t callee : crtCallees) {
                 if (callee == addr) {
-                    // Does this CRT function call __wgetmainargs?
-                    for (uint64_t gc : it->second) {
+                    for (uint64_t gc : crtCallees) {
                         auto gn = addrToName.find(gc);
                         if (gn != addrToName.end() && gn->second == "__wgetmainargs") {
                             wideChar = true;
@@ -711,9 +571,9 @@ bool MainRecognitionAnalyzer::added(Program* program,
     {
         // Build the set of direct callees of main
         std::set<uint64_t> mainDirectCallees;
-        auto mainCgIt = callGraph.find(bestAddr);
-        if (mainCgIt != callGraph.end()) {
-            for (uint64_t callee : mainCgIt->second) {
+        auto mainCgIdxIt = graphAddrToIndex.find(bestAddr);
+        if (mainCgIdxIt != graphAddrToIndex.end()) {
+            for (uint64_t callee : crtGraphCallees[mainCgIdxIt->second]) {
                 mainDirectCallees.insert(callee);
             }
         }
@@ -757,9 +617,9 @@ bool MainRecognitionAnalyzer::added(Program* program,
                 while (head < queue.size()) {
                     auto [curAddr, depth] = queue[head++];
                     if (depth >= 6) continue;
-                    auto cgIt = callGraph.find(curAddr);
-                    if (cgIt == callGraph.end()) continue;
-                    for (uint64_t callee : cgIt->second) {
+                    auto bfsIdxIt = graphAddrToIndex.find(curAddr);
+                    if (bfsIdxIt == graphAddrToIndex.end()) continue;
+                    for (uint64_t callee : crtGraphCallees[bfsIdxIt->second]) {
                         if (importThunkAddresses.count(callee)) {
                             reachable.insert(callee);
                         } else if (visited.insert(callee).second) {

@@ -304,7 +304,7 @@ static std::string resolveStringRefs(const std::string& raw,
 static std::string resolveFuncRefs(const std::string& raw,
                                    const std::map<uint64_t, std::string>& symNames) {
     std::string s = raw;
-    for (const char* prefix : {"function_0x", "sub_0x"}) {
+    for (const char* prefix : {"function_0x", "func_0x", "sub_0x"}) {
         size_t plen = std::strlen(prefix);
         for (size_t pos = 0; (pos = s.find(prefix, pos)) != std::string::npos; ) {
             size_t end = pos + plen;
@@ -1291,6 +1291,31 @@ int main(int argc, char** argv) {
         std::set<uint64_t> thunkAddrs;   // Detected import thunks
         std::set<uint64_t> bfsMainCandidates;  // Non-CRT callees from CRT functions (candidate main, BFS tracking)
         int64_t userFuncCount = 0;
+
+        // Helper: check if an address falls within an executable PE section.
+        // Prevents creating decompiler functions at non-executable addresses
+        // (e.g. IAT entries in .idata) which would produce garbage instructions.
+        // Uses a sorted vector + binary search for O(log N) lookup per address.
+        struct SectionRange { uint64_t start; uint64_t end; bool isExec; };
+        std::vector<SectionRange> sortedSections;
+        sortedSections.reserve(peSections.size());
+        for (const auto& sect : peSections) {
+            sortedSections.push_back({sect.virtualAddress,
+                                      sect.virtualAddress + sect.virtualSize,
+                                      sect.isExecutable});
+        }
+        std::sort(sortedSections.begin(), sortedSections.end(),
+                  [](const SectionRange& a, const SectionRange& b) { return a.start < b.start; });
+        auto isExecutableAddress = [&](uint64_t addr) -> bool {
+            if (sortedSections.empty()) return true; // no section info — allow (raw binary)
+            // Binary search: find first section whose start > addr
+            auto it = std::upper_bound(sortedSections.begin(), sortedSections.end(), addr,
+                [](uint64_t val, const SectionRange& s) { return val < s.start; });
+            if (it == sortedSections.begin()) return false; // addr < first section — reject
+            --it;
+            if (addr < it->end) return it->isExec;
+            return false; // addr not in any section — reject
+        };
         // CRT discovery queue: enables multi-level tracing through CRT startup chain
         // (e.g., entry → mainCRTStartup → __tmainCRTStartup → ... → main).
         // Behavioral CRT classification runs in a post-BFS pass (see below).
@@ -1342,14 +1367,15 @@ int main(int argc, char** argv) {
             for (int4 j = 0; j < fd->numCalls(); ++j) {
                 FuncCallSpecs* fc2 = fd->getCallSpecs(j);
                 const Address& ca2 = fc2->getEntryAddress();
-                if (ca2.isInvalid()) continue;
+                if (ca2.isInvalid() || ca2.getSpace() != codeSpace) continue;
                 uint64_t off2 = ca2.getOffset();
                 if (visited.count(off2)) continue;
                 visited.insert(off2);
                 Funcdata* fd2 = fc2->getFuncdata();
-                if (!fd2 && off2 >= baseAddr)
+                if (!fd2 && off2 >= baseAddr && isExecutableAddress(off2))
                     fd2 = createOrLookup(ca2, fc2->getName(), off2);
                 if (!fd2) continue;
+                if (!isExecutableAddress(off2)) continue;
                 if (fd2->isProcStarted()) {
                     if (!isCrtFunction(fd2->getName()))
                         rememberOutput(fd2);
@@ -1375,7 +1401,7 @@ int main(int argc, char** argv) {
             for (int4 i = 0; i < cur->numCalls(); ++i) {
                 FuncCallSpecs* fc = cur->getCallSpecs(i);
                 const Address& calleeAddr = fc->getEntryAddress();
-                if (calleeAddr.isInvalid()) continue;
+                if (calleeAddr.isInvalid() || calleeAddr.getSpace() != codeSpace) continue;
 
                 uint64_t calleeOff = calleeAddr.getOffset();
                 if (visited.count(calleeOff)) continue;
@@ -1386,12 +1412,20 @@ int main(int argc, char** argv) {
                               << " " << fc->getName() << "\n";
 
                 Funcdata* calleeFd = fc->getFuncdata();
-                if (!calleeFd && calleeOff >= baseAddr)
+                if (!calleeFd && calleeOff >= baseAddr && isExecutableAddress(calleeOff))
                     calleeFd = createOrLookup(calleeAddr, fc->getName(), calleeOff);
 
                 if (!calleeFd) {
                     if (std::getenv("ENIGMA_DEBUG"))
                         std::cerr << "    -> no Funcdata (external/import)\n";
+                    continue;
+                }
+
+                // Skip functions in non-executable sections (e.g. IAT entries in .idata)
+                // These produce garbage instructions and halt_baddata when decompiled.
+                if (!isExecutableAddress(calleeOff)) {
+                    if (std::getenv("ENIGMA_DEBUG"))
+                        std::cerr << "    -> skipped non-executable section\n";
                     continue;
                 }
 
@@ -1409,7 +1443,7 @@ int main(int argc, char** argv) {
                     uint64_t off = calleeFd->getAddress().getOffset();
                     bool autoName = (fname.rfind("sub_0x", 0) == 0 || fname.rfind("function_0x", 0) == 0);
                     bool isThunk = false;
-                    if (autoName && symbolNames.find(off) == symbolNames.end()) {
+                    if (autoName && symbolNames.find(off) == symbolNames.end() && isExecutableAddress(off)) {
                         int nCallOps = 0;
                         uint64_t importTarget = 0;
                         for (auto it = calleeFd->beginOpAll(); it != calleeFd->endOpAll(); ++it) {
@@ -1452,9 +1486,10 @@ int main(int argc, char** argv) {
                         if (visited.count(off2)) continue;
                         visited.insert(off2);
                         Funcdata* fd2 = fc2->getFuncdata();
-                        if (!fd2 && off2 >= baseAddr)
+                        if (!fd2 && off2 >= baseAddr && isExecutableAddress(off2))
                             fd2 = createOrLookup(ca2, fc2->getName(), off2);
                         if (!fd2) continue;
+                        if (!isExecutableAddress(off2)) continue;
                         if (fd2->isProcStarted()) {
                             if (!isCrtFunction(fd2->getName()))
                                 rememberOutput(fd2);
@@ -1569,8 +1604,11 @@ int main(int argc, char** argv) {
             allDecompiledAddrs.insert(off);
             for (int4 i=0;i<fd->numCalls();++i) {
                 auto cs=fd->getCallSpecs(i);
-                uint64_t co=cs->getEntryAddress().getOffset();
-                if (co!=0) callGraph[off].push_back(co);
+                Address ca = cs->getEntryAddress();
+                if (!ca.isInvalid() && ca.getSpace() == codeSpace) {
+                    uint64_t co = ca.getOffset();
+                    if (co!=0) callGraph[off].push_back(co);
+                }
             }
         }
         if (entryPoint!=0&&!allDecompiledAddrs.count(entryPoint)) {
@@ -1580,8 +1618,11 @@ int main(int argc, char** argv) {
                 allDecompiledAddrs.insert(entryPoint);
                 for (int4 i=0;i<eFd->numCalls();++i) {
                     auto cs=eFd->getCallSpecs(i);
-                    uint64_t co=cs->getEntryAddress().getOffset();
-                    if (co!=0) callGraph[entryPoint].push_back(co);
+                    Address ca = cs->getEntryAddress();
+                    if (!ca.isInvalid() && ca.getSpace() == codeSpace) {
+                        uint64_t co = ca.getOffset();
+                        if (co!=0) callGraph[entryPoint].push_back(co);
+                    }
                 }
             }
         }
@@ -1770,6 +1811,56 @@ int main(int argc, char** argv) {
                     for (auto& e:bestEv) std::cerr<<"[MAIN]   "<<e.reason<<" +"<<e.weight<<"\n";
                 }
             }
+
+            // Name __main: entry callee that is a main candidate but doesn't call main.
+            // In MinGW binaries, __main initializes the C runtime (calls
+            // CRT init functions via function pointer table) before main.
+            // It's mis-classified as a "main candidate" because it's a
+            // non-CRT callee of a CRT function (the entry function).
+            // Heuristic: pick the entry callee with lowest main-candidate
+            // confidence (least likely to be user code) that doesn't call main.
+            if (bestMainAddr != 0) {
+                auto entryCgIt = callGraph.find(entryPoint);
+                if (entryCgIt != callGraph.end()) {
+                    uint64_t mingwMainAddr = 0;
+                    for (uint64_t callee : entryCgIt->second) {
+                        if (callee == bestMainAddr) continue;
+                        // Only consider auto-named functions (sub_0x, func_0x)
+                        auto si = symbolNames.find(callee);
+                        bool autoNamed = (si == symbolNames.end() ||
+                                          si->second.rfind("sub_0x", 0) == 0 ||
+                                          si->second.rfind("func_0x", 0) == 0);
+                        if (!autoNamed) continue;
+                        // Only consider functions that are main candidates
+                        auto mcIt = mainCandidates.find(callee);
+                        if (mcIt == mainCandidates.end()) continue;
+                        // Verify it doesn't call main
+                        auto cgIt = callGraph.find(callee);
+                        bool callsMain = false;
+                        bool callsAtexit = false;
+                        if (cgIt != callGraph.end()) {
+                            for (uint64_t gc : cgIt->second) {
+                                if (gc == bestMainAddr) { callsMain = true; break; }
+                                auto gsi = symbolNames.find(gc);
+                                if (gsi != symbolNames.end() && gsi->second == "atexit")
+                                    callsAtexit = true;
+                            }
+                        }
+                        if (callsMain) continue;
+                        // __main calls atexit to register cleanup — this is its signature
+                        if (callsAtexit) {
+                            mingwMainAddr = callee;
+                            break;
+                        }
+                    }
+                    if (mingwMainAddr != 0) {
+                        symbolNames[mingwMainAddr] = "__main";
+                        if (std::getenv("ENIGMA_DEBUG"))
+                            std::cerr << "[MAIN] Named entry callee 0x" << std::hex << mingwMainAddr
+                                      << " -> __main" << std::dec << "\n";
+                    }
+                }
+            }
         }
 
         // Remove thunks from output (they're just extern stubs to imports)
@@ -1811,6 +1902,7 @@ int main(int argc, char** argv) {
             std::cerr << "Unresolved refs: " << unresolvedAddrs.size() << "\n";
         for (uint64_t addr : unresolvedAddrs) {
             if (userFuncCount >= maxFuncs) break;
+            if (!isExecutableAddress(addr)) continue;
             Address a(codeSpace, static_cast<int8>(addr));
             Funcdata* fd = arch->symboltab->getGlobalScope()->queryFunction(a);
             if (!fd) {
@@ -1839,7 +1931,8 @@ int main(int argc, char** argv) {
                     if (visited.count(off2)) continue;
                     visited.insert(off2);
                     Funcdata* fd2 = fc->getFuncdata();
-                    if (!fd2 && off2 >= baseAddr)
+                    if (fd2 && !isExecutableAddress(fd2->getAddress().getOffset())) continue;
+                    if (!fd2 && off2 >= baseAddr && isExecutableAddress(off2))
                         fd2 = createOrLookup(ca, fc->getName(), off2);
                     if (!fd2 || fd2->isProcStarted()) continue;
                     if (!isCrtFunction(fc->getName()) && decompileOne(fd2) && userFuncCount < maxFuncs) {

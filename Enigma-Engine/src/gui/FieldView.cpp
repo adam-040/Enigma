@@ -264,15 +264,24 @@ int FieldView::visibleLineCount() const {
     return std::max(1, viewport()->height() / cellH);
 }
 
+int FieldView::gutterWidth() const {
+    if (!doc_ || doc_->lineCount() == 0) return 0;
+    int lineCount = doc_->lineCount();
+    int digits = 1;
+    { int tmp = lineCount; while (tmp >= 10) { tmp /= 10; ++digits; } }
+    return 8 + digits * static_cast<int>(EditorTheme::cellWidth());
+}
+
 FieldView::HitResult FieldView::caretAtPos(const QPoint& pos) const {
     if (!doc_ || doc_->lineCount() == 0) return {0, 0};
     int cellW = EditorTheme::cellWidth();
     int cellH = EditorTheme::cellHeight();
     int scrollY = verticalScrollBar()->value();
     int scrollX = horizontalScrollBar()->value();
+    int gw = gutterWidth();
     int line = (pos.y() + scrollY - headerHeight_) / cellH;
     line = std::clamp(line, 0, doc_->lineCount() - 1);
-    int col = (pos.x() + scrollX - EditorTheme::leftPadding()) / cellW;
+    int col = (pos.x() + scrollX - gw - EditorTheme::leftPadding()) / cellW;
     col = std::clamp(col, 0, static_cast<int>(doc_->line(line).text.size()));
 
     // Snap to nearest byte token when header is present (HexView).
@@ -397,14 +406,16 @@ void FieldView::updateScrollBars() {
     }
     int vpH = viewport()->height();
     int vpW = viewport()->width();
+    int gw = gutterWidth();
+    int contentW = vpW - gw;
     int vMax = std::max(0, doc_->lineCount() * cellH - vpH);
     verticalScrollBar()->setRange(0, vMax);
     verticalScrollBar()->setPageStep(vpH);
     verticalScrollBar()->setSingleStep(cellH);
 
-    int hMax = std::max(0, doc_->maxColumns() * cellW + 2 * leftPad - vpW);
+    int hMax = std::max(0, doc_->maxColumns() * cellW + 2 * leftPad - contentW);
     horizontalScrollBar()->setRange(0, hMax);
-    horizontalScrollBar()->setPageStep(vpW);
+    horizontalScrollBar()->setPageStep(contentW);
     horizontalScrollBar()->setSingleStep(cellW * 4);
 }
 
@@ -434,11 +445,25 @@ void FieldView::paintEvent(QPaintEvent* event) {
     int vpH = viewport()->height();
     int vpW = viewport()->width();
 
-    int first = scrollY / cellH;
-    int last = std::min((scrollY + vpH) / cellH + 1, doc_->lineCount() - 1);
+    // Line number gutter
+    int lineCount = doc_->lineCount();
+    int digits = 1;
+    { int tmp = lineCount; while (tmp >= 10) { tmp /= 10; ++digits; } }
+    int gutterW = 8 + digits * static_cast<int>(cellW);
 
-    QFont baseFont = EditorTheme::baseFont();
-    QFont emphasisFont = EditorTheme::emphasisFont();
+    int first = scrollY / cellH;
+    int last = std::min((scrollY + vpH) / cellH + 1, lineCount - 1);
+
+    const QColor* colorTbl = EditorTheme::colorTable();
+    const QFont* fontTbl = EditorTheme::fontTable();
+    bool hasHighlight = !highlightWord_.isEmpty();
+
+    // Draw gutter background
+    painter.fillRect(0, 0, gutterW, vpH, QColor(0xf5, 0xf5, 0xf5));
+    painter.setPen(QColor(0x88, 0x88, 0x88));
+    QFont numFont = EditorTheme::baseFont();
+    numFont.setPointSize(numFont.pointSize() - 1);
+    painter.setFont(numFont);
 
     auto lineSelection = [&](int li, int& sCol, int& eCol) -> bool {
         if (anchor_ == caret_) return false;
@@ -453,13 +478,25 @@ void FieldView::paintEvent(QPaintEvent* event) {
         return true;
     };
 
+    // Separator line between gutter and content
+    painter.setPen(QColor(0xdd, 0xdd, 0xdd));
+    painter.drawLine(gutterW, 0, gutterW, vpH);
+
     for (int li = first; li <= last; ++li) {
         int y = li * cellH - scrollY;
-        int baseX = leftPad - scrollX;
+        int baseX = gutterW + leftPad - scrollX;
         const Line& l = doc_->line(li);
 
-        if (li == currentLine_)
-            painter.fillRect(0, y, vpW, cellH, EditorTheme::caretLineColor());
+        // Draw line number
+        painter.setPen(QColor(0x88, 0x88, 0x88));
+        painter.setFont(numFont);
+        QString numStr = QString::number(li + 1);
+        painter.drawText(0, y, gutterW - 6, cellH, Qt::AlignRight | Qt::AlignVCenter, numStr);
+
+        // Restore font for content
+        if (li == currentLine_) {
+            painter.fillRect(gutterW, y, vpW - gutterW, cellH, EditorTheme::caretLineColor());
+        }
 
         bool selectedTokenOnLine = (selectedToken_.line == li && selectedToken_.len > 0);
 
@@ -478,8 +515,9 @@ void FieldView::paintEvent(QPaintEvent* event) {
         }
 
         for (const Token& tok : l.tokens) {
-            painter.setPen(colorForKind(tok.kind));
-            painter.setFont(isBoldKind(tok.kind) ? emphasisFont : baseFont);
+            int ki = static_cast<int>(tok.kind);
+            painter.setPen(colorTbl[ki]);
+            painter.setFont(fontTbl[ki]);
 
             bool isSelectedToken = selectedTokenOnLine &&
                 tok.startCol == selectedToken_.startCol &&
@@ -488,7 +526,7 @@ void FieldView::paintEvent(QPaintEvent* event) {
             int tx = baseX + tok.startCol * cellW;
             int ty = y + ascent;
 
-            if (!highlightWord_.isEmpty() && !isSelectedToken &&
+            if (hasHighlight && !isSelectedToken &&
                 tok.kind == highlightKind_ && tok.text == highlightWord_) {
                 painter.fillRect(tx, y, tok.text.size() * cellW, cellH, EditorTheme::occurrenceColor());
             }
@@ -497,12 +535,12 @@ void FieldView::paintEvent(QPaintEvent* event) {
                 painter.setPen(Qt::white);
             painter.drawText(tx, ty, tok.text);
             if (isSelectedToken)
-                painter.setPen(colorForKind(tok.kind));
+                painter.setPen(colorTbl[ki]);
         }
     }
 
     if (hasFocus() && caretVisible_) {
-        int cx = leftPad - scrollX + caret_.col * cellW;
+        int cx = gutterW + leftPad - scrollX + caret_.col * cellW;
         int cy = caret_.line * cellH - scrollY;
         painter.fillRect(cx, cy, 2, glyphH, EditorTheme::textColor());
     }

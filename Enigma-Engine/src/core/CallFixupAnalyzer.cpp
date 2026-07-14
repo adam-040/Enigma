@@ -8,6 +8,7 @@
 #include <ghidra/RefType.h>
 #include <ghidra/TaskMonitor.h>
 #include <ghidra/MessageLog.h>
+#include <ghidra/Msg.h>
 #include <unordered_map>
 #include <string>
 
@@ -108,8 +109,22 @@ bool CallFixupAnalyzer::added(Program* program, const AddressSetView& set, TaskM
 
     if (monitor) monitor->setMessage("Installing call fixups...");
 
+    static int callFixupDepth = 0;
+    ++callFixupDepth;
+    if (callFixupDepth > 1) {
+        Msg::info("CallFixup", "second pass skip depth=" + std::to_string(callFixupDepth));
+        --callFixupDepth;
+        return true;
+    }
+    Msg::info("CallFixup", "added() called depth=" + std::to_string(callFixupDepth));
+
     FunctionIterator funcIter = funcMgr->getFunctions(set, true);
+    Msg::info("CallFixup", "got FunctionIterator");
+    int count = 0;
     while (funcIter.hasNext()) {
+        ++count;
+        if (count == 1) Msg::info("CallFixup", "first next() ok");
+        if ((count % 100) == 0) Msg::info("CallFixup", "iter count=" + std::to_string(count));
         if (monitor && monitor->isCancelled()) return false;
 
         Function* function = funcIter.next();

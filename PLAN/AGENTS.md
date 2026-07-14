@@ -160,6 +160,13 @@ classes from `decompiler/*.hh` instead.
 - **Update status**: edit `Enigma-Engine/PLAN/PROGRESS.md` after any meaningful
   change set. It is the single source of truth for what is done / next.
 
+### Decompiler output formatting
+- `src/decompiler/CFormatter.h` + `CFormatter.cpp` — post-processing formatter
+  applied to decompiled C output in `DecompInterface.cpp` after `cleanCOutput()`.
+  Rules: 4-space indent, K&R braces, `} else {` same line, max 1 blank line,
+  ~100-char line break, consistent operator/comma spacing. Operates on plain text
+  (not AST), so it applies uniformly to all functions regardless of complexity.
+
 ## GUI architecture
 
 ```
@@ -172,13 +179,16 @@ CMakeLists.txt         enigma_gui target (FetchContent ADS, link Qt6::Widgets + 
 - **MainWindow** (QMainWindow): owns `ads::CDockManager`, menu bar, toggle actions, seek hub, and the shared `SelectionManager`
   - **Explorer** (FunctionExplorer, Left dock): QTreeView with bold categories, monospace addresses, filter + clear
 - **DisassemblyFieldView** (Center dock): custom `QAbstractScrollArea` (`FieldView` subclass) with cell-grid rendering, token-model syntax coloring, glyph-height blinking caret, and field-level selection
-- **DecompilerView** (Right dock, tab 1): `CodePlainTextEdit` (QPlainTextEdit) with CppHighlighter; word-level selection + occurrence highlight
+- **DecompilerView** (Right dock, tab 1): custom `QAbstractScrollArea` (`FieldView` subclass) with VSCode-style line number gutter, C syntax tokenization (`tokenizeCLine`), XML markup parsing (`documentFromMarkup`), and word-level selection + occurrence highlight. Token kinds: Plain, Address, Bytes, Mnemonic, Branch, Register, Immediate, Number, MemRef, Punctuation, Label, Function, Variable, Type, Keyword, String, Comment, BracesOuter, BracesInner, Operator, Semicolon.
 - **HexView** (Right dock, tab 2): custom `QAbstractScrollArea` painting offset/hex/ASCII; highlights the byte range of the currently selected instruction
   - **ConsoleWidget** (Bottom dock): QPlainTextEdit, title bar hidden via `HideSingleWidgetTitleBar`
 
 ### Shared editor theme (`EditorTheme`)
 - `src/gui/EditorTheme.h/.cpp` is the single source of truth for font family (`JetBrains Mono`), size (10 pt), weights (Normal 400 / Medium 500), cell metrics, line spacing (1.35), and token colors.
 - All text views (`FieldView`, `CodePlainTextEdit`, `HexView`) read font and spacing from `EditorTheme`.
+- **Token kinds** (21 total): Plain, Address, Bytes, Mnemonic, Branch, Register, Immediate, Number, MemRef, Punctuation, Label, Function, Variable, Type, Keyword, String, Comment, BracesOuter, BracesInner, Operator, Semicolon.
+- **Color table** pre-computed for O(1) per-token lookup: `colorTable()` returns `const QColor*` indexed by `TokenKind`.
+- **Font table** pre-computed: `fontTable()` returns `const QFont*` — `emphasisFont` (Medium 500) for Mnemonic, Branch, Type, Keyword, BracesOuter, BracesInner, Semicolon, Punctuation; `baseFont` (Normal 400) for all others.
 
 ### Navigation sync (`CutterSeekable`)
 - Pure virtual interface in `src/include/gui/CutterSeekable.h` (no QObject base)
@@ -463,3 +473,11 @@ dispatching tasks.
     `cmake -S . -B build-cmake -G "MSYS Makefiles" -DCMAKE_BUILD_TYPE=Debug` then
     `cmake --build build-cmake --target enigma_gui` then
     `./build-cmake/enigma_gui.exe`
+45. **W~BB Decompiler Pipeline Fixes & GUI Polish**: Fixed 5 root causes in call graph
+    analysis (call graph corruption, entry callee over-classification, body expansion,
+    CRT API misclassification, named import bonus). MinGW CRT naming, string literal
+    recovery, halt_baddata 38→0, duplicates 0. GUI crash fix (missing `isExecutableAddress`
+    check for non-executable `.idata` addresses). `isExecutableAddress` O(log N) binary
+    search. GUI paint performance (cached fonts/colors). Line numbers in decompiler view.
+    21 token kinds with K&R color scheme. `CFormatter` post-processing formatter
+    (4-space indent, K&R braces, `} else {` same line, ~100-char line breaks).

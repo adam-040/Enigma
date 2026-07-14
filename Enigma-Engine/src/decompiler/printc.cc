@@ -3588,31 +3588,46 @@ string PrintC::genericFunctionName(const Address &addr)
 
 string PrintC::genericTypeName(const Datatype *ct)
 {
-  ostringstream s;
+  int4 size = ct->getSize();
   switch(ct->getMetatype()) {
   case TYPE_INT:
-    s << "int";
-    break;
+    if (size == 1) return "int8_t";
+    if (size == 2) return "int16_t";
+    if (size >= 3 && size <= 4) return "int32_t";
+    if (size >= 5 && size <= 8) return "int64_t";
+    return "int64_t";
   case TYPE_UINT:
-    s << "uint";
-    break;
+    if (size == 1) return "uint8_t";
+    if (size == 2) return "uint16_t";
+    if (size >= 3 && size <= 4) return "uint32_t";
+    if (size >= 5 && size <= 8) return "uint64_t";
+    return "uint64_t";
   case TYPE_UNKNOWN:
-    s << "uint8_t";
-    break;
+    if (size == 1) return "uint8_t";
+    if (size == 2) return "uint16_t";
+    if (size >= 3 && size <= 4) return "uint32_t";
+    if (size >= 5 && size <= 8) return "uint64_t";
+    return "uint8_t";
   case TYPE_SPACEBASE:
-    s << "BADSPACEBASE";
-    return s.str();
+    return "BADSPACEBASE";
   case TYPE_FLOAT:
-    s << "float";
-    break;
+    if (size == 4) return "float";
+    if (size == 8) return "double";
+    if (size == 16) return "long double";
+    return "float";
   default:
-    s << "BADTYPE";
-    return s.str();
+    return "BADTYPE";
   }
-  if (ct->getMetatype() != TYPE_UNKNOWN) {
-    s << (ct->getSize() == 4 ? "" : std::to_string(ct->getSize()));
-  }
-  return s.str();
+}
+
+void PrintC::opPiece(const PcodeOp *op)
+{
+  int4 shift = op->getIn(1)->getSize() * 8;
+  pushOp(&bitwise_or, op);
+  pushOp(&shift_left, op);
+  pushVn(op->getIn(0), op, 0);
+  pushConstant(shift, (const Datatype *)0, vartoken, (const Varnode *)0, op, 0);
+  pushVn(op->getIn(1), op, 0);
 }
 
 } // End namespace ghidra_decompiler

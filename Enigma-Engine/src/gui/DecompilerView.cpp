@@ -20,7 +20,8 @@ QColor DecompilerView::colorForKind(TokenKind kind) const {
     case TokenKind::Immediate:
     case TokenKind::Number:      return QColor(0xb8, 0x4e, 0x4e); // brown (like immediates in disasm)
     case TokenKind::Register:    return QColor(0x00, 0x70, 0xc0); // blue
-    default:                     return QColor(0x1e, 0x1e, 0x1e); // dark text (variables, labels, punctuation)
+    case TokenKind::Punctuation: return QColor(0x80, 0x80, 0x80); // medium gray — easy to track
+    default:                     return QColor(0x1e, 0x1e, 0x1e); // dark text (variables, labels)
     }
 }
 
@@ -36,7 +37,6 @@ static const QSet<QString>& cKeywords() {
         "break", "continue", "return", "goto", "sizeof", "typedef",
         "struct", "union", "enum", "const", "static", "extern", "volatile",
         "register", "inline", "auto", "restrict",
-        "__stdcall", "__cdecl", "__fastcall", "__thiscall",
         "true", "false", "nullptr", "NULL",
     };
     return kw;
@@ -107,7 +107,7 @@ TokenKind DecompilerView::classifyCWord(const QString& id) {
 
 // ── Simple C tokenizer ───────────────────────────────────────────────────────
 
-std::vector<Token> DecompilerView::tokenizeCLine(const QString& line) {
+std::vector<Token> DecompilerView::tokenizeCLine(const QString& line, int& braceDepth, int& parenDepth) {
     std::vector<Token> result;
     const int n = line.size();
     int i = 0;
@@ -220,6 +220,38 @@ std::vector<Token> DecompilerView::tokenizeCLine(const QString& line) {
             continue;
         }
 
+        // ── braces {} with depth tracking ──
+        if (c == '{' || c == '}') {
+            Token t;
+            t.text = line.mid(i, 1);
+            if (c == '{') {
+                t.kind = (braceDepth == 0) ? TokenKind::BracesOuter : TokenKind::BracesInner;
+                ++braceDepth;
+            } else {
+                --braceDepth;
+                t.kind = (braceDepth == 0) ? TokenKind::BracesOuter : TokenKind::BracesInner;
+            }
+            result.push_back(t);
+            ++i;
+            continue;
+        }
+
+        // ── parens () with depth tracking ──
+        if (c == '(' || c == ')') {
+            Token t;
+            t.text = line.mid(i, 1);
+            if (c == '(') {
+                t.kind = (parenDepth == 0) ? TokenKind::BracesOuter : TokenKind::BracesInner;
+                ++parenDepth;
+            } else {
+                --parenDepth;
+                t.kind = (parenDepth == 0) ? TokenKind::BracesOuter : TokenKind::BracesInner;
+            }
+            result.push_back(t);
+            ++i;
+            continue;
+        }
+
         // ── multi-char operators ──
         if (i + 1 < n) {
             QString two = line.mid(i, 2);
@@ -230,7 +262,7 @@ std::vector<Token> DecompilerView::tokenizeCLine(const QString& line) {
                 two == QStringLiteral("<<") || two == QStringLiteral(">>") ||
                 two == QStringLiteral("+=") || two == QStringLiteral("-=") ||
                 two == QStringLiteral("*=") || two == QStringLiteral("/=")) {
-                Token t; t.text = two; t.kind = TokenKind::Punctuation;
+                Token t; t.text = two; t.kind = TokenKind::Operator;
                 result.push_back(t);
                 i += 2;
                 continue;
@@ -239,7 +271,18 @@ std::vector<Token> DecompilerView::tokenizeCLine(const QString& line) {
 
         // ── single-char punctuation / operator ──
         {
-            Token t; t.text = line.mid(i, 1); t.kind = TokenKind::Punctuation;
+            Token t; t.text = line.mid(i, 1);
+            QChar ch = line[i];
+            if (ch == ';')
+                t.kind = TokenKind::Semicolon;
+            else if (ch == '.' || ch == ',' || ch == '[' || ch == ']' ||
+                     ch == '=' || ch == '+' || ch == '-' || ch == '*' ||
+                     ch == '/' || ch == '|' || ch == '&' || ch == '^' ||
+                     ch == '<' || ch == '>' || ch == '!' || ch == '~' ||
+                     ch == '?')
+                t.kind = TokenKind::Operator;
+            else
+                t.kind = TokenKind::Punctuation;
             result.push_back(t);
             ++i;
         }
@@ -260,10 +303,35 @@ static TokenKind kindForMarkupElement(const QString& name, int color, const QStr
     if (name == QStringLiteral("value")) return TokenKind::Immediate;
     if (name == QStringLiteral("op")) {
         if (color == 0) return TokenKind::Keyword;
+        QString t = content.trimmed();
+        if (t == QStringLiteral(";")) return TokenKind::Semicolon;
+        if (t.size() == 1) {
+            QChar ch = t[0];
+            if (ch == '=' || ch == '+' || ch == '-' || ch == '*' ||
+                ch == '/' || ch == '|' || ch == '&' || ch == '^' ||
+                ch == '<' || ch == '>')
+                return TokenKind::Operator;
+        }
+        return TokenKind::Operator;
+    }
+    if (name == QStringLiteral("syntax")) {
+        if (content.trimmed().isEmpty()) return TokenKind::Plain;
+        QString t = content.trimmed();
+        if (t == QStringLiteral(";")) return TokenKind::Semicolon;
+        if (cKeywords().contains(t)) return TokenKind::Keyword;
+        if (cTypes().contains(t))    return TokenKind::Type;
+        if (t.startsWith(QStringLiteral("__"))) return TokenKind::Operator;
+        if (t.size() == 1) {
+            QChar ch = t[0];
+            if (ch == '.' || ch == ',' || ch == '[' || ch == ']' ||
+                ch == '=' || ch == '+' || ch == '-' || ch == '*' ||
+                ch == '/' || ch == '|' || ch == '&' || ch == '^' ||
+                ch == '<' || ch == '>' || ch == '!' || ch == '~' ||
+                ch == '?')
+                return TokenKind::Operator;
+        }
         return TokenKind::Punctuation;
     }
-    if (name == QStringLiteral("syntax"))
-        return content.trimmed().isEmpty() ? TokenKind::Plain : TokenKind::Punctuation;
     return TokenKind::Plain;
 }
 
@@ -284,6 +352,8 @@ std::unique_ptr<Document> DecompilerView::documentFromMarkup(
     Line line;
     line.addr = funcAddr;
     uint64_t statementAddr = funcAddr;
+    int braceDepth = 0;
+    int parenDepth = 0;
 
     auto flushLine = [&]() {
         doc->addLine(std::move(line));
@@ -390,6 +460,27 @@ std::unique_ptr<Document> DecompilerView::documentFromMarkup(
                 if (refined != TokenKind::Plain)
                     t.kind = refined;
             }
+            // Apply depth-based coloring for braces and parens in syntax tokens
+            if (t.kind == TokenKind::Punctuation) {
+                QString trimmed = parts[i].trimmed();
+                if (trimmed == QStringLiteral("{") || trimmed == QStringLiteral("}")) {
+                    if (trimmed == QStringLiteral("{")) {
+                        t.kind = (braceDepth == 0) ? TokenKind::BracesOuter : TokenKind::BracesInner;
+                        ++braceDepth;
+                    } else {
+                        --braceDepth;
+                        t.kind = (braceDepth == 0) ? TokenKind::BracesOuter : TokenKind::BracesInner;
+                    }
+                } else if (trimmed == QStringLiteral("(") || trimmed == QStringLiteral(")")) {
+                    if (trimmed == QStringLiteral("(")) {
+                        t.kind = (parenDepth == 0) ? TokenKind::BracesOuter : TokenKind::BracesInner;
+                        ++parenDepth;
+                    } else {
+                        --parenDepth;
+                        t.kind = (parenDepth == 0) ? TokenKind::BracesOuter : TokenKind::BracesInner;
+                    }
+                }
+            }
             t.addr = tokenAddr != 0 ? tokenAddr : (statementAddr != 0 ? statementAddr : funcAddr);
             if (line.addr == 0)
                 line.addr = t.addr;
@@ -412,6 +503,9 @@ void DecompilerView::showDecompiled(const QString& text, uint64_t funcAddr) {
 
     const QStringList rawLines = text.split('\n');
 
+    int braceDepth = 0;
+    int parenDepth = 0;
+
     for (const QString& raw : rawLines) {
         Line l;
         l.addr = funcAddr;   // all lines map to the function entry
@@ -422,7 +516,7 @@ void DecompilerView::showDecompiled(const QString& text, uint64_t funcAddr) {
             continue;
         }
 
-        auto tokens = tokenizeCLine(raw);
+        auto tokens = tokenizeCLine(raw, braceDepth, parenDepth);
         for (auto& t : tokens) {
             t.addr = funcAddr;
             l.tokens.push_back(t);

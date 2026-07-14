@@ -22,7 +22,7 @@ signals:
 private:
     QColor colorForKind(TokenKind kind) const override;
     bool isBoldKind(TokenKind kind) const override;
-    std::vector<Token> tokenizeCLine(const QString& line);
+    std::vector<Token> tokenizeCLine(const QString& line, int& braceDepth, int& parenDepth);
     std::unique_ptr<Document> documentFromMarkup(
         const QString& markupXml,
         uint64_t funcAddr,

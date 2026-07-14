@@ -269,6 +269,8 @@ void HexView::paintEvent(QPaintEvent* event) {
     int last = std::min((scrollY + vpH) / cellH + 1, doc->lineCount() - 1);
     QFont baseFont = EditorTheme::baseFont();
     QFont emphFont = EditorTheme::emphasisFont();
+    const QColor* colorTbl = EditorTheme::colorTable();
+    const QFont* fontTbl = EditorTheme::fontTable();
     int headerH = cellH;
 
     // Byte-index range selection
@@ -426,9 +428,9 @@ void HexView::paintEvent(QPaintEvent* event) {
             if ((isPrimary || isCross) && byteStart < 0)
                 painter.setPen(Qt::white);
             else
-                painter.setPen(EditorTheme::colorFor(tok.kind));
+                painter.setPen(colorTbl[static_cast<int>(tok.kind)]);
 
-            painter.setFont(isBoldKind(tok.kind) ? emphFont : baseFont);
+            painter.setFont(fontTbl[static_cast<int>(tok.kind)]);
             painter.drawText(tx, ty, tok.text);
         }
     }

@@ -6,7 +6,11 @@
 enum class TokenKind {
     Plain, Address, Bytes, Mnemonic, Branch, Register, Immediate,
     Number, MemRef, Punctuation, Label, Function, Variable,
-    Type, Keyword, String, Comment
+    Type, Keyword, String, Comment,
+    BracesOuter,   // external {} () — yellow
+    BracesInner,   // internal {} () — light pink
+    Operator,      // = + - * / | & — dark
+    Semicolon      // ; — red
 };
 
 struct SelectionState {
