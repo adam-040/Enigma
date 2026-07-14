@@ -149,7 +149,8 @@ static const char* const kCrtPrefixes[] = {
 static void buildSymbolMaps(
         Program* program,
         std::unordered_map<uint64_t, std::string>& addrToName,
-        std::unordered_map<std::string, uint64_t>& nameToAddr) {
+        std::unordered_map<std::string, uint64_t>& nameToAddr,
+        std::map<uint64_t, std::string>& addrToNameSafe) {
 
     auto* funcMgr = program->getFunctionManager();
     auto* symTable = program->getSymbolTable();
@@ -164,8 +165,10 @@ static void buildSymbolMaps(
             if (off == 0) continue;
             std::string name = f->getName();
             if (!name.empty()) {
-                if (addrToName.find(off) == addrToName.end())
+                if (addrToName.find(off) == addrToName.end()) {
                     addrToName[off] = name;
+                    addrToNameSafe[off] = name;
+                }
                 if (nameToAddr.find(name) == nameToAddr.end())
                     nameToAddr[name] = off;
             }
@@ -180,10 +183,19 @@ static void buildSymbolMaps(
             if (!sym || sym->getName().empty()) continue;
             uint64_t off = static_cast<uint64_t>(sym->getAddress().getOffset());
             if (off == 0) continue;
-            if (addrToName.find(off) == addrToName.end())
+            if (addrToName.find(off) == addrToName.end()) {
                 addrToName[off] = sym->getName();
-            if (nameToAddr.find(sym->getName()) == nameToAddr.end())
+                addrToNameSafe[off] = sym->getName();
+            }
+            if (nameToAddr.find(sym->getName()) == nameToAddr.end()) {
                 nameToAddr[sym->getName()] = off;
+            }
+            // Also index symbol name by address (for exact-name lookups).
+            // Only add if different from the existing primary name.
+            auto ait = addrToNameSafe.find(off);
+            if (ait != addrToNameSafe.end() && ait->second != sym->getName()) {
+                addrToNameSafe[off] = sym->getName();   // prefer symbol name
+            }
         }
     }
 }
@@ -313,7 +325,8 @@ bool MainRecognitionAnalyzer::added(Program* program,
     // ----------------------------------------------------------------
     std::unordered_map<uint64_t, std::string> addrToName;
     std::unordered_map<std::string, uint64_t> nameToAddr;
-    buildSymbolMaps(program, addrToName, nameToAddr);
+    std::map<uint64_t, std::string> addrToNameSafe;
+    buildSymbolMaps(program, addrToName, nameToAddr, addrToNameSafe);
 
     // ----------------------------------------------------------------
     // 2. Build direct call-graph (caller → [callees])
@@ -349,44 +362,9 @@ bool MainRecognitionAnalyzer::added(Program* program,
 
     Msg::info("MainRecognition", "entry point at 0x" + std::to_string(entryPoint) +
               ", call graph has " + std::to_string(callGraph.size()) + " callers");
-
-    // ----------------------------------------------------------------
-    // 4. Classify functions as CRT by behavioural signature
-    // ----------------------------------------------------------------
-    static const std::string kThunkPrefix = "thunk_";
-
-    auto classifyByBehavior = [&](uint64_t addr) -> std::pair<bool, std::string> {
-        // First: check if this function's own name is a known CRT API
-        auto selfNit = addrToName.find(addr);
-        if (selfNit != addrToName.end()) {
-            const std::string& selfName = selfNit->second;
-            if (kCrtStartupApis.count(selfName))
-                return {true, selfName};
-            if (selfName.size() > kThunkPrefix.size() &&
-                selfName.rfind(kThunkPrefix, 0) == 0) {
-                std::string stripped = selfName.substr(kThunkPrefix.size());
-                if (kCrtStartupApis.count(stripped))
-                    return {true, stripped};
-            }
-        }
-        // Then: check callees
-        auto it = callGraph.find(addr);
-        if (it == callGraph.end()) return {false, ""};
-        for (uint64_t callee : it->second) {
-            auto nit = addrToName.find(callee);
-            if (nit == addrToName.end()) continue;
-            const std::string& rawName = nit->second;
-            if (kCrtStartupApis.count(rawName))
-                return {true, rawName};
-            if (rawName.size() > kThunkPrefix.size() &&
-                rawName.rfind(kThunkPrefix, 0) == 0) {
-                std::string stripped = rawName.substr(kThunkPrefix.size());
-                if (kCrtStartupApis.count(stripped))
-                    return {true, stripped};
-            }
-        }
-        return {false, ""};
-    };
+    Msg::info("MainRecognition", "after entry msg");
+    Msg::info("MainRecognition", "phase 4 skipped");
+    Msg::info("MainRecognition", "start simplified analysis");
 
     // Simplified analysis (bypasses GCC 16.1.0 unordered_map hang bug).
     // Copy callGraph data into plain containers.
@@ -403,12 +381,34 @@ bool MainRecognitionAnalyzer::added(Program* program,
     std::map<uint64_t, float> mainCandidates;
     std::set<uint64_t> classifiedCrt;
 
-    // Classify functions with underscore names as CRT.
-    for (auto& kv : addrToName) {
+    // Classify functions as CRT if:
+    // 1. They have an underscore name (_*, __*), OR
+    // 2. Any callee is a known CRT startup API (e.g. __getmainargs).
+    const std::set<std::string> kCrtApiNames = {
+        "__getmainargs", "__wgetmainargs", "_initterm", "_initterm_e",
+        "main", "WinMain", "wmain", "wWinMain"
+    };
+    for (size_t ci = 0; ci < crtGraphCallers.size(); ++ci) {
+        uint64_t addr = crtGraphCallers[ci];
+        auto nit = addrToNameSafe.find(addr);
+        if (nit != addrToNameSafe.end() && !nit->second.empty() && nit->second[0] == '_') {
+            classifiedCrt.insert(addr);
+            continue;
+        }
+        for (uint64_t callee : crtGraphCallees[ci]) {
+            auto cn = addrToNameSafe.find(callee);
+            if (cn == addrToNameSafe.end()) continue;
+            if (kCrtApiNames.count(cn->second)) {
+                classifiedCrt.insert(addr);
+                break;
+            }
+        }
+    }
+    // Also classify underscore-named addrToNameSafe entries not in the graph
+    for (auto& kv : addrToNameSafe) {
         if (!kv.second.empty() && kv.second[0] == '_')
             classifiedCrt.insert(kv.first);
     }
-
     // Find direct callees of entry point as main candidates.
     if (entryPoint != 0) {
         auto eit = graphAddrToIndex.find(entryPoint);
@@ -416,8 +416,8 @@ bool MainRecognitionAnalyzer::added(Program* program,
             for (uint64_t callee : crtGraphCallees[eit->second]) {
                 if (callee == 0 || classifiedCrt.count(callee)) continue;
                 float conf = 0.80f;
-                auto nit = addrToName.find(callee);
-                bool anon = (nit == addrToName.end() || isAutoName(nit->second));
+                auto nit = addrToNameSafe.find(callee);
+                bool anon = (nit == addrToNameSafe.end() || isAutoName(nit->second));
                 if (anon) conf += 0.10f;
                 mainCandidates[callee] = conf;
             }
@@ -445,15 +445,12 @@ bool MainRecognitionAnalyzer::added(Program* program,
     // 5. Select best candidate
     // ----------------------------------------------------------------
 
-    {
-        std::string candMsg = "main candidates:";
-        for (auto& mc : mainCandidates) {
-            auto nit = addrToName.find(mc.first);
-            std::string name = (nit != addrToName.end()) ? nit->second : "(unnamed)";
-            candMsg += " 0x" + std::to_string(mc.first) + "[" + name + "]=" +
-                       std::to_string(mc.second);
-        }
-        Msg::info("MainRecognition", candMsg);
+    // Find addresses of exactly-named "main", "WinMain", "wmain" in addrToNameSafe.
+    uint64_t exactMainAddr = 0, exactWinMainAddr = 0, exactWmainAddr = 0;
+    for (auto& kv : addrToNameSafe) {
+        if (kv.second == "main")       exactMainAddr = kv.first;
+        if (kv.second == "WinMain")    exactWinMainAddr = kv.first;
+        if (kv.second == "wmain")      exactWmainAddr = kv.first;
     }
 
     uint64_t bestAddr = 0;
@@ -472,8 +469,8 @@ bool MainRecognitionAnalyzer::added(Program* program,
             for (uint64_t callee : crtCallees) {
                 if (callee == addr) {
                     for (uint64_t gc : crtCallees) {
-                        auto gn = addrToName.find(gc);
-                        if (gn != addrToName.end() && gn->second == "__wgetmainargs") {
+                        auto gn = addrToNameSafe.find(gc);
+                        if (gn != addrToNameSafe.end() && gn->second == "__wgetmainargs") {
                             wideChar = true;
                         }
                     }
@@ -481,9 +478,13 @@ bool MainRecognitionAnalyzer::added(Program* program,
             }
         }
 
-        auto nit = addrToName.find(addr);
-        bool anon = (nit == addrToName.end() || isAutoName(nit->second));
+        auto nit = addrToNameSafe.find(addr);
+        bool anon = (nit == addrToNameSafe.end() || isAutoName(nit->second));
         float adjusted = conf + (anon ? 0.05f : 0.0f);
+        // Boost if address matches known main symbol
+        if (addr == exactMainAddr)    adjusted += 0.30f;
+        if (addr == exactWinMainAddr) adjusted += 0.25f;
+        if (addr == exactWmainAddr)   adjusted += 0.25f;
         // Tiebreaker: prefer addresses in executable memory (real code, not data)
         bool addrIsExec = false;
         if (program && program->getMemory()) {
@@ -505,7 +506,7 @@ bool MainRecognitionAnalyzer::added(Program* program,
         }
         if (adjusted > bestConf ||
             (adjusted == bestConf && addrIsExec && !bestIsExec) ||
-            (adjusted == bestConf && addrIsExec == bestIsExec && addr > bestAddr)) {
+            (adjusted == bestConf && addrIsExec == bestIsExec && addr < bestAddr)) {
             bestConf = adjusted; bestAddr = addr;
         }
     }
@@ -517,8 +518,8 @@ bool MainRecognitionAnalyzer::added(Program* program,
     }
 
     {
-        auto nit = addrToName.find(bestAddr);
-        std::string bestName = (nit != addrToName.end()) ? nit->second : "(unnamed)";
+        auto nit = addrToNameSafe.find(bestAddr);
+        std::string bestName = (nit != addrToNameSafe.end()) ? nit->second : "(unnamed)";
         Msg::info("MainRecognition", "selected candidate 0x" +
                   std::to_string(bestAddr) + " [" + bestName + "] confidence=" +
                   std::to_string(bestConf) + " wide=" + (wideChar ? "yes" : "no"));
