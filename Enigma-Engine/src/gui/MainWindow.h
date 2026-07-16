@@ -11,6 +11,8 @@
 #include <QAction>
 #include <QStack>
 #include <QFutureWatcher>
+#include <QReadWriteLock>
+#include <QTimer>
 #include <unordered_map>
 #include <memory>
 #include <cstdint>
@@ -117,7 +119,9 @@ private:
     ghidra::storage::EventLog eventLog_;
 
     ghidra::Function* currentFunction_ = nullptr;
+    int currentFuncVersion_ = -1;  // programVersion_ when currentFunction_ was set
     uint64_t currentAddr_ = 0;
+    int programVersion_ = 0;       // bumped on each loadBinary for stale-pointer detection
     QStack<uint64_t> backStack_;
     QStack<uint64_t> forwardStack_;
     struct DecompCacheEntry {
@@ -126,7 +130,12 @@ private:
         std::vector<std::pair<uint64_t, uint64_t>> opAddresses;
     };
     std::unordered_map<uint64_t, DecompCacheEntry> decompCache_;
+    static constexpr size_t kMaxDecompCache = 100;
+    void evictDecompCache();
+
     QFutureWatcher<void> analysisWatcher_;
+    QReadWriteLock programLock_;
+    bool navBusy_ = false;        // blocking re-entrancy guard for navigateTo
     QString lastConsoleMsg_;
     QString currentBinaryPath_;
     std::string repoPath_;
@@ -153,4 +162,10 @@ private:
     QAction* showBytesAction_;
     SelectionManager* selectionMgr_ = nullptr;
     bool autoClearIndex_ = false;
+    QTimer* navTimer_ = nullptr;
+    uint64_t pendingNavAddr_ = 0;
+    QString pendingNavName_;
+
+    void doNavigate(uint64_t addr, const QString& name);
+    bool isCurrentFunctionValid() const;
 };

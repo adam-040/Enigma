@@ -181,6 +181,31 @@ static std::string cleanOutput(const std::string& raw, bool skipTypeNorm = false
         }
     }
 
+    // 2b. Normalize " ()" -> "()" (remove space before empty parens)
+    {
+        for (size_t pos = 0; (pos = s.find(" ()", pos)) != std::string::npos; ) {
+            s.replace(pos, 3, "()");
+            pos += 2;
+        }
+    }
+
+    // 2c. Remove space before '(' in function calls: "func (arg)" -> "func(arg)"
+    {
+        for (size_t pos = 0; (pos = s.find(" (", pos)) != std::string::npos; ) {
+            if (pos > 0 && (std::isalnum(s[pos-1]) || s[pos-1] == '_' || s[pos-1] == ')')) {
+                size_t start = pos;
+                while (start > 0 && (std::isalnum(s[start-1]) || s[start-1] == '_')) start--;
+                std::string word = s.substr(start, pos - start);
+                if (word != "if" && word != "while" && word != "for" && word != "switch" &&
+                    word != "return" && word != "sizeof" && word != "case" && word != "do") {
+                    s.erase(pos, 1);
+                    continue;
+                }
+            }
+            pos += 2;
+        }
+    }
+
     // 3. Strip noisy WARNING comments (e.g., "Globals starting with '_' overlap...")
     {
         for (size_t pos = 0; (pos = s.find("/* WARNING:", pos)) != std::string::npos; ) {

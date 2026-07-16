@@ -32,6 +32,7 @@ public:
 
     // PatchMemory access
     PatchMemory* patchMemory() { return patchMemory_.get(); }
+    void releasePatchMemory() { patchMemory_.release(); }
     void installPatchMemory(ProgramDB* programDB);
 
     // Registry

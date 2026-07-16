@@ -48,6 +48,25 @@ static std::string stripMarkup(const std::string& xml) {
     return s;
 }
 
+static bool isKeywordPreceding(const std::string& raw, size_t i) {
+    if (i == 0) return false;
+    size_t start = i;
+    while (start > 0 && (std::isalnum(raw[start-1]) || raw[start-1] == '_')) start--;
+    if (start == i) return false;
+    size_t len = i - start;
+    if (len == 2 && raw[start] == 'i' && raw[start+1] == 'f') return true;
+    if (len == 3 && raw.compare(start, 3, "for") == 0) return true;
+    if (len == 4 && raw.compare(start, 4, "case") == 0) return true;
+    if (len == 2 && raw[start] == 'd' && raw[start+1] == 'o') return true;
+    if (len == 5) {
+        if (raw.compare(start, 5, "while") == 0) return true;
+        if (raw.compare(start, 5, "switch") == 0) return true;
+        if (raw.compare(start, 5, "sizeof") == 0) return true;
+    }
+    if (len == 6 && raw.compare(start, 6, "return") == 0) return true;
+    return false;
+}
+
 static std::string cleanCOutput(const std::string& raw) {
     std::string s;
     s.reserve(raw.size());
@@ -56,6 +75,11 @@ static std::string cleanCOutput(const std::string& raw) {
         if (raw[i] == '{' && i + 2 < raw.size() && raw[i+1] == '\n' && raw[i+2] == '\n') { s += "{\n"; i += 3; }
         else if (i + 5 < raw.size() && raw.compare(i, 6, "(void)") == 0) { s += "()"; i += 6; }
         else if (i + 7 < raw.size() && raw.compare(i, 8, "xunknown") == 0) { s += "undefined"; i += 8; }
+        else if (raw[i] == ' ' && i + 1 < raw.size() && raw[i+1] == '(' &&
+                 i > 0 && (std::isalnum(raw[i-1]) || raw[i-1] == '_' || raw[i-1] == ')') &&
+                 !isKeywordPreceding(raw, i)) {
+            s += '('; i += 2;
+        }
         else { s += raw[i++]; }
     }
     return s;
@@ -113,8 +137,13 @@ public:
                   const ghidra_decompiler::Address& addr) override {
         ghidra::Address gAddr(ghidraSpace_, static_cast<int64_t>(addr.getOffset()));
         int nread = 0;
-        if (memory_)
-            nread = memory_->getBytes(gAddr, ptr, size);
+        if (memory_) {
+            try {
+                nread = memory_->getBytes(gAddr, ptr, size);
+            } catch (...) {
+                nread = 0;
+            }
+        }
         if (nread < size) {
             if (nread == 0) {
                 static int warnCount = 0;
@@ -232,6 +261,66 @@ struct DecompInterface::Impl {
                 auto it = symNames->find(off);
                 return (it != symNames->end()) ? it->second : std::string("");
             });
+
+            // Set up variable name provider for data-flow naming of globals
+            Memory* varMem = mem;
+            auto* varSpace = const_cast<ghidra::AddressSpace*>(
+                af ? af->getDefaultAddressSpace() : nullptr);
+            auto* varFuncNames = &symbolNames;
+            pc->setVariableNameProvider([varMem, varSpace, varFuncNames](
+                const ghidra_decompiler::Address& addr, ghidra_decompiler::int4 size) -> std::string {
+                // Only rename global (non-stack) unnamed variables
+                if (addr.getSpace()->getType() == ghidra_decompiler::IPTR_SPACEBASE)
+                    return "";
+                if (!varMem || !varSpace) return "";
+                uint64_t offset = addr.getOffset();
+                // Read the VALUE stored at this global variable's address
+                uint8_t raw[8] = {0};
+                int readSz = size > 8 ? 8 : size;
+                ghidra::Address gAddr(varSpace, static_cast<int64_t>(offset));
+                int n = 0;
+                try { n = varMem->getBytes(gAddr, raw, readSz); } catch (...) { return ""; }
+                if (n < 1) return "";
+                // Interpret as little-endian unsigned value
+                uint64_t val = 0;
+                for (int i = n - 1; i >= 0; --i)
+                    val = (val << 8) | raw[i];
+                if (val == 0) return "";
+                // Check if the value is a known function address
+                if (varFuncNames) {
+                    auto fnIt = varFuncNames->find(val);
+                    if (fnIt != varFuncNames->end()) {
+                        std::string fn = fnIt->second;
+                        if (!fn.empty())
+                            return "p_" + fn;
+                    }
+                }
+                // Check if the value points to a readable ASCII string
+                ghidra::Address ptrAddr(varSpace, static_cast<int64_t>(val));
+                uint8_t strBuf[48] = {0};
+                int strN = 0;
+                try { strN = varMem->getBytes(ptrAddr, strBuf, 48); } catch (...) { return ""; }
+                if (strN > 0) {
+                    bool printable = true;
+                    int slen = 0;
+                    for (int i = 0; i < strN; ++i) {
+                        if (strBuf[i] == 0) break;
+                        if (!std::isprint(strBuf[i])) { printable = false; break; }
+                        ++slen;
+                    }
+                    if (printable && slen >= 2) {
+                        std::string s;
+                        for (int i = 0; i < slen && i < 24; ++i)
+                            s.push_back(strBuf[i]);
+                        std::string safe;
+                        safe.reserve(s.size());
+                        for (char c : s)
+                            safe.push_back(std::isalnum(c) ? c : '_');
+                        return "s_" + safe;
+                    }
+                }
+                return "";
+            });
         }
 
         archInitialized = true;
@@ -272,9 +361,9 @@ struct DecompInterface::Impl {
         if (monitor)
             monitor->setMessage("Decompiling function at 0x" + std::to_string(entryOff));
 
-        ghidra_decompiler::Funcdata* fd = nullptr;
-        try {
-            fd = arch->symboltab->getGlobalScope()->queryFunction(decAddr);
+    ghidra_decompiler::Funcdata* fd = nullptr;
+    try {
+        fd = arch->symboltab->getGlobalScope()->queryFunction(decAddr);
             if (!fd) {
                 std::string funcName = "entry";
                 FunctionManager* fm = program ? program->getFunctionManager() : nullptr;
@@ -372,10 +461,20 @@ struct DecompInterface::Impl {
         }
 
         std::ostringstream xmlStream;
-        arch->print->setOutputStream(&xmlStream);
-        arch->print->setMarkup(true);
-        arch->print->setPackedOutput(false);
-        arch->print->docFunction(fd);
+        try {
+            arch->print->setOutputStream(&xmlStream);
+            arch->print->setMarkup(true);
+            arch->print->setPackedOutput(false);
+            arch->print->docFunction(fd);
+        } catch (const std::exception& e) {
+            if (monitor) monitor->setMessage("C code generation error: " + std::string(e.what()));
+            results.decompiled = false;
+            return results;
+        } catch (...) {
+            if (monitor) monitor->setMessage("C code generation error: unknown exception");
+            results.decompiled = false;
+            return results;
+        }
         std::string markup = xmlStream.str();
         results.markupXml = markup;
         results.cCode = cleanCOutput(stripMarkup(markup));
@@ -480,7 +579,10 @@ std::string DecompInterface::disassembleAt(const Address& addr, int numInstructi
         for (int i = 0; i < numInstructions; i++) {
             ghidra_decompiler::Address decAddr(space, static_cast<ghidra_decompiler::int8>(offset));
             ghidra_decompiler::int4 len = trans->printAssembly(emit, decAddr);
-            if (len <= 0) break;
+            if (len <= 0) {
+                out << "; printAssembly returned " << len << " at offset 0x" << std::hex << offset << std::dec << "\n";
+                break;
+            }
             offset += len;
         }
     } catch (const ghidra_decompiler::LowlevelError& le) {
@@ -488,7 +590,13 @@ std::string DecompInterface::disassembleAt(const Address& addr, int numInstructi
     } catch (const std::exception& e) {
         out << "; Disasm exception at 0x" << std::hex << offset << ": " << e.what() << "\n";
     }
-    return out.str();
+
+    std::string result = out.str();
+    if (result.empty()) {
+        std::cerr << "[disassembleAt] WARNING: returning empty string for addr=0x" << std::hex << addr.getOffset()
+                  << " offset=0x" << offset << " space=" << space->getName() << std::dec << std::endl;
+    }
+    return result;
 }
 
 int DecompInterface::instructionLengthAt(uint64_t offset) const {

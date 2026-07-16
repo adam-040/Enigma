@@ -309,6 +309,41 @@ public:
             arch_->print->docFunction(fd);
 
             result.cCode = cStream.str();
+
+            // Post-process: normalize undefinedN types and strip WARNING comments
+            {
+                std::string& s = result.cCode;
+
+                // Strip /* WARNING: ... */ blocks
+                for (size_t pos = 0; (pos = s.find("/* WARNING:", pos)) != std::string::npos; ) {
+                    size_t end = s.find("*/", pos + 11);
+                    if (end == std::string::npos) break;
+                    end += 2;
+                    size_t lineEnd = s.find('\n', end);
+                    if (lineEnd != std::string::npos && lineEnd == end - 1) {
+                        size_t lineStart = (pos > 0) ? s.rfind('\n', pos - 1) : std::string::npos;
+                        if (lineStart == std::string::npos || lineStart < pos)
+                            lineStart = pos;
+                        s.erase(lineStart + 1, lineEnd - lineStart);
+                        pos = lineStart + 1;
+                    } else {
+                        s.erase(pos, end - pos);
+                    }
+                }
+
+                // Normalize undefined8/4/2/1 -> uint64_t/uint32_t/uint16_t/uint8_t
+                static const char* undefs[] = {"undefined8", "undefined4", "undefined2", "undefined1"};
+                static const char* fixed[]  = {"uint64_t",   "uint32_t",    "uint16_t",   "uint8_t"};
+                for (int i = 0; i < 4; ++i) {
+                    size_t flen = std::strlen(undefs[i]);
+                    size_t tlen = std::strlen(fixed[i]);
+                    for (size_t pos = 0; (pos = s.find(undefs[i], pos)) != std::string::npos; ) {
+                        s.replace(pos, flen, fixed[i]);
+                        pos += tlen;
+                    }
+                }
+            }
+
             result.success = true;
 
         } catch (const ghidra_decompiler::LowlevelError& le) {

@@ -119,6 +119,16 @@ MainWindow::MainWindow(QWidget* parent)
 
     decompInterface_ = std::make_unique<ghidra::DecompInterface>();
     patchManager_ = std::make_unique<ghidra::patch::PatchManager>();
+    navTimer_ = new QTimer(this);
+    navTimer_->setSingleShot(true);
+    navTimer_->setInterval(80);
+    connect(navTimer_, &QTimer::timeout, this, [this]() {
+        if (pendingNavAddr_ != 0) {
+            doNavigate(pendingNavAddr_, pendingNavName_);
+            pendingNavAddr_ = 0;
+            pendingNavName_.clear();
+        }
+    });
 }
 
 MainWindow::~MainWindow() = default;
@@ -503,6 +513,7 @@ void MainWindow::loadBinary(const QString& path) {
     currentBinaryPath_ = path;
     QApplication::processEvents();
 
+    try {
     auto loader = ghidra::createLoader();
     if (!loader) { NAVLOG("createLoader returned null\n"); GUARD_EXIT("loadBinary"); return; }
     NAVLOG("createLoader OK\n");
@@ -691,13 +702,21 @@ void MainWindow::loadBinary(const QString& path) {
         analysisWatcher_.waitForFinished();
     }
 
+    // Write-lock while replacing program and related state.
+    programLock_.lockForWrite();
     analysisMgr_.reset();
     decompCache_.clear();
     backStack_.clear();
     forwardStack_.clear();
     currentFunction_ = nullptr;
     currentAddr_ = 0;
+    ++programVersion_;
 
+    // Release PatchMemory ownership from PatchManager *before* destroying old program,
+    // because the old program owns PatchMemory via memory_.reset(patchMemory_.get())
+    // in installPatchMemory. Without this, the old program's destructor deletes PatchMemory
+    // while PatchManager's unique_ptr still points to it → double-free → crash on second load.
+    patchManager_->releasePatchMemory();
     program_.reset(prog);
     DBG("[loadBinary] installing PatchMemory...\n");
     patchManager_->setProgram(program_.get());
@@ -711,6 +730,9 @@ void MainWindow::loadBinary(const QString& path) {
     hexView_->setPatchMemory(patchManager_->patchMemory());
     DBG("[loadBinary] calling decompInterface_->closeProgram...\n");
     decompInterface_->closeProgram();
+    // Update view pointers to new program immediately (before any failure that could return).
+    disasmView_->setProgram(program_.get());
+    disasmView_->setDecompInterface(decompInterface_.get());
     // Log address factory details
     {
         auto* af = prog->getAddressFactory();
@@ -728,24 +750,25 @@ void MainWindow::loadBinary(const QString& path) {
     }
 
     DBG("[loadBinary] calling decompInterface_->openProgram...\n");
+    bool openOk = false;
     try {
-        if (!decompInterface_->openProgram(prog)) {
-            DBG("[loadBinary] openProgram returned false\n");
-            QMessageBox::warning(this, tr("Error"), tr("Failed to open program in decompiler."));
-            return;
-        }
+        openOk = decompInterface_->openProgram(prog);
     } catch (const std::exception& e) {
         DBG("[loadBinary] openProgram threw: %s\n", e.what());
-        QMessageBox::warning(this, tr("Error"), tr("openProgram threw: %1").arg(e.what()));
-        return;
+        console_->log(QString("openProgram threw: %1").arg(e.what()));
     } catch (...) {
         DBG("[loadBinary] openProgram threw unknown\n");
-        QMessageBox::warning(this, tr("Error"), tr("openProgram threw unknown exception"));
+        console_->log("openProgram threw unknown exception");
+    }
+    if (!openOk) {
+        DBG("[loadBinary] openProgram returned false\n");
+        QMessageBox::warning(this, tr("Error"), tr("Failed to open program in decompiler."));
+        programLock_.unlock();
+        console_->log("Failed to open program in decompiler (architecture may not be supported).");
         return;
     }
     DBG("[loadBinary] openProgram succeeded\n");
-    disasmView_->setProgram(program_.get());
-    disasmView_->setDecompInterface(decompInterface_.get());
+    programLock_.unlock();
 
     // decompInterface_ internally holds prog after openProgram call
 
@@ -769,9 +792,11 @@ void MainWindow::loadBinary(const QString& path) {
     try {
         populateExplorer();
     } catch (const std::exception& e) {
-        NAVLOG("populateExplorer THREW: %s\n", e.what());
-        NAVLOG("RETHROWING - will crash via terminate\n");
-        throw;
+        NAVLOG("populateExplorer THREW: %s - CAUGHT (no crash)\n", e.what());
+        console_->log(QString("populateExplorer error: %1").arg(e.what()));
+    } catch (...) {
+        NAVLOG("populateExplorer THREW unknown - CAUGHT (no crash)\n");
+        console_->log("populateExplorer unknown error");
     }
     NAVLOG("populateExplorer done\n");
 
@@ -803,7 +828,28 @@ void MainWindow::loadBinary(const QString& path) {
 
     NAVLOG("calling runAnalysisAsync...\n");
     runAnalysisAsync();
+    } catch (const std::exception& e) {
+        NAVLOG("loadBinary UNHANDLED EXCEPTION: %s\n", e.what());
+        console_->log(QString("FATAL: loadBinary threw: %1").arg(e.what()));
+        QMessageBox::critical(this, tr("Error"),
+            tr("An unexpected error occurred while loading the binary:\n%1").arg(e.what()));
+    } catch (...) {
+        NAVLOG("loadBinary UNHANDLED EXCEPTION: unknown\n");
+        console_->log("FATAL: loadBinary threw unknown exception");
+        QMessageBox::critical(this, tr("Error"),
+            tr("An unexpected error occurred while loading the binary."));
+    }
     GUARD_EXIT("loadBinary");
+}
+
+bool MainWindow::isCurrentFunctionValid() const {
+    return currentFunction_ != nullptr && currentFuncVersion_ == programVersion_;
+}
+
+void MainWindow::evictDecompCache() {
+    if (decompCache_.size() <= kMaxDecompCache) return;
+    // Evict oldest entries (unordered_map has no order, so just clear all)
+    decompCache_.clear();
 }
 
 void MainWindow::populateExplorer() {
@@ -913,6 +959,8 @@ void MainWindow::runAnalysisAsync() {
 
     auto future = QtConcurrent::run([this]() {
         DBG("[analysis worker] START (thread)\n");
+        // Read-lock the program while analysis runs on the worker thread.
+        programLock_.lockForRead();
         NAVLOG("worker: analysisMgr_=%p program_=%p\n",
             (void*)analysisMgr_.get(), (void*)program_.get());
         if (analysisMgr_) {
@@ -936,6 +984,7 @@ void MainWindow::runAnalysisAsync() {
                 NAVLOG("worker: analyze() threw unknown\n");
             }
         }
+        programLock_.unlock();
         NAVLOG("worker: END\n");
     });
 
@@ -958,15 +1007,11 @@ void MainWindow::onAnalysisFinished() {
     console_->log("+ Analysis completed.");
 
     // Safety: if currentFunction_ belongs to a previous program, null it out
-    if (currentFunction_ && program_) {
-        auto* fm = program_->getFunctionManager();
-        if (fm) {
-            ghidra::Function* check = fm->getFunctionAt(currentFunction_->getEntryPoint());
-            if (check != currentFunction_) {
-                DBG("[onAnalysisFinished] STALE currentFunction_=%p detected, clearing\n",
-                    (void*)currentFunction_);
-                currentFunction_ = nullptr;
-            }
+    if (!isCurrentFunctionValid()) {
+        if (currentFunction_) {
+            DBG("[onAnalysisFinished] STALE currentFunction_=%p detected (version=%d current=%d), clearing\n",
+                (void*)currentFunction_, currentFuncVersion_, programVersion_);
+            currentFunction_ = nullptr;
         }
     }
 
@@ -1003,9 +1048,11 @@ void MainWindow::onAnalysisFinished() {
     try {
         populateExplorer();
     } catch (const std::exception& e) {
-        DBG("[onAnalysisFinished] populateExplorer threw: %s\n", e.what());
-        DBG("[onAnalysisFinished] RETHROWING: this will probably crash\n");
-        throw;
+        DBG("[onAnalysisFinished] populateExplorer threw: %s - CAUGHT (no crash)\n", e.what());
+        console_->log(QString("Analysis: populateExplorer error: %1").arg(e.what()));
+    } catch (...) {
+        DBG("[onAnalysisFinished] populateExplorer threw unknown - CAUGHT (no crash)\n");
+        console_->log("Analysis: populateExplorer unknown error");
     }
 
     DBG("[onAnalysisFinished] checking navigation target...\n");
@@ -1037,18 +1084,28 @@ void MainWindow::onFunctionSelected(uint64_t addr, const QString& name) {
 }
 
 void MainWindow::navigateTo(uint64_t addr, const QString& name) {
+    // Debounce: restart timer on each call; only execute after 80ms of no calls.
+    pendingNavAddr_ = addr;
+    pendingNavName_ = name;
+    navTimer_->start();
+}
+
+void MainWindow::doNavigate(uint64_t addr, const QString& name) {
+    std::cerr << "[doNavigate] ENTER addr=0x" << std::hex << addr << std::dec
+              << " name='" << name.toStdString() << "' navBusy_=" << navBusy_ << std::endl;
     GUARD_ENTER("navigateTo");
     NAVLOG("addr=0x%llx name='%s' currentAddr_=0x%llx currentFunction_=%p program_=%p navSkipFlags_=%d\n",
         addr, name.toStdString().c_str(), currentAddr_, (void*)currentFunction_, (void*)program_.get(), navSkipFlags_);
 
-    if (!program_) { NAVLOG("abort: program_ null\n"); GUARD_EXIT("navigateTo"); return; }
-    if (addr == 0) { NAVLOG("abort: addr==0\n"); GUARD_EXIT("navigateTo"); return; }
+    if (!program_) { std::cerr << "[doNavigate] abort: program_ null" << std::endl; NAVLOG("abort: program_ null\n"); GUARD_EXIT("navigateTo"); return; }
+    if (addr == 0) { std::cerr << "[doNavigate] abort: addr==0" << std::endl; NAVLOG("abort: addr==0\n"); GUARD_EXIT("navigateTo"); return; }
 
-    // Track re-entrant calls
-    static thread_local int navDepth = 0;
-    NAVLOG("navDepth=%d\n", navDepth);
-    if (navDepth > 0) { NAVLOG("WARNING: re-entrant navigateTo!\n"); }
-    ++navDepth;
+    // Blocking re-entrancy guard: drop if already navigating.
+    if (navBusy_) { std::cerr << "[doNavigate] REENTRANT DROPPED" << std::endl; NAVLOG("WARNING: re-entrant navigateTo - DROPPED\n"); GUARD_EXIT("navigateTo"); return; }
+    navBusy_ = true;
+
+    // Read-lock program while navigating (shared with analysis worker).
+    programLock_.lockForRead();
 
     // Read NAV_SKIP from env on first call
     static bool skipInit = false;
@@ -1068,7 +1125,7 @@ void MainWindow::navigateTo(uint64_t addr, const QString& name) {
     try {
         auto* af = program_->getAddressFactory();
         NAVLOG("  addressFactory=%p\n", (void*)af);
-        if (!af) { NAVLOG("ABORT: addressFactory null\n"); --navDepth; GUARD_EXIT("navigateTo"); return; }
+        if (!af) { NAVLOG("ABORT: addressFactory null\n"); programLock_.unlock(); navBusy_ = false; GUARD_EXIT("navigateTo"); return; }
         address = af->oldGetAddressFromLong(addr);
         NAVLOG("  address built: space='%s' offset=0x%llx\n",
             address.getAddressSpace() ? address.getAddressSpace()->getName().c_str() : "(null)",
@@ -1076,11 +1133,11 @@ void MainWindow::navigateTo(uint64_t addr, const QString& name) {
     } catch (const std::exception& e) {
         NAVLOG("STEP1 CRASHED: %s\n", e.what());
         NAVLOG("CRASH at navigateTo step 1 for addr 0x%llx\n", addr);
-        --navDepth; GUARD_EXIT("navigateTo"); return;
+        programLock_.unlock(); navBusy_ = false; GUARD_EXIT("navigateTo"); return;
     } catch (...) {
         NAVLOG("STEP1 CRASHED: unknown exception\n");
         NAVLOG("CRASH at navigateTo step 1 for addr 0x%llx\n", addr);
-        --navDepth; GUARD_EXIT("navigateTo"); return;
+        programLock_.unlock(); navBusy_ = false; GUARD_EXIT("navigateTo"); return;
     }
 
     // ── STEP 2: Navigation stack ──────────────────────────────────────────
@@ -1095,11 +1152,11 @@ void MainWindow::navigateTo(uint64_t addr, const QString& name) {
     } catch (const std::exception& e) {
         NAVLOG("STEP2 CRASHED: %s\n", e.what());
         NAVLOG("CRASH at navigateTo step 2 for addr 0x%llx\n", addr);
-        --navDepth; GUARD_EXIT("navigateTo"); return;
+        programLock_.unlock(); navBusy_ = false; GUARD_EXIT("navigateTo"); return;
     } catch (...) {
         NAVLOG("STEP2 CRASHED: unknown exception\n");
         NAVLOG("CRASH at navigateTo step 2 for addr 0x%llx\n", addr);
-        --navDepth; GUARD_EXIT("navigateTo"); return;
+        programLock_.unlock(); navBusy_ = false; GUARD_EXIT("navigateTo"); return;
     }
 
     // ── STEP 3: Lookup function ───────────────────────────────────────────
@@ -1112,6 +1169,7 @@ void MainWindow::navigateTo(uint64_t addr, const QString& name) {
                 ghidra::Function* newFunc = funcMgr->getFunctionAt(address);
                 NAVLOG("  getFunctionAt -> %p\n", (void*)newFunc);
                 currentFunction_ = newFunc;
+                currentFuncVersion_ = programVersion_;
                 if (newFunc) {
                     NAVLOG("  function: '%s' entry=0x%llx bodySize=%d\n",
                         newFunc->getName().c_str(),
@@ -1125,17 +1183,27 @@ void MainWindow::navigateTo(uint64_t addr, const QString& name) {
             NAVLOG("STEP3 CRASHED: %s\n", e.what());
             NAVLOG("CRASH at navigateTo step 3 for addr 0x%llx\n", addr);
             currentFunction_ = nullptr;
+            programLock_.unlock(); navBusy_ = false; GUARD_EXIT("navigateTo"); return;
         } catch (...) {
             NAVLOG("STEP3 CRASHED: unknown exception\n");
             NAVLOG("CRASH at navigateTo step 3 for addr 0x%llx\n", addr);
             currentFunction_ = nullptr;
+            programLock_.unlock(); navBusy_ = false; GUARD_EXIT("navigateTo"); return;
         }
     } else {
         NAVLOG("STEP3: SKIPPED (NavSkip_FunctionLookup)\n");
     }
 
     // Sync explorer highlight to the navigated address
-    explorer_->highlightAddress(addr);
+    try {
+        explorer_->highlightAddress(addr);
+    } catch (const std::exception& e) {
+        NAVLOG("EXPLORER HIGHLIGHT CRASHED: %s\n", e.what());
+        programLock_.unlock(); navBusy_ = false; GUARD_EXIT("navigateTo"); return;
+    } catch (...) {
+        NAVLOG("EXPLORER HIGHLIGHT CRASHED: unknown exception\n");
+        programLock_.unlock(); navBusy_ = false; GUARD_EXIT("navigateTo"); return;
+    }
 
     // ── STEP 4: Status bar update ────────────────────────────────────────
     NAVLOG("STEP4: updating status bar\n");
@@ -1145,77 +1213,96 @@ void MainWindow::navigateTo(uint64_t addr, const QString& name) {
     } catch (const std::exception& e) {
         NAVLOG("STEP4 CRASHED: %s\n", e.what());
         NAVLOG("CRASH at navigateTo step 4 for addr 0x%llx\n", addr);
-        --navDepth; GUARD_EXIT("navigateTo"); return;
+        programLock_.unlock(); navBusy_ = false; GUARD_EXIT("navigateTo"); return;
     } catch (...) {
         NAVLOG("STEP4 CRASHED: unknown exception\n");
         NAVLOG("CRASH at navigateTo step 4 for addr 0x%llx\n", addr);
-        --navDepth; GUARD_EXIT("navigateTo"); return;
+        programLock_.unlock(); navBusy_ = false; GUARD_EXIT("navigateTo"); return;
     }
 
     // ── STEP 5: Disassemble ──────────────────────────────────────────────
-    QString asmText;
     if (!(navSkipFlags_ & NavSkip_Disasm)) {
         NAVLOG("STEP5: disassembleAt(0x%llx)...\n", addr);
-        bool usedFullListing = false;
+
+        // DIRECT: always use disassembleAt (skip buildFullIndex)
+        QString asmText;
         try {
-            if (disasmView_->totalInstructions() == 0) {
-                NAVLOG("STEP5: building full index...\n");
-                disasmView_->buildFullIndex();
-            }
-            if (disasmView_->totalInstructions() > 0) {
-                NAVLOG("STEP5: using virtualized listing, seekToAddress\n");
-                disasmView_->seekToAddress(addr);
-                usedFullListing = true;
+            bool disasmOk = decompInterface_ && decompInterface_->isOpen();
+            NAVLOG("  decompInterface_->isOpen()=%d\n", disasmOk);
+            if (disasmOk) {
+                asmText = QString::fromStdString(
+                    decompInterface_->disassembleAt(address, 50));
+                NAVLOG("  disassembly produced %d chars\n", asmText.size());
             } else {
-                NAVLOG("STEP5: full index built but 0 instructions, falling back\n");
+                NAVLOG("  disassembly SKIPPED (decompInterface not open)\n");
             }
         } catch (const std::exception& e) {
-            NAVLOG("STEP5: fullIndex build threw: %s\n", e.what());
+            NAVLOG("STEP5 CRASHED: %s\n", e.what());
+            NAVLOG("CRASH at navigateTo step 5 for addr 0x%llx\n", addr);
+            std::cerr << "[doNavigate] STEP5 CRASHED: " << e.what() << std::endl;
+            programLock_.unlock(); navBusy_ = false; GUARD_EXIT("navigateTo"); return;
         } catch (...) {
-            NAVLOG("STEP5: fullIndex build threw unknown\n");
+            NAVLOG("STEP5 CRASHED: unknown exception\n");
+            NAVLOG("CRASH at navigateTo step 5 for addr 0x%llx\n", addr);
+            std::cerr << "[doNavigate] STEP5 CRASHED: unknown" << std::endl;
+            programLock_.unlock(); navBusy_ = false; GUARD_EXIT("navigateTo"); return;
         }
 
-        if (!usedFullListing) {
-            try {
-                bool disasmOk = decompInterface_ && decompInterface_->isOpen();
-                NAVLOG("  decompInterface_->isOpen()=%d\n", disasmOk);
-                if (disasmOk) {
-                    asmText = QString::fromStdString(
-                        decompInterface_->disassembleAt(address, 50));
-                    NAVLOG("  disassembly produced %d chars\n", asmText.size());
-                } else {
-                    NAVLOG("  disassembly SKIPPED (decompInterface not open)\n");
-                }
-            } catch (const std::exception& e) {
-                NAVLOG("STEP5 CRASHED: %s\n", e.what());
-                NAVLOG("CRASH at navigateTo step 5 for addr 0x%llx\n", addr);
-                asmText = QString();
-            } catch (...) {
-                NAVLOG("STEP5 CRASHED: unknown exception\n");
-                NAVLOG("CRASH at navigateTo step 5 for addr 0x%llx\n", addr);
-                asmText = QString();
+        try {
+            if (!asmText.isEmpty()) {
+                NAVLOG("STEP5b: showDisassembly...\n");
+                disasmView_->showDisassembly(asmText);
+                NAVLOG("  showDisassembly done\n");
+            } else {
+                NAVLOG("STEP5b: disassembly empty, showing diagnostic\n");
+                std::cerr << "[doNavigate] disassembleAt returned empty for 0x" << std::hex << addr << std::dec << std::endl;
+                QString diag = QString(
+                    "; Disassembly returned no output for 0x%1\n"
+                    "; isOpen=%2\n")
+                    .arg(addr, 0, 16)
+                    .arg(decompInterface_ ? (decompInterface_->isOpen() ? "yes" : "no") : "null");
+                std::cerr << "[doNavigate] calling showDisassembly with diagnostic" << std::endl;
+                disasmView_->showDisassembly(diag);
+                std::cerr << "[doNavigate] after showDisassembly (diagnostic), document="
+                          << (void*)disasmView_->document()
+                          << " lineCount="
+                          << (disasmView_->document() ? disasmView_->document()->lineCount() : 0)
+                          << std::endl;
             }
-
-            try {
-                if (!asmText.isEmpty()) {
-                    NAVLOG("STEP5b: showDisassembly (fallback)...\n");
-                    disasmView_->showDisassembly(asmText);
-                    NAVLOG("  showDisassembly done\n");
-                } else {
-                    NAVLOG("STEP5b: clearing disassembly (empty text)\n");
-                    disasmView_->clearDocument();
-                }
-            } catch (const std::exception& e) {
-                NAVLOG("STEP5b CRASHED: %s\n", e.what());
-                NAVLOG("CRASH at navigateTo step 5b for addr 0x%llx\n", addr);
-            } catch (...) {
-                NAVLOG("STEP5b CRASHED: unknown exception\n");
-                NAVLOG("CRASH at navigateTo step 5b for addr 0x%llx\n", addr);
-            }
+        } catch (const std::exception& e) {
+            NAVLOG("STEP5b CRASHED: %s\n", e.what());
+            NAVLOG("CRASH at navigateTo step 5b for addr 0x%llx\n", addr);
+            std::cerr << "[doNavigate] STEP5b CRASHED: " << e.what() << std::endl;
+            programLock_.unlock(); navBusy_ = false; GUARD_EXIT("navigateTo"); return;
+        } catch (...) {
+            NAVLOG("STEP5b CRASHED: unknown exception\n");
+            NAVLOG("CRASH at navigateTo step 5b for addr 0x%llx\n", addr);
+            std::cerr << "[doNavigate] STEP5b CRASHED: unknown" << std::endl;
+            programLock_.unlock(); navBusy_ = false; GUARD_EXIT("navigateTo"); return;
         }
     } else {
         NAVLOG("STEP5: SKIPPED (NavSkip_Disasm)\n");
     }
+
+    // GUARANTEE: ensure the disassembly view has a document, even if everything above failed
+    std::cerr << "[doNavigate] PRE-GUARANTEE: document="
+              << (void*)disasmView_->document()
+              << " lineCount="
+              << (disasmView_->document() ? disasmView_->document()->lineCount() : 0)
+              << std::endl;
+    if (!disasmView_->document() || disasmView_->document()->lineCount() == 0) {
+        std::cerr << "[doNavigate] WARNING: disassembly view has no document after STEP5!" << std::endl;
+        disasmView_->showDisassembly(QString(
+            "; NO DISASSEMBLY\n"
+            "; doNavigate reached addr=0x%1\n"
+            "; Check stderr\n")
+            .arg(addr, 0, 16));
+    }
+    std::cerr << "[doNavigate] POST-GUARANTEE: document="
+              << (void*)disasmView_->document()
+              << " lineCount="
+              << (disasmView_->document() ? disasmView_->document()->lineCount() : 0)
+              << std::endl;
 
     // ── STEP 6: Decompile ─────────────────────────────────────────────────
     if (!(navSkipFlags_ & NavSkip_Decompile)) {
@@ -1238,6 +1325,7 @@ void MainWindow::navigateTo(uint64_t addr, const QString& name) {
                     entry.markupXml = QString::fromStdString(results.markupXml);
                     entry.opAddresses = results.opAddresses;
                     decompCache_[addr] = entry;
+                    evictDecompCache();
                     NAVLOG("  calling showDecompiled cCode.size()=%d markup.size()=%d opAddrs.size()=%zu\n",
                         cCode.size(), entry.markupXml.size(), entry.opAddresses.size());
                     decompView_->showDecompiled(cCode, addr,
@@ -1252,9 +1340,13 @@ void MainWindow::navigateTo(uint64_t addr, const QString& name) {
         } catch (const std::exception& e) {
             NAVLOG("STEP6 CRASHED: %s\n", e.what());
             NAVLOG("CRASH at navigateTo step 6 for addr 0x%llx\n", addr);
+            decompView_->clear();
+            programLock_.unlock(); navBusy_ = false; GUARD_EXIT("navigateTo"); return;
         } catch (...) {
             NAVLOG("STEP6 CRASHED: unknown exception\n");
             NAVLOG("CRASH at navigateTo step 6 for addr 0x%llx\n", addr);
+            decompView_->clear();
+            programLock_.unlock(); navBusy_ = false; GUARD_EXIT("navigateTo"); return;
         }
     } else {
         NAVLOG("STEP6: SKIPPED (NavSkip_Decompile)\n");
@@ -1275,20 +1367,28 @@ void MainWindow::navigateTo(uint64_t addr, const QString& name) {
         } catch (const std::exception& e) {
             NAVLOG("STEP7 CRASHED: %s\n", e.what());
             NAVLOG("CRASH at navigateTo step 7 for addr 0x%llx\n", addr);
+            programLock_.unlock(); navBusy_ = false; GUARD_EXIT("navigateTo"); return;
         } catch (...) {
             NAVLOG("STEP7 CRASHED: unknown exception\n");
             NAVLOG("CRASH at navigateTo step 7 for addr 0x%llx\n", addr);
+            programLock_.unlock(); navBusy_ = false; GUARD_EXIT("navigateTo"); return;
         }
     } else {
         NAVLOG("STEP7: SKIPPED (NavSkip_Hex)\n");
     }
 
-    logOnce(QString("Navigated to: %1 @ 0x%2").arg(name).arg(addr, 0, 16));
-    --navDepth;
+    try {
+        logOnce(QString("Navigated to: %1 @ 0x%2").arg(name).arg(addr, 0, 16));
+    } catch (const std::exception& e) {
+        NAVLOG("logOnce CRASHED: %s\n", e.what());
+    } catch (...) {
+        NAVLOG("logOnce CRASHED: unknown exception\n");
+    }
+    programLock_.unlock();
+    navBusy_ = false;
     NAVLOG("END\n");
     GUARD_EXIT("navigateTo");
 }
-
 void MainWindow::onNavigateBack() {
     GUARD_ENTER("onNavigateBack");
     NAVLOG("backStack.size=%d program_=%p currentAddr_=0x%llx\n",
@@ -1299,71 +1399,7 @@ void MainWindow::onNavigateBack() {
     uint64_t addr = backStack_.pop();
     NAVLOG("popped addr=0x%llx\n", addr);
     forwardStack_.push(currentAddr_);
-    currentAddr_ = addr;
-
-    ghidra::Address address = program_->getAddressFactory()->oldGetAddressFromLong(addr);
-    auto* funcMgr = program_->getFunctionManager();
-    currentFunction_ = funcMgr ? funcMgr->getFunctionAt(address) : nullptr;
-
-    QString name;
-    if (currentFunction_) {
-        name = QString::fromStdString(currentFunction_->getName());
-        NAVLOG("function='%s'\n", name.toStdString().c_str());
-    } else {
-        auto syms = program_->getSymbolTable()->getSymbols(address);
-        if (!syms.empty() && syms[0]) name = QString::fromStdString(syms[0]->getName());
-        NAVLOG("no function, symbol='%s'\n", name.toStdString().c_str());
-    }
-    if (name.isEmpty()) name = QString("0x%1").arg(addr, 0, 16);
-
-    statusFunc_->setText(name);
-    statusAddr_->setText(QString("0x%1").arg(addr, 0, 16));
-    disasmDock_->raise();
-
-    NAVLOG("disassembleAt...\n");
-    if (disasmView_->totalInstructions() == 0) {
-        try { disasmView_->buildFullIndex(); } catch (...) {}
-    }
-    if (disasmView_->totalInstructions() > 0) {
-        disasmView_->seekToAddress(addr);
-    } else {
-        QString asmText = QString::fromStdString(
-            decompInterface_->disassembleAt(address, 50));
-        disasmView_->showDisassembly(asmText);
-    }
-
-    NAVLOG("decompile...\n");
-    auto it = decompCache_.find(addr);
-    if (it != decompCache_.end()) {
-        decompView_->showDecompiled(it->second.cCode, addr,
-            it->second.markupXml, it->second.opAddresses);
-    } else {
-        auto results = decompInterface_->decompileFunction(address, nullptr);
-        if (results.decompiled) {
-            QString cCode = QString::fromStdString(results.cCode);
-            DecompCacheEntry entry;
-            entry.cCode = cCode;
-            entry.markupXml = QString::fromStdString(results.markupXml);
-            entry.opAddresses = results.opAddresses;
-            decompCache_[addr] = entry;
-            decompView_->showDecompiled(cCode, addr,
-                entry.markupXml, entry.opAddresses);
-        } else {
-            decompView_->clear();
-        }
-    }
-
-    NAVLOG("hex view...\n");
-    {
-        if (!hexView_->document() || hexView_->document()->lineCount() == 0) {
-            NAVLOG("  building full hex listing\n");
-            hexView_->buildFullHex(program_.get(), currentBinaryPath_);
-        }
-        if (hexView_->document() && hexView_->document()->lineCount() > 0) {
-            NAVLOG("  seeking hex to 0x%llx\n", addr);
-            hexView_->seek(addr);
-        }
-    }
+    navigateTo(addr, QString());
     GUARD_EXIT("onNavigateBack");
 }
 
@@ -1732,7 +1768,7 @@ void MainWindow::onRedo() {
 }
 
 void MainWindow::onRenameFunction() {
-    if (!program_ || !currentFunction_ || !patchManager_) {
+    if (!program_ || !isCurrentFunctionValid() || !patchManager_) {
         console_->log("No function selected.");
         return;
     }
@@ -1753,13 +1789,26 @@ void MainWindow::onRenameFunction() {
 
     auto patch = std::make_unique<ghidra::patch::FunctionRenamePatch>(
         entryAddr, oldName, newName.toStdString());
+    ghidra::patch::Patch* rawPatch = patch.get();
     patchManager_->addPatch(std::move(patch));
-    console_->log(QString("Function renamed: \"%1\" -> \"%2\"")
-        .arg(QString::fromStdString(oldName)).arg(newName));
+
+    // Actually apply the rename to the program so it's immediately visible
+    ghidra::ProgramDB* prog = patchManager_->program();
+    ghidra::Memory* mem = prog ? prog->getMemory() : nullptr;
+    if (mem && prog && rawPatch->apply(*mem, *prog)) {
+        rawPatch->setApplied(true);
+        console_->log(QString("Function renamed: \"%1\" -> \"%2\"")
+            .arg(QString::fromStdString(oldName)).arg(newName));
+        // Refresh the explorer to show the new name
+        populateExplorer();
+    } else {
+        console_->log(QString("Function rename failed: \"%1\" -> \"%2\"")
+            .arg(QString::fromStdString(oldName)).arg(newName));
+    }
 }
 
 void MainWindow::onDeleteFunction() {
-    if (!program_ || !currentFunction_ || !patchManager_) {
+    if (!program_ || !isCurrentFunctionValid() || !patchManager_) {
         console_->log("No function selected.");
         return;
     }

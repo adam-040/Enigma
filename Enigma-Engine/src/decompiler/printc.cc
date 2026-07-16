@@ -284,8 +284,19 @@ void PrintC::pushTypeStart(const Datatype *ct,bool noident)
     pushAtom(Atom(nm,typetoken,EmitMarkup::type_color,ct));
   }
   else {
+    const string& name = ct->getDisplayName();
+    string mapped;
+    // Map internal Ghidra type names to standard C names
+    if (name == "uint1") mapped = "uint8_t";
+    else if (name == "uint2") mapped = "uint16_t";
+    else if (name == "uint4") mapped = "uint32_t";
+    else if (name == "uint8") mapped = "uint64_t";
+    else if (name == "int1") mapped = "int8_t";
+    else if (name == "int2") mapped = "int16_t";
+    else if (name == "int4") mapped = "int32_t";
+    else if (name == "int8") mapped = "int64_t";
     pushOp(tok,(const PcodeOp *)0);
-    pushAtom(Atom(ct->getDisplayName(),typetoken,EmitMarkup::type_color,ct));
+    pushAtom(Atom(mapped.empty() ? name : mapped,typetoken,EmitMarkup::type_color,ct));
   }
   for(int4 i=typestack.size()-2;i>=0;--i) {
     ct = typestack[i];
@@ -1866,6 +1877,10 @@ bool PrintC::pushPtrCodeConstant(uintb val,const TypePointer *ct,
 void PrintC::pushConstant(uintb val,const Datatype *ct,tagtype tag,
 			  const Varnode *vn,const PcodeOp *op,uint4 displayFormat)
 {
+  if (ct == (const Datatype *)0) {
+    push_integer(val,8,false,tag,vn,op,displayFormat);
+    return;
+  }
   Datatype *subtype;
   switch(ct->getMetatype()) {
   case TYPE_UINT:

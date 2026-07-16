@@ -2,6 +2,7 @@
 #include <ghidra/ProgramDB.h>
 #include <ghidra/DecompInterface.h>
 #include <ghidra/Memory.h>
+#include <iostream>
 #include <ghidra/Address.h>
 #include <ghidra/AddressFactory.h>
 
@@ -47,11 +48,11 @@ void DisassemblyFieldView::buildFullIndex() {
     auto allBlocks = mem->getBlocks();
     if (allBlocks.empty()) return;
 
+    // First pass: only executable blocks
     QString allText;
     for (auto* block : allBlocks) {
         if (!block) continue;
-        int flags = block->getFlags();
-        if (!(flags & ghidra::MemoryBlock::FLAG_EXECUTE)) continue;
+        if (!(block->getFlags() & ghidra::MemoryBlock::FLAG_EXECUTE)) continue;
 
         uint64_t start = block->getStart().getUnsignedOffset();
         ghidra::Address gAddr = af->oldGetAddressFromLong(start);
@@ -59,6 +60,21 @@ void DisassemblyFieldView::buildFullIndex() {
         int maxInst = static_cast<int>((std::min)(blockSize, 100000LL));
         std::string text = decomp_->disassembleAt(gAddr, maxInst);
         allText += QString::fromStdString(text);
+    }
+
+    // If no executable blocks produced output, try all blocks
+    if (allText.isEmpty()) {
+        for (auto* block : allBlocks) {
+            if (!block) continue;
+            if (block->getFlags() & ghidra::MemoryBlock::FLAG_EXECUTE) continue;
+
+            uint64_t start = block->getStart().getUnsignedOffset();
+            ghidra::Address gAddr = af->oldGetAddressFromLong(start);
+            long long blockSize = block->getSize();
+            int maxInst = static_cast<int>((std::min)(blockSize, 100000LL));
+            std::string text = decomp_->disassembleAt(gAddr, maxInst);
+            allText += QString::fromStdString(text);
+        }
     }
 
     if (allText.isEmpty())
@@ -97,6 +113,7 @@ static std::vector<uint8_t> fetchBytesLocal(ghidra::ProgramDB* program, uint64_t
 }
 
 void DisassemblyFieldView::showDisassembly(const QString& text) {
+    std::cerr << "[showDisassembly] text.size=" << text.size() << " first80='" << text.left(80).toStdString() << "'" << std::endl;
     lastText_ = text;
     parsed_.clear();
 

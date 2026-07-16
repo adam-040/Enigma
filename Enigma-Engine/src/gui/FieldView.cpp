@@ -11,6 +11,7 @@
 #include <QApplication>
 #include <QClipboard>
 #include <QMenu>
+#include <iostream>
 
 void Document::clear() {
     lines_.clear();
@@ -433,7 +434,13 @@ void FieldView::ensureVisible(int line) {
 void FieldView::paintEvent(QPaintEvent* event) {
     QPainter painter(viewport());
     painter.fillRect(event->rect(), EditorTheme::backgroundColor());
-    if (!doc_ || doc_->lineCount() == 0) return;
+    if (!doc_ || doc_->lineCount() == 0) {
+        static bool firstWarn = true;
+        if (firstWarn) { firstWarn = false;
+            std::cerr << "[paintEvent] SKIP: doc_=" << (void*)doc_.get() << " lineCount=" << (doc_ ? doc_->lineCount() : 0) << std::endl;
+        }
+        return;
+    }
 
     int cellW = EditorTheme::cellWidth();
     int cellH = EditorTheme::cellHeight();

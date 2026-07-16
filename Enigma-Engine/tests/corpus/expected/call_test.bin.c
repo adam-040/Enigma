@@ -4,10 +4,9 @@ void __stdcall entry()
     return;
 }
 
-int4 __stdcall sub_0x100b()
+int32_t __stdcall sub_0x100b()
 {
-    int4 arg_eax;
-    
+    int32_t arg_eax;
     return arg_eax + 1;
 }
 
