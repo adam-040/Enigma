@@ -565,6 +565,10 @@ struct AsmEmit : ghidra_decompiler::AssemblyEmit {
 };
 
 std::string DecompInterface::disassembleAt(const Address& addr, int numInstructions) {
+    return disassembleAt(addr, numInstructions, 0);
+}
+
+std::string DecompInterface::disassembleAt(const Address& addr, int numInstructions, int maxBytes) {
     if (!impl->archInitialized || !impl->arch || !impl->arch->translate) {
         return "; No disassembler available";
     }
@@ -575,20 +579,36 @@ std::string DecompInterface::disassembleAt(const Address& addr, int numInstructi
     if (!space) return "; No code space";
 
     uint64_t offset = addr.getOffset();
-    try {
-        for (int i = 0; i < numInstructions; i++) {
+    uint64_t endOffset = (maxBytes > 0) ? offset + maxBytes : 0;
+    int errorCount = 0;
+    const int maxErrors = 100;
+    for (int i = 0; i < numInstructions; i++) {
+        if (endOffset > 0 && offset >= endOffset) break;
+        try {
             ghidra_decompiler::Address decAddr(space, static_cast<ghidra_decompiler::int8>(offset));
             ghidra_decompiler::int4 len = trans->printAssembly(emit, decAddr);
             if (len <= 0) {
-                out << "; printAssembly returned " << len << " at offset 0x" << std::hex << offset << std::dec << "\n";
-                break;
+                if (errorCount == 0)
+                    std::cerr << "[disassembleAt] first decode failure at 0x" << std::hex << offset << std::dec << std::endl;
+                if (++errorCount >= maxErrors) break;
+                offset++;
+                continue;
             }
             offset += len;
+        } catch (const ghidra_decompiler::LowlevelError& le) {
+            if (errorCount == 0)
+                std::cerr << "[disassembleAt] first error at 0x" << std::hex << offset << ": " << le.explain << std::dec << std::endl;
+            if (++errorCount >= maxErrors) break;
+            offset++;
+        } catch (const std::exception& e) {
+            if (errorCount == 0)
+                std::cerr << "[disassembleAt] first exception at 0x" << std::hex << offset << ": " << e.what() << std::dec << std::endl;
+            if (++errorCount >= maxErrors) break;
+            offset++;
         }
-    } catch (const ghidra_decompiler::LowlevelError& le) {
-        out << "; Disasm error at 0x" << std::hex << offset << ": " << le.explain << "\n";
-    } catch (const std::exception& e) {
-        out << "; Disasm exception at 0x" << std::hex << offset << ": " << e.what() << "\n";
+    }
+    if (errorCount > 0) {
+        std::cerr << "[disassembleAt] skipped " << errorCount << " unresolvable bytes at 0x" << std::hex << addr.getOffset() << std::dec << std::endl;
     }
 
     std::string result = out.str();

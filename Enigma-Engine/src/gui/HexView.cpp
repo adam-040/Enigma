@@ -474,14 +474,13 @@ void HexView::paintEvent(QPaintEvent* event) {
 }
 
 void HexView::contextMenuEvent(QContextMenuEvent* event) {
-    uint64_t addr = addressAtCurrentLine();
-    if (addr == 0) {
+    auto hit = caretAtPos(event->pos());
+    auto* doc = document();
+    if (!doc || hit.line < 0 || hit.line >= doc->lineCount()) {
         QAbstractScrollArea::contextMenuEvent(event);
         return;
     }
-
-    // Adjust addr to the byte under cursor
-    auto hit = caretAtPos(event->pos());
+    uint64_t addr = doc->line(hit.line).addr;
     int bi = byteIndexAt(hit.line, hit.col);
     if (bi >= 0) addr += static_cast<uint64_t>(bi);
 

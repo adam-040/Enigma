@@ -74,6 +74,18 @@ public:
     virtual uint64_t size() const;
     virtual std::vector<uint64_t> affectedAddresses() const;
 
+    // For multi-site patches (e.g., trampolines): additional {address, bytes} pairs
+    // that should be written alongside the primary patchedBytes at baseAddress().
+    virtual std::vector<std::pair<uint64_t, std::vector<uint8_t>>> additionalWrites() const {
+        return {};
+    }
+
+    // For relocation: {VA where 8-byte absolute value sits, the absolute value}
+    // Only InstructionPatch with64-bit absolute immediates returns non-empty.
+    virtual std::vector<std::pair<uint64_t, uint64_t>> getRelocationEntries() const {
+        return {};
+    }
+
     std::string groupId() const { return groupId_; }
     void setGroupId(const std::string& gid) { groupId_ = gid; }
 

@@ -61,6 +61,9 @@ public:
     /// Disassemble N instructions at address, return assembly text (one line per instruction)
     std::string disassembleAt(const Address& addr, int numInstructions);
 
+    /// Disassemble up to maxBytes starting at addr, return assembly text
+    std::string disassembleAt(const Address& addr, int numInstructions, int maxBytes);
+
     /// Length in bytes of the instruction at the given offset in the default code space (0 on error)
     int instructionLengthAt(uint64_t offset) const;
 

@@ -111,6 +111,7 @@ private:
 
     void executeWithEvent(std::unique_ptr<ghidra::storage::Event> event);
     void updateUndoRedoActions();
+    void updateTrampolineMap();
 
     std::unique_ptr<ghidra::ProgramDB> program_;
     std::unique_ptr<ghidra::DecompInterface> decompInterface_;

@@ -84,6 +84,13 @@ public:
 
     bool hasUnsavedChanges() const { return !patches_.empty(); }
 
+    // Undo/Redo
+    bool canUndo() const;
+    bool canRedo() const;
+    bool undo();
+    bool redo();
+    void clearHistory();
+
 private:
     ProgramDB* program_ = nullptr;
     BinaryLoader* loader_ = nullptr;
@@ -98,6 +105,12 @@ private:
     PatchCallback onPatchDisabled_;
     std::function<void(const std::string&)> onGroupChanged_;
     std::function<ConflictInfo::Action(const ConflictInfo&)> conflictHandler_;
+
+    // Undo/redo stacks (store PatchId strings)
+    std::vector<std::string> undoStack_;
+    std::vector<std::string> redoStack_;
+    void pushUndo(const std::string& id);
+    void clearRedo();
 
     bool doApplyPatch(Patch& patch);
     bool doRevertPatch(Patch& patch);

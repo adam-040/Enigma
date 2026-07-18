@@ -35,12 +35,19 @@
 #include <windows.h>   // GetCurrentThreadId
 #include <chrono>       // timestamps
 #include <QInputDialog>
+#include <QDialog>
+#include <QVBoxLayout>
+#include <QLabel>
+#include <QLineEdit>
+#include <QDialogButtonBox>
 #include <QDir>
+#include <ghidra/Assembler.h>
 #include <ghidra/storage/Repository.h>
 #include <ghidra/patch/PatchManager.h>
 #include <ghidra/patch/BytePatch.h>
 #include <ghidra/patch/NopFillPatch.h>
 #include <ghidra/patch/StringPatch.h>
+#include <ghidra/patch/InstructionPatch.h>
 #include <ghidra/patch/MetadataPatch.h>
 #include <ghidra/BinaryLoader.h>
 #include <ghidra/storage/WorkingSnapshot.h>
@@ -152,12 +159,14 @@ void MainWindow::createMenuBar() {
     connect(quit, &QAction::triggered, qApp, &QApplication::quit);
 
     auto* edit = menuBar()->addMenu(tr("&Edit"));
-    auto* undoAct = edit->addAction(tr("&Undo"));
-    undoAct->setShortcut(QKeySequence::Undo);
-    connect(undoAct, &QAction::triggered, this, &MainWindow::onUndo);
-    auto* redoAct = edit->addAction(tr("&Redo"));
-    redoAct->setShortcut(QKeySequence::Redo);
-    connect(redoAct, &QAction::triggered, this, &MainWindow::onRedo);
+    undoAction_ = edit->addAction(tr("&Undo"));
+    undoAction_->setShortcut(QKeySequence::Undo);
+    connect(undoAction_, &QAction::triggered, this, &MainWindow::onUndo);
+    redoAction_ = edit->addAction(tr("&Redo"));
+    redoAction_->setShortcut(QKeySequence::Redo);
+    connect(redoAction_, &QAction::triggered, this, &MainWindow::onRedo);
+    undoAction_->setEnabled(false);
+    redoAction_->setEnabled(false);
 
     edit->addSeparator();
     auto* renameFuncAct = edit->addAction(tr("Rename &Function"));
@@ -347,6 +356,12 @@ void MainWindow::createDockWidgets() {
         patchManager_->addPatch(std::move(patch));
         console_->log(QString("Patched byte @ 0x%1: -> 0x%2")
             .arg(addr, 0, 16).arg(val, 2, 16, QChar('0')));
+        updateUndoRedoActions();
+        if (disasmView_->isIndexBuilt()) {
+            disasmView_->buildFullIndex();
+            disasmView_->seekToAddress(addr);
+        }
+        hexView_->viewport()->update();
     });
     connect(hexView_, &HexView::patchNopFillRequested, this, [this](uint64_t start, uint64_t end) {
         if (!patchManager_ || !program_ || end <= start) return;
@@ -354,6 +369,12 @@ void MainWindow::createDockWidgets() {
         auto patch = std::make_unique<ghidra::patch::NopFillPatch>(start, size, 0x90, "");
         patchManager_->addPatch(std::move(patch));
         console_->log(QString("NOP-filled 0x%1 bytes @ 0x%2").arg(size).arg(start, 0, 16));
+        updateUndoRedoActions();
+        if (disasmView_->isIndexBuilt()) {
+            disasmView_->buildFullIndex();
+            disasmView_->seekToAddress(start);
+        }
+        hexView_->viewport()->update();
     });
     connect(hexView_, &HexView::patchStringRequested, this, [this](uint64_t addr) {
         if (!patchManager_ || !program_) return;
@@ -366,6 +387,95 @@ void MainWindow::createDockWidgets() {
             addr, newStr.toStdString(), "");
         patchManager_->addPatch(std::move(patch));
         console_->log(QString("Patched string @ 0x%1: \"%2\"").arg(addr, 0, 16).arg(newStr));
+        updateUndoRedoActions();
+    });
+    connect(disasmView_, &DisassemblyFieldView::patchInstructionRequested, this,
+        [this](uint64_t addr, const QString& currentMnemonic, const QString& currentOperands) {
+        if (!patchManager_ || !program_) return;
+
+        uint64_t origSize = 0;
+        if (decompInterface_)
+            origSize = decompInterface_->instructionLengthAt(addr);
+
+        QString currentInstruction = currentMnemonic + (currentOperands.isEmpty() ? QString() : (" " + currentOperands));
+
+        QDialog dlg(this);
+        dlg.setWindowTitle(tr("Assemble Instruction"));
+        auto* lay = new QVBoxLayout(&dlg);
+
+        auto* infoLabel = new QLabel(tr("Address: 0x%1 | Original Size: %2 bytes")
+            .arg(addr, 0, 16).arg(origSize));
+        lay->addWidget(infoLabel);
+
+        auto* edit = new QLineEdit(currentInstruction);
+        lay->addWidget(edit);
+
+        auto* newSizeLabel = new QLabel(tr("New Size: - bytes"));
+        lay->addWidget(newSizeLabel);
+        auto* warnLabel = new QLabel;
+        lay->addWidget(warnLabel);
+
+        auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+        lay->addWidget(buttons);
+        QObject::connect(buttons, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
+        QObject::connect(buttons, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+
+        auto updatePreview = [&, addr, origSize](const QString& text) {
+            auto result = ghidra::Assembler::instance().assemble(text.toStdString(), addr);
+            if (result.success) {
+                uint64_t newSize = result.bytes.size();
+                newSizeLabel->setText(tr("New Size: %1 bytes").arg(newSize));
+                if (origSize > 0 && newSize > origSize) {
+                    warnLabel->setText(tr("OVERFLOW: %1 > %2 bytes — patch will be blocked!")
+                        .arg(newSize).arg(origSize));
+                    warnLabel->setStyleSheet("color: red; font-weight: bold;");
+                    buttons->button(QDialogButtonBox::Ok)->setEnabled(false);
+                } else if (origSize > 0 && newSize < origSize) {
+                    QString msg = tr("Shorter: NOP-padded to %1 bytes").arg(origSize);
+                    if (result.ripRelative)
+                        msg += tr(" [RIP-relative — verify target offsets]");
+                    warnLabel->setText(msg);
+                    warnLabel->setStyleSheet("color: orange; font-weight: bold;");
+                    buttons->button(QDialogButtonBox::Ok)->setEnabled(true);
+                } else {
+                    warnLabel->setText(origSize > 0 ? tr("Exact fit") : QString());
+                    warnLabel->setStyleSheet("color: green;");
+                    buttons->button(QDialogButtonBox::Ok)->setEnabled(true);
+                }
+            } else {
+                newSizeLabel->setText(tr("New Size: -"));
+                warnLabel->setText(tr("Assembly error: %1").arg(QString::fromStdString(result.error)));
+                warnLabel->setStyleSheet("color: red;");
+                buttons->button(QDialogButtonBox::Ok)->setEnabled(false);
+            }
+        };
+        QObject::connect(edit, &QLineEdit::textChanged, updatePreview);
+        updatePreview(edit->text());
+
+        if (dlg.exec() != QDialog::Accepted) return;
+        QString asmText = edit->text().trimmed();
+        if (asmText.isEmpty()) return;
+
+        auto patch = std::make_unique<ghidra::patch::InstructionPatch>(
+            addr, asmText.toStdString(), origSize, "");
+        if (!patch->isAssembled()) {
+            console_->log(QString("Assemble failed @ 0x%1: %2")
+                .arg(addr, 0, 16).arg(QString::fromStdString(patch->assembleError())));
+            return;
+        }
+        if (patch->isBlocked()) {
+            console_->log(QString("BLOCKED @ 0x%1: %2")
+                .arg(addr, 0, 16).arg(QString::fromStdString(patch->assembleError())));
+            return;
+        }
+        patchManager_->addPatch(std::move(patch));
+        console_->log(QString("Assembled @ 0x%1: %2").arg(addr, 0, 16).arg(asmText));
+        updateUndoRedoActions();
+        if (disasmView_->isIndexBuilt()) {
+            disasmView_->buildFullIndex();
+            disasmView_->seekToAddress(addr);
+        }
+        hexView_->viewport()->update();
     });
     connect(decompView_, &DecompilerView::cursorAddressChanged,
             this, &MainWindow::onAddressCursorSync);
@@ -1167,7 +1277,8 @@ void MainWindow::doNavigate(uint64_t addr, const QString& name) {
             NAVLOG("  funcMgr=%p\n", (void*)funcMgr);
             if (funcMgr) {
                 ghidra::Function* newFunc = funcMgr->getFunctionAt(address);
-                NAVLOG("  getFunctionAt -> %p\n", (void*)newFunc);
+                if (!newFunc) newFunc = funcMgr->getFunctionContaining(address);
+                NAVLOG("  getFunctionAt/Containing -> %p\n", (void*)newFunc);
                 currentFunction_ = newFunc;
                 currentFuncVersion_ = programVersion_;
                 if (newFunc) {
@@ -1222,66 +1333,48 @@ void MainWindow::doNavigate(uint64_t addr, const QString& name) {
 
     // ── STEP 5: Disassemble ──────────────────────────────────────────────
     if (!(navSkipFlags_ & NavSkip_Disasm)) {
-        NAVLOG("STEP5: disassembleAt(0x%llx)...\n", addr);
+        std::cerr << "[doNavigate] STEP5: START addr=0x" << std::hex << addr << std::dec << std::endl;
 
-        // DIRECT: always use disassembleAt (skip buildFullIndex)
-        QString asmText;
         try {
             bool disasmOk = decompInterface_ && decompInterface_->isOpen();
-            NAVLOG("  decompInterface_->isOpen()=%d\n", disasmOk);
+            std::cerr << "[doNavigate] STEP5: disasmOk=" << disasmOk
+                      << " decompInterface_=" << (void*)decompInterface_.get() << std::endl;
             if (disasmOk) {
-                asmText = QString::fromStdString(
-                    decompInterface_->disassembleAt(address, 50));
-                NAVLOG("  disassembly produced %d chars\n", asmText.size());
+                bool needBuild = !disasmView_->isIndexBuilt();
+                std::cerr << "[doNavigate] STEP5: needBuild=" << needBuild << std::endl;
+                if (needBuild) {
+                    std::cerr << "[doNavigate] STEP5: calling buildFullIndex..." << std::endl;
+                    disasmView_->buildFullIndex();
+                    std::cerr << "[doNavigate] STEP5: buildFullIndex done, indexBuilt="
+                              << disasmView_->isIndexBuilt()
+                              << " lineCount="
+                              << (disasmView_->document() ? disasmView_->document()->lineCount() : -1)
+                              << std::endl;
+                }
+                std::cerr << "[doNavigate] STEP5: calling seekToAddress..." << std::endl;
+                disasmView_->seekToAddress(addr);
+                std::cerr << "[doNavigate] STEP5: seekToAddress done" << std::endl;
             } else {
-                NAVLOG("  disassembly SKIPPED (decompInterface not open)\n");
+                std::cerr << "[doNavigate] STEP5: SKIPPED (decompInterface not open)" << std::endl;
+                disasmView_->showDisassembly(QString(
+                    "; Disassembler not open for 0x%1\n").arg(addr, 0, 16));
             }
         } catch (const std::exception& e) {
-            NAVLOG("STEP5 CRASHED: %s\n", e.what());
-            NAVLOG("CRASH at navigateTo step 5 for addr 0x%llx\n", addr);
             std::cerr << "[doNavigate] STEP5 CRASHED: " << e.what() << std::endl;
-            programLock_.unlock(); navBusy_ = false; GUARD_EXIT("navigateTo"); return;
-        } catch (...) {
-            NAVLOG("STEP5 CRASHED: unknown exception\n");
-            NAVLOG("CRASH at navigateTo step 5 for addr 0x%llx\n", addr);
-            std::cerr << "[doNavigate] STEP5 CRASHED: unknown" << std::endl;
-            programLock_.unlock(); navBusy_ = false; GUARD_EXIT("navigateTo"); return;
-        }
-
-        try {
-            if (!asmText.isEmpty()) {
-                NAVLOG("STEP5b: showDisassembly...\n");
-                disasmView_->showDisassembly(asmText);
-                NAVLOG("  showDisassembly done\n");
-            } else {
-                NAVLOG("STEP5b: disassembly empty, showing diagnostic\n");
-                std::cerr << "[doNavigate] disassembleAt returned empty for 0x" << std::hex << addr << std::dec << std::endl;
-                QString diag = QString(
-                    "; Disassembly returned no output for 0x%1\n"
-                    "; isOpen=%2\n")
-                    .arg(addr, 0, 16)
-                    .arg(decompInterface_ ? (decompInterface_->isOpen() ? "yes" : "no") : "null");
-                std::cerr << "[doNavigate] calling showDisassembly with diagnostic" << std::endl;
-                disasmView_->showDisassembly(diag);
-                std::cerr << "[doNavigate] after showDisassembly (diagnostic), document="
-                          << (void*)disasmView_->document()
-                          << " lineCount="
-                          << (disasmView_->document() ? disasmView_->document()->lineCount() : 0)
-                          << std::endl;
+            // Fall back to 50-instruction disassembly
+            try {
+                QString fallback = QString::fromStdString(
+                    decompInterface_->disassembleAt(address, 50));
+                if (!fallback.isEmpty())
+                    disasmView_->showDisassembly(fallback);
+            } catch (...) {
+                std::cerr << "[doNavigate] STEP5 fallback also failed" << std::endl;
             }
-        } catch (const std::exception& e) {
-            NAVLOG("STEP5b CRASHED: %s\n", e.what());
-            NAVLOG("CRASH at navigateTo step 5b for addr 0x%llx\n", addr);
-            std::cerr << "[doNavigate] STEP5b CRASHED: " << e.what() << std::endl;
-            programLock_.unlock(); navBusy_ = false; GUARD_EXIT("navigateTo"); return;
         } catch (...) {
-            NAVLOG("STEP5b CRASHED: unknown exception\n");
-            NAVLOG("CRASH at navigateTo step 5b for addr 0x%llx\n", addr);
-            std::cerr << "[doNavigate] STEP5b CRASHED: unknown" << std::endl;
-            programLock_.unlock(); navBusy_ = false; GUARD_EXIT("navigateTo"); return;
+            std::cerr << "[doNavigate] STEP5 CRASHED: unknown" << std::endl;
         }
     } else {
-        NAVLOG("STEP5: SKIPPED (NavSkip_Disasm)\n");
+        std::cerr << "[doNavigate] STEP5: SKIPPED (NavSkip_Disasm)" << std::endl;
     }
 
     // GUARANTEE: ensure the disassembly view has a document, even if everything above failed
@@ -1761,10 +1854,24 @@ void MainWindow::onAutoClearToggled(bool checked) {
 }
 
 void MainWindow::onUndo() {
-    console_->log("Undo not yet implemented.");
+    if (!patchManager_) return;
+    if (patchManager_->undo()) {
+        console_->log("Undo applied.");
+        updateUndoRedoActions();
+        if (hexView_) hexView_->viewport()->update();
+    } else {
+        console_->log("Nothing to undo.");
+    }
 }
 void MainWindow::onRedo() {
-    console_->log("Redo not yet implemented.");
+    if (!patchManager_) return;
+    if (patchManager_->redo()) {
+        console_->log("Redo applied.");
+        updateUndoRedoActions();
+        if (hexView_) hexView_->viewport()->update();
+    } else {
+        console_->log("Nothing to redo.");
+    }
 }
 
 void MainWindow::onRenameFunction() {
@@ -2008,4 +2115,21 @@ void MainWindow::onRevertAllPatches() {
 }
 
 void MainWindow::executeWithEvent(std::unique_ptr<ghidra::storage::Event> event) {}
-void MainWindow::updateUndoRedoActions() {}
+void MainWindow::updateUndoRedoActions() {
+    if (undoAction_) undoAction_->setEnabled(patchManager_ && patchManager_->canUndo());
+    if (redoAction_) redoAction_->setEnabled(patchManager_ && patchManager_->canRedo());
+    updateTrampolineMap();
+}
+
+void MainWindow::updateTrampolineMap() {
+    if (!patchManager_ || !disasmView_) return;
+    std::map<uint64_t, uint64_t> map;
+    for (auto* patch : patchManager_->getActivePatches()) {
+        if (patch->category() != ghidra::patch::PatchCategory::INSTRUCTION) continue;
+        auto* instr = dynamic_cast<ghidra::patch::InstructionPatch*>(patch);
+        if (instr && instr->isTrampolineMode()) {
+            map[instr->baseAddress()] = instr->caveAddress();
+        }
+    }
+    disasmView_->setTrampolineMap(std::move(map));
+}

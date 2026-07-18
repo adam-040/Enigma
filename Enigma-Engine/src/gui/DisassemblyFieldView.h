@@ -5,6 +5,7 @@
 #include <QStringList>
 #include <cstdint>
 #include <vector>
+#include <map>
 
 namespace ghidra {
 class ProgramDB;
@@ -23,10 +24,16 @@ public:
 
     void buildFullIndex();
     void seekToAddress(uint64_t addr);
+    bool isIndexBuilt() const { return indexBuilt_; }
     int totalInstructions() const { return indexBuilt_ ? 1 : 0; }
+    void setTrampolineMap(std::map<uint64_t, uint64_t> map) { trampolineMap_ = std::move(map); }
 
 signals:
     void addressJumpRequested(uint64_t addr);
+    void patchInstructionRequested(uint64_t addr, const QString& currentMnemonic, const QString& currentOperands);
+
+protected:
+    void contextMenuEvent(QContextMenuEvent* event) override;
 
 private:
     struct ParsedLine {
@@ -49,4 +56,5 @@ private:
     std::vector<ParsedLine> parsed_;
 
     bool indexBuilt_ = false;
+    std::map<uint64_t, uint64_t> trampolineMap_; // site → cave
 };

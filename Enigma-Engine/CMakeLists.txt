@@ -193,6 +193,12 @@ target_compile_definitions(enigma_test_pipeline_comprehensive PRIVATE ENIGMA_SLE
 enigma_apply_warning_policy(enigma_test_pipeline_comprehensive)
 add_test(NAME enigma_test_pipeline_comprehensive COMMAND enigma_test_pipeline_comprehensive)
 
+add_executable(enigma_test_patching_features tests/test_patching_features.cpp)
+target_link_libraries(enigma_test_patching_features PRIVATE enigma_engine)
+target_compile_definitions(enigma_test_patching_features PRIVATE ENIGMA_SLEIGH_DIR="${ENIGMA_SLEIGH_DIR}")
+enigma_apply_warning_policy(enigma_test_patching_features)
+add_test(NAME enigma_test_patching_features COMMAND enigma_test_patching_features)
+
 foreach(test_name enigma_test_block_struct enigma_test_lang_classes enigma_test_batch_e enigma_test_batch_f enigma_test_batch_g enigma_test_batch_h enigma_test_batch_i enigma_test_batch_j enigma_test_batch_k enigma_test_batch_l enigma_test_batch_n enigma_test_batch_o enigma_test_batch_p enigma_test_batch_q enigma_test_batch_r enigma_test_batch_s enigma_test_batch_t enigma_test_analyzer_integration enigma_test_batch_u enigma_test_batch_v enigma_test_batch_w enigma_test_batch_x enigma_test_batch_y enigma_test_batch_z enigma_test_batch_aa enigma_test_batch_ab)
     string(REPLACE "enigma_" "" file_base ${test_name})
     add_executable(${test_name} tests/${file_base}.cpp)
@@ -367,6 +373,13 @@ foreach(test_name enigma_test_fks_fingerprint enigma_test_fks_library enigma_tes
     enigma_apply_warning_policy(${test_name})
     add_test(NAME ${test_name} COMMAND ${test_name})
 endforeach()
+
+# ── Assembler / Patching unit tests ──────────────────────────────────────────
+add_executable(enigma_test_assembler_patching tests/test_assembler_patching.cpp)
+target_link_libraries(enigma_test_assembler_patching PRIVATE enigma_engine)
+target_compile_definitions(enigma_test_assembler_patching PRIVATE ENIGMA_SLEIGH_DIR="${ENIGMA_SLEIGH_DIR}")
+enigma_apply_warning_policy(enigma_test_assembler_patching)
+add_test(NAME enigma_test_assembler_patching COMMAND enigma_test_assembler_patching)
 
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 add_test(NAME enigma_test_cli_regression COMMAND Python3::Interpreter ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_cli_regression.py)
