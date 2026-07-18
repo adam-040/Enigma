@@ -137,7 +137,7 @@ protected:
     void selectAll();
     void copySelection();
     void resetCaretBlink();
-    int gutterWidth() const;
+    virtual int gutterWidth() const;
     const Token* findTokenByAddressAndText(uint64_t addr, const QString& text, TokenKind kind) const;
 
     std::unique_ptr<Document> doc_;

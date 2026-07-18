@@ -160,6 +160,7 @@ private:
     QLabel* statusFunc_;
     QLabel* statusAddr_;
     QLabel* statusCount_;
+    QLabel* hexInfoLabel_;
     QAction* showBytesAction_;
     SelectionManager* selectionMgr_ = nullptr;
     bool autoClearIndex_ = false;

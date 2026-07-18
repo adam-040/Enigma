@@ -3,6 +3,7 @@
 #include "DisassemblyFieldView.h"
 #include "DecompilerView.h"
 #include "HexView.h"
+#include "HexSearchBar.h"
 #include "ConsoleWidget.h"
 #include "SelectionManager.h"
 
@@ -280,6 +281,7 @@ void MainWindow::createDockWidgets() {
     disasmView_->setShowBytes(true);
     decompView_ = new DecompilerView(this);
     hexView_ = new HexView(this);
+    auto* hexSearchBar = new HexSearchBar(hexView_, hexView_);
     console_ = new ConsoleWidget(this);
     explorer_ = new FunctionExplorer(this);
 
@@ -334,6 +336,13 @@ void MainWindow::createDockWidgets() {
             this, &MainWindow::onAddressCursorSync);
     connect(hexView_, &HexView::cursorAddressChanged,
             this, &MainWindow::onAddressCursorSync);
+    connect(hexView_, &HexView::cursorAddressChanged, this, [this](uint64_t addr) {
+        if (hexInfoLabel_) {
+            int bmkCount = hexView_ ? hexView_->bookmarks().size() : 0;
+            hexInfoLabel_->setText(QString("Offset: 0x%1 | Bookmarks: %2")
+                .arg(addr, 0, 16).arg(bmkCount));
+        }
+    });
     connect(hexView_, &HexView::patchByteRequested, this, [this](uint64_t addr) {
         if (!patchManager_ || !program_) return;
         bool ok = false;
@@ -388,6 +397,89 @@ void MainWindow::createDockWidgets() {
         patchManager_->addPatch(std::move(patch));
         console_->log(QString("Patched string @ 0x%1: \"%2\"").arg(addr, 0, 16).arg(newStr));
         updateUndoRedoActions();
+    });
+    connect(hexView_, &HexView::byteEditRequested, this,
+        [this](uint64_t addr, uint8_t oldVal, uint8_t newVal) {
+        if (!patchManager_ || !program_) return;
+        std::vector<uint8_t> oldBytes = { oldVal };
+        std::vector<uint8_t> newBytes = { newVal };
+        auto patch = std::make_unique<ghidra::patch::BytePatch>(
+            addr, oldBytes, newBytes, "");
+        patchManager_->addPatch(std::move(patch));
+        console_->log(QString("Hex edit @ 0x%1: 0x%2 -> 0x%3")
+            .arg(addr, 0, 16)
+            .arg(oldVal, 2, 16, QChar('0'))
+            .arg(newVal, 2, 16, QChar('0')));
+        updateUndoRedoActions();
+        if (disasmView_->isIndexBuilt()) {
+            disasmView_->buildFullIndex();
+            disasmView_->seekToAddress(addr);
+        }
+        // Rebuild hex view to refresh overlay and ASCII column
+        if (program_) {
+            hexView_->buildFullHex(program_.get(), currentBinaryPath_);
+            hexView_->seek(addr);
+        }
+    });
+    connect(hexView_, &HexView::undoRequested, this,
+        [this](uint64_t addr, uint8_t oldVal) {
+        if (!patchManager_ || !program_) return;
+        // Read current byte from memory
+        uint8_t currentByte = 0;
+        auto* mem = program_->getMemory();
+        if (mem) {
+            auto af = program_->getAddressFactory();
+            auto address = af->oldGetAddressFromLong(addr);
+            currentByte = mem->getByte(address);
+        }
+        std::vector<uint8_t> oldBytes = { currentByte };
+        std::vector<uint8_t> newBytes = { oldVal };
+        auto patch = std::make_unique<ghidra::patch::BytePatch>(
+            addr, oldBytes, newBytes, "");
+        patchManager_->addPatch(std::move(patch));
+        console_->log(QString("Undo @ 0x%1: -> 0x%2")
+            .arg(addr, 0, 16).arg(oldVal, 2, 16, QChar('0')));
+        updateUndoRedoActions();
+        if (disasmView_->isIndexBuilt()) {
+            disasmView_->buildFullIndex();
+            disasmView_->seekToAddress(addr);
+        }
+        if (program_) {
+            hexView_->buildFullHex(program_.get(), currentBinaryPath_);
+            hexView_->seek(addr);
+        }
+    });
+    connect(hexView_, &HexView::redoRequested, this,
+        [this](uint64_t addr, uint8_t newVal) {
+        if (!patchManager_ || !program_) return;
+        uint8_t currentByte = 0;
+        auto* mem = program_->getMemory();
+        if (mem) {
+            auto af = program_->getAddressFactory();
+            auto address = af->oldGetAddressFromLong(addr);
+            currentByte = mem->getByte(address);
+        }
+        std::vector<uint8_t> oldBytes = { currentByte };
+        std::vector<uint8_t> newBytes = { newVal };
+        auto patch = std::make_unique<ghidra::patch::BytePatch>(
+            addr, oldBytes, newBytes, "");
+        patchManager_->addPatch(std::move(patch));
+        console_->log(QString("Redo @ 0x%1: -> 0x%2")
+            .arg(addr, 0, 16).arg(newVal, 2, 16, QChar('0')));
+        updateUndoRedoActions();
+        if (disasmView_->isIndexBuilt()) {
+            disasmView_->buildFullIndex();
+            disasmView_->seekToAddress(addr);
+        }
+        if (program_) {
+            hexView_->buildFullHex(program_.get(), currentBinaryPath_);
+            hexView_->seek(addr);
+        }
+    });
+    connect(hexView_, &HexView::bytesPasted, this,
+        [this](uint64_t startAddr, int count) {
+        console_->log(QString("Pasted %1 bytes @ 0x%2")
+            .arg(count).arg(startAddr, 0, 16));
     });
     connect(disasmView_, &DisassemblyFieldView::patchInstructionRequested, this,
         [this](uint64_t addr, const QString& currentMnemonic, const QString& currentOperands) {
@@ -488,9 +580,11 @@ void MainWindow::createStatusBar() {
     statusFunc_ = new QLabel(tr("No binary loaded"));
     statusAddr_ = new QLabel(QString());
     statusCount_ = new QLabel(QString());
+    hexInfoLabel_ = new QLabel(QString());
 
     sb->addWidget(statusFunc_, 1);
     sb->addWidget(statusAddr_);
+    sb->addWidget(hexInfoLabel_);
     sb->addPermanentWidget(statusCount_);
 }
 
