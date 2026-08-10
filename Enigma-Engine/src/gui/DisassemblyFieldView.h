@@ -20,6 +20,7 @@ class SelectionManager;
 namespace ghidra {
 class ProgramDB;
 class DecompInterface;
+namespace patch { class PatchManager; }
 }
 
 class DisassemblyFieldView : public QAbstractScrollArea, public CutterSeekable {
@@ -31,6 +32,7 @@ public:
     void showDisassembly(const QString& text);
     void setProgram(ghidra::ProgramDB* program);
     void setDecompInterface(ghidra::DecompInterface* decomp);
+    void setPatchManager(ghidra::patch::PatchManager* patchMgr);
     void setShowBytes(bool show);
     bool showBytes() const { return showBytes_; }
 
@@ -62,6 +64,7 @@ signals:
     void patchInstructionRequested(uint64_t addr, const QString& currentMnemonic,
                                    const QString& currentOperands);
     void showReferencesRequested(uint64_t addr, bool to);
+    void exportPatchedRequested();
 
 public slots:
     void applySelection(const SelectionState& sel);
@@ -148,9 +151,12 @@ private:
     DisassemblyModel model_;
     ghidra::ProgramDB* program_ = nullptr;
     ghidra::DecompInterface* decomp_ = nullptr;
+    ghidra::patch::PatchManager* patchMgr_ = nullptr;
     bool showBytes_ = false;
     bool indexBuilt_ = false;
     std::map<uint64_t, uint64_t> trampolineMap_; // site → cave
+
+    static constexpr int kGutterWidth = 12; // patch-marker gutter
 
     std::vector<FallbackLine> fallbackLines_;
     QString fallbackText_;

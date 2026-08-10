@@ -96,7 +96,7 @@ add_library(enigma_engine ${SOURCES} ${HEADERS})
 add_dependencies(enigma_engine flatbuffers_schemas)
 target_include_directories(enigma_engine PUBLIC ${CMAKE_SOURCE_DIR}/src/include ${FBS_OUTPUT_DIR})
 target_include_directories(enigma_engine PRIVATE ${CAPSTONE_INCLUDE_DIR} ${SQLITE3_INCLUDE_DIR} ${LMDB_INCLUDE_DIR} ${CMAKE_SOURCE_DIR}/src/decompiler)
-target_link_libraries(enigma_engine PRIVATE ${CAPSTONE_LIBRARY} ${SQLITE3_LIBRARY} ${LMDB_LIBRARY} ${FLATBUFFERS_LIBRARY} decompiler dbghelp)
+target_link_libraries(enigma_engine PRIVATE ${CAPSTONE_LIBRARY} ${SQLITE3_LIBRARY} ${LMDB_LIBRARY} ${FLATBUFFERS_LIBRARY} decompiler dbghelp nlohmann_json::nlohmann_json)
 target_compile_definitions(enigma_engine PRIVATE
     ENIGMA_SLEIGH_DIR="${ENIGMA_SLEIGH_DIR}"
     ENIGMA_FKS_DIR="${CMAKE_INSTALL_PREFIX}/fid"
@@ -244,6 +244,12 @@ target_link_libraries(enigma_binary_audit PRIVATE enigma_engine)
 target_include_directories(enigma_binary_audit SYSTEM PRIVATE ${CMAKE_SOURCE_DIR}/src/decompiler)
 target_compile_definitions(enigma_binary_audit PRIVATE ENIGMA_SLEIGH_DIR="${ENIGMA_SLEIGH_DIR}")
 enigma_apply_warning_policy(enigma_binary_audit)
+
+add_executable(enigma_patch_cli tools/enigma_patch_cli.cpp)
+target_link_libraries(enigma_patch_cli PRIVATE enigma_engine)
+target_include_directories(enigma_patch_cli SYSTEM PRIVATE ${CMAKE_SOURCE_DIR}/src/decompiler)
+target_compile_definitions(enigma_patch_cli PRIVATE ENIGMA_SLEIGH_DIR="${ENIGMA_SLEIGH_DIR}")
+enigma_apply_warning_policy(enigma_patch_cli)
 
 add_executable(enigma_pipeline_audit tools/enigma_pipeline_audit.cpp)
 target_link_libraries(enigma_pipeline_audit PRIVATE enigma_engine)

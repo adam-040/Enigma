@@ -6,6 +6,8 @@
 #include <ghidra/Memory.h>
 #include <ghidra/Address.h>
 #include <ghidra/AddressFactory.h>
+#include <ghidra/patch/PatchManager.h>
+#include <ghidra/patch/Patch.h>
 #include <QPainter>
 #include <QPaintEvent>
 #include <QResizeEvent>
@@ -50,6 +52,11 @@ void DisassemblyFieldView::setDecompInterface(ghidra::DecompInterface* decomp) {
     decomp_ = decomp;
     indexBuilt_ = false;
     fallbackLines_.clear();
+}
+
+void DisassemblyFieldView::setPatchManager(ghidra::patch::PatchManager* patchMgr) {
+    patchMgr_ = patchMgr;
+    viewport()->update();
 }
 
 void DisassemblyFieldView::setShowBytes(bool show) {
@@ -533,7 +540,7 @@ DisassemblyFieldView::CursorPos DisassemblyFieldView::caretAtPos(const QPoint& p
     int scrollX = horizontalScrollBar()->value();
     int row = (pos.y() + scrollY) / cellH;
     row = std::clamp(row, 0, n - 1);
-    int col = (pos.x() + scrollX - EditorTheme::leftPadding()) / cellW;
+    int col = (pos.x() + scrollX - kGutterWidth - EditorTheme::leftPadding()) / cellW;
     col = std::clamp(col, 0, static_cast<int>(lineText(row).size()));
     return {row, col};
 }
@@ -622,7 +629,7 @@ void DisassemblyFieldView::selectTokenAt(int row, int col) {
 void DisassemblyFieldView::updateScrollBars() {
     int cellW = EditorTheme::cellWidth();
     int cellH = EditorTheme::cellHeight();
-    int leftPad = EditorTheme::leftPadding();
+    int leftPad = kGutterWidth + EditorTheme::leftPadding();
     int n = lineCount();
     if (n == 0) {
         verticalScrollBar()->setRange(0, 0);
@@ -662,7 +669,7 @@ void DisassemblyFieldView::paintEvent(QPaintEvent* event) {
     if (n == 0) {
         // placeholder
         painter.setPen(QColor(0x88, 0x88, 0x88));
-        painter.drawText(EditorTheme::leftPadding(), EditorTheme::ascent() + 4,
+        painter.drawText(kGutterWidth + EditorTheme::leftPadding(), EditorTheme::ascent() + 4,
                          QStringLiteral("No disassembly"));
         return;
     }
@@ -671,7 +678,7 @@ void DisassemblyFieldView::paintEvent(QPaintEvent* event) {
     int cellH = EditorTheme::cellHeight();
     int ascent = EditorTheme::ascent();
     int glyphH = EditorTheme::glyphHeight();
-    int leftPad = EditorTheme::leftPadding();
+    int leftPad = kGutterWidth + EditorTheme::leftPadding();
     int scrollY = verticalScrollBar()->value();
     int scrollX = horizontalScrollBar()->value();
     int vpH = viewport()->height();
@@ -698,6 +705,12 @@ void DisassemblyFieldView::paintEvent(QPaintEvent* event) {
         return true;
     };
 
+    std::unordered_set<uint64_t> patchedSites;
+    if (patchMgr_) {
+        for (auto* p : patchMgr_->getActivePatches())
+            patchedSites.insert(p->baseAddress());
+    }
+
     for (int ri = first; ri <= last; ++ri) {
         int y = ri * cellH - scrollY;
         int baseX = leftPad - scrollX;
@@ -708,9 +721,11 @@ void DisassemblyFieldView::paintEvent(QPaintEvent* event) {
 
         const std::vector<Token>* toks = nullptr;
         int maxCol = 0;
+        uint64_t rowAddr = 0;
         if (indexBuilt_) {
             const DisasmRow* r = model_.rowAt(ri);
             if (!r) continue;
+            rowAddr = r->address;
             if (r->kind == DisasmRow::Kind::Instruction) {
                 const DecodedInstruction* inst = decodedInstruction(r->address);
                 if (!inst) continue;
@@ -724,8 +739,13 @@ void DisassemblyFieldView::paintEvent(QPaintEvent* event) {
             if (ri >= static_cast<int>(fallbackLines_.size())) continue;
             toks = &fallbackLines_[ri].tokens;
             maxCol = fallbackLines_[ri].totalCols;
+            rowAddr = fallbackLines_[ri].addr;
         }
         if (!toks || toks->empty()) continue;
+
+        if (!patchedSites.empty() && rowAddr != 0 && patchedSites.count(rowAddr)) {
+            painter.fillRect(2, y + 2, 4, cellH - 4, QColor(0x2e, 0xcc, 0x71));
+        }
 
         maxColsSeen_ = std::max(maxColsSeen_, maxCol);
 
@@ -917,47 +937,59 @@ void DisassemblyFieldView::mouseDoubleClickEvent(QMouseEvent* event) {
 }
 
 void DisassemblyFieldView::contextMenuEvent(QContextMenuEvent* event) {
-    auto hit = caretAtPos(event->pos());
-    if (hit.row < 0 || hit.row >= lineCount()) return;
+    QMenu menu(this);
+    QAction* actExport = menu.addAction(tr("Export Patched Binary..."));
+    QAction* actAssemble = nullptr;
+    QAction* actGoTo = nullptr;
+    QAction* actJumpToCave = nullptr;
+    uint64_t caveTarget = 0;
 
+    auto hit = caretAtPos(event->pos());
+    bool onInstruction = hit.row >= 0 && hit.row < lineCount();
     uint64_t addr = 0;
     QString mne;
     QString ops;
-    if (indexBuilt_) {
-        const DisasmRow* r = model_.rowAt(hit.row);
-        if (!r || r->kind != DisasmRow::Kind::Instruction) return;
-        addr = r->address;
-        const DecodedInstruction* inst = decodedInstruction(addr);
-        if (inst) {
-            mne = inst->mnemonic;
-            ops = inst->operands;
+    if (onInstruction) {
+        if (indexBuilt_) {
+            const DisasmRow* r = model_.rowAt(hit.row);
+            if (!r || r->kind != DisasmRow::Kind::Instruction) onInstruction = false;
+            else {
+                addr = r->address;
+                const DecodedInstruction* inst = decodedInstruction(addr);
+                if (inst) {
+                    mne = inst->mnemonic;
+                    ops = inst->operands;
+                }
+            }
+        } else {
+            const FallbackLine& fl = fallbackLines_[hit.row];
+            addr = fl.addr;
+            mne = fl.mne;
+            ops = fl.body;
+            if (addr == 0) onInstruction = false;
         }
-    } else {
-        const FallbackLine& fl = fallbackLines_[hit.row];
-        addr = fl.addr;
-        mne = fl.mne;
-        ops = fl.body;
-        if (addr == 0) return;
     }
 
-    QMenu menu(this);
-    QAction* actAssemble = menu.addAction(tr("Assemble Instruction at 0x%1").arg(addr, 0, 16));
-    menu.addSeparator();
-    QAction* actGoTo = menu.addAction(tr("Go to 0x%1").arg(addr, 0, 16));
-
-    QAction* actJumpToCave = nullptr;
-    auto caveIt = trampolineMap_.find(addr);
-    if (caveIt != trampolineMap_.end()) {
-        actJumpToCave = menu.addAction(tr("Jump to Code Cave (0x%1)").arg(caveIt->second, 0, 16));
+    if (onInstruction) {
+        menu.addSeparator();
+        actAssemble = menu.addAction(tr("Assemble Instruction at 0x%1").arg(addr, 0, 16));
+        actGoTo = menu.addAction(tr("Go to 0x%1").arg(addr, 0, 16));
+        auto caveIt = trampolineMap_.find(addr);
+        if (caveIt != trampolineMap_.end()) {
+            actJumpToCave = menu.addAction(tr("Jump to Code Cave (0x%1)").arg(caveIt->second, 0, 16));
+            caveTarget = caveIt->second;
+        }
     }
 
     QAction* chosen = menu.exec(event->globalPos());
     if (!chosen) return;
 
-    if (chosen == actAssemble) {
+    if (chosen == actExport) {
+        emit exportPatchedRequested();
+    } else if (chosen == actAssemble) {
         emit patchInstructionRequested(addr, mne, ops);
-    } else if (actJumpToCave && chosen == actJumpToCave) {
-        emit addressJumpRequested(caveIt->second);
+    } else if (chosen == actJumpToCave) {
+        emit addressJumpRequested(caveTarget);
     } else if (chosen == actGoTo) {
         seek(addr);
     }

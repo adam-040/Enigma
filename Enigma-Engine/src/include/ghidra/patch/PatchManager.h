@@ -64,6 +64,10 @@ public:
     // Export
     bool exportPatchedBinary(const std::string& outputPath);
 
+    // JSON persistence (byte-level patches: BytePatch/NopFillPatch/InstructionPatch)
+    bool saveToJson(const std::string& path) const;
+    bool loadFromJson(const std::string& path);
+
     // Conflict detection
     std::vector<ConflictInfo> findConflicts(const Patch& candidate) const;
     void setConflictHandler(std::function<ConflictInfo::Action(const ConflictInfo&)> handler);

@@ -3,9 +3,12 @@
 #include <vector>
 #include <cstdint>
 #include <string>
+#include <cstdio>
 #include "ghidra/Assembler.h"
 #include "ghidra/patch/InstructionPatch.h"
 #include "ghidra/patch/Patch.h"
+#include "ghidra/patch/BytePatch.h"
+#include "ghidra/patch/PatchManager.h"
 #include "ghidra/patch/CodeCaveAllocator.h"
 
 using namespace ghidra;
@@ -378,6 +381,37 @@ static void test_safety_no_reloc_for_mov_reg_reg() {
     check(result.absoluteRefs.empty(), "safety_movrr: no refs");
 }
 
+static void test_json_roundtrip() {
+    const char* path = "test_patches_roundtrip.json";
+    {
+        PatchManager mgr;
+        auto bp = std::make_unique<BytePatch>(0x140001505,
+            std::vector<uint8_t>{0x75, 0x11}, std::vector<uint8_t>{0x90, 0x90},
+            "bypass_jne", "nop out the fail branch");
+        bp->setEnabled(true);
+        mgr.addPatch(std::move(bp));
+        check(mgr.patchCount() == 1, "json: one patch added");
+        check(mgr.saveToJson(path), "json: saveToJson succeeds");
+    }
+    {
+        PatchManager mgr;
+        check(mgr.loadFromJson(path), "json: loadFromJson succeeds");
+        check(mgr.patchCount() == 1, "json: one patch loaded");
+        auto patches = mgr.getAllPatches();
+        if (!patches.empty()) {
+            const Patch* p = patches[0];
+            check(p->baseAddress() == 0x140001505, "json: address preserved");
+            check(p->originalBytes() == std::vector<uint8_t>({0x75, 0x11}),
+                "json: original bytes preserved");
+            check(p->patchedBytes() == std::vector<uint8_t>({0x90, 0x90}),
+                "json: patched bytes preserved");
+            check(p->name() == "bypass_jne", "json: name preserved");
+            check(p->enabled(), "json: enabled flag preserved");
+        }
+    }
+    std::remove(path);
+}
+
 int main() {
     std::cout << "=== Feature Tests: Multi-byte NOP, Trampoline, PE Checksum ===" << std::endl;
 
@@ -427,6 +461,9 @@ int main() {
     test_safety_no_reloc_for_nop();
     test_safety_no_reloc_for_ret();
     test_safety_no_reloc_for_mov_reg_reg();
+
+    std::cout << "\n--- JSON Save/Load ---" << std::endl;
+    test_json_roundtrip();
 
     std::cout << "\n=== Results: " << testsPassed << " passed, " << testsFailed << " failed ===" << std::endl;
     return testsFailed == 0 ? 0 : 1;

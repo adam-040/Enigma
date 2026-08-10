@@ -30,6 +30,7 @@ class ProgramDB;
 class DecompInterface;
 class Function;
 class AutoAnalysisManager;
+class BinaryLoader;
 }
 
 class FunctionExplorer;
@@ -37,6 +38,7 @@ class DisassemblyFieldView;
 class DecompilerView;
 class HexView;
 class ConsoleWidget;
+class PatchListWidget;
 
 namespace ghidra::patch { class PatchManager; }
 
@@ -89,6 +91,8 @@ private slots:
     void onExportPatchedBinary();
     void onShowPatchList();
     void onRevertAllPatches();
+    void onSavePatches();
+    void onLoadPatches();
 
     // Repository
     void onCommit();
@@ -117,6 +121,7 @@ private:
     std::unique_ptr<ghidra::DecompInterface> decompInterface_;
     std::unique_ptr<ghidra::AutoAnalysisManager> analysisMgr_;
     std::unique_ptr<ghidra::patch::PatchManager> patchManager_;
+    std::unique_ptr<ghidra::BinaryLoader> binaryLoader_;
     ghidra::storage::EventLog eventLog_;
 
     ghidra::Function* currentFunction_ = nullptr;
@@ -146,17 +151,20 @@ private:
 
     QAction* undoAction_ = nullptr;
     QAction* redoAction_ = nullptr;
+    QAction* showPatchListAction_ = nullptr;
 
     FunctionExplorer* explorer_;
     DisassemblyFieldView* disasmView_;
     DecompilerView* decompView_;
     HexView* hexView_;
     ConsoleWidget* console_;
+    PatchListWidget* patchList_ = nullptr;
     QDockWidget* explorerDock_;
     QDockWidget* disasmDock_;
     QDockWidget* decompDock_;
     QDockWidget* hexDock_;
     QDockWidget* consoleDock_;
+    QDockWidget* patchListDock_ = nullptr;
     QLabel* statusFunc_;
     QLabel* statusAddr_;
     QLabel* statusCount_;

@@ -1,6 +1,7 @@
 #include "ghidra/patch/PatchManager.h"
 #include "ghidra/patch/BytePatch.h"
 #include "ghidra/patch/InstructionPatch.h"
+#include "ghidra/patch/NopFillPatch.h"
 #include "ghidra/patch/CodeCaveAllocator.h"
 #include "ghidra/Assembler.h"
 #include "ghidra/ProgramDB.h"
@@ -8,6 +9,7 @@
 #include "ghidra/BinaryLoader.h"
 #include "ghidra/Address.h"
 #include "ghidra/AddressFactory.h"
+#include <nlohmann/json.hpp>
 #include <algorithm>
 #include <fstream>
 #include <map>
@@ -16,6 +18,37 @@
 #include <iostream>
 
 namespace ghidra::patch {
+
+using json = nlohmann::json;
+
+static std::string bytesToHex(const std::vector<uint8_t>& bytes) {
+    static const char* hex = "0123456789abcdef";
+    std::string out;
+    out.reserve(bytes.size() * 2);
+    for (uint8_t b : bytes) {
+        out += hex[b >> 4];
+        out += hex[b & 0xF];
+    }
+    return out;
+}
+
+static std::vector<uint8_t> hexToBytes(const std::string& s) {
+    std::vector<uint8_t> out;
+    if (s.size() % 2 != 0) return out;
+    auto val = [](char c) -> int {
+        if (c >= '0' && c <= '9') return c - '0';
+        if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+        if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+        return -1;
+    };
+    out.reserve(s.size() / 2);
+    for (size_t i = 0; i + 1 < s.size(); i += 2) {
+        int hi = val(s[i]), lo = val(s[i + 1]);
+        if (hi < 0 || lo < 0) return {};
+        out.push_back(static_cast<uint8_t>((hi << 4) | lo));
+    }
+    return out;
+}
 
 static const uint16_t IMAGE_REL_BASED_DIR64 = 10;
 static const uint32_t RELOC_PAGE_SIZE = 0x1000;
@@ -785,6 +818,93 @@ bool PatchManager::redo() {
 void PatchManager::clearHistory() {
     undoStack_.clear();
     redoStack_.clear();
+}
+
+static const char* categoryName(PatchCategory cat) {
+    switch (cat) {
+    case PatchCategory::BYTE: return "byte";
+    case PatchCategory::NOP_FILL: return "nop_fill";
+    case PatchCategory::INSTRUCTION: return "instruction";
+    default: return "unknown";
+    }
+}
+
+bool PatchManager::saveToJson(const std::string& path) const {
+    json root;
+    root["version"] = 1;
+    root["format"] = "enigma-patches";
+    json arr = json::array();
+    for (auto& [id, p] : patches_) {
+        const char* catName = categoryName(p->category());
+        if (std::strcmp(catName, "unknown") == 0) continue;
+        json j;
+        j["id"] = p->id().id;
+        j["category"] = catName;
+        j["address"] = p->baseAddress();
+        j["original"] = bytesToHex(p->originalBytes());
+        j["patched"] = bytesToHex(p->patchedBytes());
+        j["name"] = p->name();
+        j["description"] = p->description();
+        j["enabled"] = p->enabled();
+        if (const auto* ip = dynamic_cast<const InstructionPatch*>(p.get())) {
+            j["assembly"] = ip->assemblyText();
+            j["original_size"] = ip->originalSize();
+        }
+        arr.push_back(std::move(j));
+    }
+    root["patches"] = std::move(arr);
+
+    std::ofstream out(path, std::ios::binary | std::ios::trunc);
+    if (!out) return false;
+    out << root.dump(2);
+    return out.good();
+}
+
+bool PatchManager::loadFromJson(const std::string& path) {
+    std::ifstream in(path);
+    if (!in) return false;
+    json root;
+    try {
+        in >> root;
+    } catch (...) {
+        return false;
+    }
+    if (!root.contains("patches") || !root["patches"].is_array()) return false;
+
+    int added = 0;
+    for (const auto& j : root["patches"]) {
+        std::string category = j.value("category", std::string("byte"));
+        std::vector<uint8_t> original = hexToBytes(j.value("original", std::string()));
+        std::vector<uint8_t> patched = hexToBytes(j.value("patched", std::string()));
+        if (original.empty() || patched.empty()) continue;
+        uint64_t address = j.value("address", uint64_t(0));
+        std::string name = j.value("name", std::string());
+        std::string description = j.value("description", std::string());
+        bool enabled = j.value("enabled", true);
+
+        std::unique_ptr<Patch> patch;
+        if (category == "nop_fill") {
+            patch = std::make_unique<NopFillPatch>(address, patched.size(), patched.front(), name, description);
+        } else if (category == "instruction") {
+            std::string assembly = j.value("assembly", std::string());
+            uint64_t originalSize = j.value("original_size", uint64_t(0));
+            if (!assembly.empty()) {
+                auto ip = std::make_unique<InstructionPatch>(address, assembly, originalSize, name, description);
+                if (!ip->originalBytes().empty()) {
+                    patch = std::move(ip);
+                }
+            }
+            if (!patch) {
+                patch = std::make_unique<BytePatch>(address, original, patched, name, description);
+            }
+        } else {
+            patch = std::make_unique<BytePatch>(address, original, patched, name, description);
+        }
+        patch->setEnabled(enabled);
+        addPatch(std::move(patch));
+        ++added;
+    }
+    return added > 0;
 }
 
 } // namespace ghidra::patch

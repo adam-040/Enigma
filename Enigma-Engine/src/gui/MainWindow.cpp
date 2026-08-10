@@ -5,6 +5,7 @@
 #include "HexView.h"
 #include "HexSearchBar.h"
 #include "ConsoleWidget.h"
+#include "PatchListWidget.h"
 #include "SelectionManager.h"
 
 #include <QFileDialog>
@@ -127,6 +128,8 @@ MainWindow::MainWindow(QWidget* parent)
 
     decompInterface_ = std::make_unique<ghidra::DecompInterface>();
     patchManager_ = std::make_unique<ghidra::patch::PatchManager>();
+    disasmView_->setPatchManager(patchManager_.get());
+    if (patchList_) patchList_->setPatchManager(patchManager_.get());
     navTimer_ = new QTimer(this);
     navTimer_->setSingleShot(true);
     navTimer_->setInterval(80);
@@ -267,8 +270,18 @@ void MainWindow::createMenuBar() {
     auto* exportAct = patchMenu->addAction(tr("&Export Patched Binary..."));
     connect(exportAct, &QAction::triggered, this, &MainWindow::onExportPatchedBinary);
 
-    auto* listAct = patchMenu->addAction(tr("&Show Patch List..."));
-    connect(listAct, &QAction::triggered, this, &MainWindow::onShowPatchList);
+    auto* listAct = patchMenu->addAction(tr("&Show Patch List"));
+    listAct->setCheckable(true);
+    listAct->setChecked(true);
+    showPatchListAction_ = listAct;
+    connect(listAct, &QAction::toggled, this, [this](bool show) {
+        if (patchListDock_) patchListDock_->setVisible(show);
+    });
+
+    auto* savePatchesAct = patchMenu->addAction(tr("Sa&ve Patches..."));
+    connect(savePatchesAct, &QAction::triggered, this, &MainWindow::onSavePatches);
+    auto* loadPatchesAct = patchMenu->addAction(tr("&Load Patches..."));
+    connect(loadPatchesAct, &QAction::triggered, this, &MainWindow::onLoadPatches);
 
     auto* revertAllAct = patchMenu->addAction(tr("&Revert All Patches"));
     connect(revertAllAct, &QAction::triggered, this, &MainWindow::onRevertAllPatches);
@@ -284,6 +297,7 @@ void MainWindow::createDockWidgets() {
     auto* hexSearchBar = new HexSearchBar(hexView_, hexView_);
     console_ = new ConsoleWidget(this);
     explorer_ = new FunctionExplorer(this);
+    patchList_ = new PatchListWidget(this);
 
     auto createDock = [&](const QString& title, QWidget* widget, bool closable = true) -> QDockWidget* {
         auto* dock = new QDockWidget(title, this);
@@ -302,6 +316,7 @@ void MainWindow::createDockWidgets() {
     decompDock_   = createDock("DECOMPILER", decompView_);
     hexDock_      = createDock("HEX", hexView_);
     consoleDock_  = createDock("CONSOLE", console_);
+    patchListDock_ = createDock("PATCH LIST", patchList_);
 
     setDockNestingEnabled(true);
     if (centralWidget()) {
@@ -314,6 +329,11 @@ void MainWindow::createDockWidgets() {
     splitDockWidget(disasmDock_, decompDock_, Qt::Horizontal);
     splitDockWidget(disasmDock_, consoleDock_, Qt::Vertical);
     splitDockWidget(decompDock_, hexDock_, Qt::Vertical);
+    splitDockWidget(hexDock_, patchListDock_, Qt::Vertical);
+    connect(patchListDock_, &QDockWidget::visibilityChanged, this, [this](bool visible) {
+        if (showPatchListAction_)
+            showPatchListAction_->setChecked(visible);
+    });
 
     connect(explorer_, &FunctionExplorer::functionSelected,
             this, &MainWindow::onFunctionSelected);
@@ -325,6 +345,32 @@ void MainWindow::createDockWidgets() {
             this, &MainWindow::onDisasmAddressDoubleClicked);
     connect(decompView_, &DecompilerView::seekRequested,
             this, &MainWindow::onDecompAddressDoubleClicked);
+    connect(patchList_, &PatchListWidget::navigateRequested, this,
+        [this](uint64_t addr) {
+        if (!disasmView_) return;
+        disasmView_->seek(addr);
+        hexView_->seek(addr);
+    });
+    connect(patchList_, &PatchListWidget::patchDeleted, this,
+        [this](const QString& id) {
+        if (!patchManager_) return;
+        patchManager_->removePatch(ghidra::patch::PatchId{id.toStdString()});
+        console_->log(QString("Deleted patch %1").arg(id.left(8)));
+        updateUndoRedoActions();
+        if (disasmView_) disasmView_->viewport()->update();
+    });
+    connect(patchList_, &PatchListWidget::patchToggled, this,
+        [this](const QString& id) {
+        if (!patchManager_) return;
+        patchManager_->togglePatch(ghidra::patch::PatchId{id.toStdString()});
+        console_->log(QString("Toggled patch %1").arg(id.left(8)));
+        updateUndoRedoActions();
+        if (disasmView_) {
+            disasmView_->invalidateCache();
+            disasmView_->viewport()->update();
+        }
+        if (hexView_) hexView_->viewport()->update();
+    });
 
     // --- Sync navigation: cursor movement in any FieldView syncs the others ---
     selectionMgr_ = new SelectionManager(this);
@@ -481,6 +527,8 @@ void MainWindow::createDockWidgets() {
         console_->log(QString("Pasted %1 bytes @ 0x%2")
             .arg(count).arg(startAddr, 0, 16));
     });
+    connect(disasmView_, &DisassemblyFieldView::exportPatchedRequested, this,
+        [this]() { onExportPatchedBinary(); });
     connect(disasmView_, &DisassemblyFieldView::patchInstructionRequested, this,
         [this](uint64_t addr, const QString& currentMnemonic, const QString& currentOperands) {
         if (!patchManager_ || !program_) return;
@@ -734,6 +782,11 @@ void MainWindow::loadBinary(const QString& path) {
         loader->getBitness(), loader->isBigEndian(),
         path.toStdString().c_str());
 
+    if (patchList_) {
+        patchList_->setDisassembler(ghidra::createDisassembler(
+            loader->getArchitecture(), loader->getBitness(), loader->isBigEndian()));
+    }
+
     QFileInfo fi(path);
     auto* prog = new ghidra::ProgramDB(fi.fileName().toStdString(), nullptr, nullptr);
     DBG("[loadBinary] ProgramDB constructed\n");
@@ -923,8 +976,9 @@ void MainWindow::loadBinary(const QString& path) {
     patchManager_->releasePatchMemory();
     program_.reset(prog);
     DBG("[loadBinary] installing PatchMemory...\n");
+    binaryLoader_ = std::move(loader);
     patchManager_->setProgram(program_.get());
-    patchManager_->setBinaryLoader(loader.get());
+    patchManager_->setBinaryLoader(binaryLoader_.get());
     patchManager_->installPatchMemory(program_.get());
     patchManager_->patchMemory()->setOnBytesChanged(
         [this](uint64_t, uint64_t) {
@@ -1026,9 +1080,9 @@ void MainWindow::loadBinary(const QString& path) {
 
     console_->log(QString("Binary loaded: %1").arg(binaryName));
     console_->log(QString("Architecture: %1-bit %2%3")
-        .arg(loader->getBitness())
-        .arg(loader->getArchitecture().c_str())
-        .arg(loader->isBigEndian() ? " BE" : " LE"));
+        .arg(binaryLoader_->getBitness())
+        .arg(binaryLoader_->getArchitecture().c_str())
+        .arg(binaryLoader_->isBigEndian() ? " BE" : " LE"));
 
     NAVLOG("calling runAnalysisAsync...\n");
     runAnalysisAsync();
@@ -1949,6 +2003,12 @@ void MainWindow::onUndo() {
         console_->log("Undo applied.");
         updateUndoRedoActions();
         if (hexView_) hexView_->viewport()->update();
+        if (disasmView_) {
+            disasmView_->invalidateCache();
+            if (disasmView_->isIndexBuilt())
+                disasmView_->buildFullIndex();
+            disasmView_->viewport()->update();
+        }
     } else {
         console_->log("Nothing to undo.");
     }
@@ -1959,6 +2019,12 @@ void MainWindow::onRedo() {
         console_->log("Redo applied.");
         updateUndoRedoActions();
         if (hexView_) hexView_->viewport()->update();
+        if (disasmView_) {
+            disasmView_->invalidateCache();
+            if (disasmView_->isIndexBuilt())
+                disasmView_->buildFullIndex();
+            disasmView_->viewport()->update();
+        }
     } else {
         console_->log("Nothing to redo.");
     }
@@ -2190,6 +2256,45 @@ void MainWindow::onShowPatchList() {
     }
 }
 
+void MainWindow::onSavePatches() {
+    if (!patchManager_ || patchManager_->patchCount() == 0) {
+        console_->log("No patches to save.");
+        return;
+    }
+    QString path = QFileDialog::getSaveFileName(this, tr("Save Patches"),
+        QString(), tr("Patch List (*.json);;All Files (*)"));
+    if (path.isEmpty()) return;
+    if (patchManager_->saveToJson(path.toStdString())) {
+        console_->log(QString("Saved %1 patches to: %2")
+            .arg(patchManager_->patchCount()).arg(path));
+    } else {
+        console_->log("Failed to save patches.");
+    }
+}
+
+void MainWindow::onLoadPatches() {
+    if (!patchManager_ || !program_) {
+        console_->log("Load a binary first.");
+        return;
+    }
+    QString path = QFileDialog::getOpenFileName(this, tr("Load Patches"),
+        QString(), tr("Patch List (*.json);;All Files (*)"));
+    if (path.isEmpty()) return;
+    if (patchManager_->loadFromJson(path.toStdString())) {
+        console_->log("Patches loaded from: " + path);
+        updateUndoRedoActions();
+        if (disasmView_) {
+            disasmView_->invalidateCache();
+            if (disasmView_->isIndexBuilt())
+                disasmView_->buildFullIndex();
+            disasmView_->viewport()->update();
+        }
+        if (hexView_) hexView_->viewport()->update();
+    } else {
+        console_->log("Failed to load patches (no valid patches found).");
+    }
+}
+
 void MainWindow::onRevertAllPatches() {
     if (!patchManager_ || patchManager_->patchCount() == 0) {
         console_->log("No patches to revert.");
@@ -2202,6 +2307,12 @@ void MainWindow::onRevertAllPatches() {
     patchManager_->revertAll();
     console_->log("All patches reverted.");
     if (hexView_) hexView_->viewport()->update();
+    if (disasmView_) {
+        disasmView_->invalidateCache();
+        if (disasmView_->isIndexBuilt())
+            disasmView_->buildFullIndex();
+        disasmView_->viewport()->update();
+    }
 }
 
 void MainWindow::executeWithEvent(std::unique_ptr<ghidra::storage::Event> event) {}
