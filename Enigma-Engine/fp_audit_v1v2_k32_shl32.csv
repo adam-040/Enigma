@@ -1,5 +1,0 @@
-version,unique_a,unique_b,pairs,matches,collisions_a,collisions_b,match_rate,collision_rate
-V1_fullHash,51,101,21,0,0,0,0.00,0.00
-V1_shortHash,51,101,21,0,0,0,0.00,0.00
-V2_fullHash,20,42,21,1,35,69,4.76,167.74
-V2_shortHash,8,10,14,5,44,91,35.71,750.00
