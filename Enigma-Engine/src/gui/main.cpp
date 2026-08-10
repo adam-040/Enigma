@@ -185,7 +185,7 @@ int main(int argc, char** argv) {
     MainWindow w;
     w.setWindowTitle("Enigma Engine");
     w.resize(1400, 850);
-    w.show();
+    w.showMaximized();
 
     // Command-line: first arg is binary path to auto-load for debugging
     if (argc > 1) {

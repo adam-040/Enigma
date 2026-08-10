@@ -48,19 +48,17 @@ porting; do not modify.
 Working dir for all commands: `Enigma-Engine/`.
 
 - Configure (one time, or after CMakeLists changes):
-  `cmake -S . -B build-cmake -G Ninja`
-- Build everything: `cmake --build build-cmake`
-- Build a single target: `cmake --build build-cmake --target enigma_engine`
+  `cmake -S . -B build -G Ninja`
+- Build everything: `cmake --build build`
+- Build a single target: `cmake --build build --target enigma_engine`
   (or `enigma_gui`, `enigma_test_pipeline`, `enigma_decompile_full`, ...)
-- Run all tests: `cd build-cmake && ctest --output-on-failure`
+- Run all tests: `cd build && ctest --output-on-failure`
 - Run one suite: `ctest -R enigma_test_pipeline --output-on-failure`
 - Run the CLI directly:
-  `build-cmake/enigma_decompile_full.exe -h`
-  `build-cmake/enigma_decompile_full.exe -base 1000 -entry 1000 ../simple.bin`
+  `build/enigma_decompile_full.exe -h`
+  `build/enigma_decompile_full.exe -base 1000 -entry 1000 ../simple.bin`
 
-Both `build/` and `build-cmake/` may exist. The CLI regression test
-(`tests/test_cli_regression.py`) checks `build/` first, then `build-cmake/`.
-Standardize on `build-cmake/` (Ninja) unless you have a reason otherwise.
+Standardize on `build/` (Ninja).
 
 **Add a new source file**: just drop it under `src/` or `include/ghidra/`. The
 root `CMakeLists.txt` uses `file(GLOB_RECURSE ... CONFIGURE_DEPENDS)` so

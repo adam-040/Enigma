@@ -1441,8 +1441,8 @@ void MainWindow::doNavigate(uint64_t addr, const QString& name) {
                     disasmView_->buildFullIndex();
                     std::cerr << "[doNavigate] STEP5: buildFullIndex done, indexBuilt="
                               << disasmView_->isIndexBuilt()
-                              << " lineCount="
-                              << (disasmView_->document() ? disasmView_->document()->lineCount() : -1)
+                              << " rowCount="
+                              << disasmView_->rowCount()
                               << std::endl;
                 }
                 std::cerr << "[doNavigate] STEP5: calling seekToAddress..." << std::endl;
@@ -1471,24 +1471,20 @@ void MainWindow::doNavigate(uint64_t addr, const QString& name) {
         std::cerr << "[doNavigate] STEP5: SKIPPED (NavSkip_Disasm)" << std::endl;
     }
 
-    // GUARANTEE: ensure the disassembly view has a document, even if everything above failed
-    std::cerr << "[doNavigate] PRE-GUARANTEE: document="
-              << (void*)disasmView_->document()
-              << " lineCount="
-              << (disasmView_->document() ? disasmView_->document()->lineCount() : 0)
+    // GUARANTEE: ensure the disassembly view has content, even if everything above failed
+    std::cerr << "[doNavigate] PRE-GUARANTEE: rowCount="
+              << disasmView_->rowCount()
               << std::endl;
-    if (!disasmView_->document() || disasmView_->document()->lineCount() == 0) {
-        std::cerr << "[doNavigate] WARNING: disassembly view has no document after STEP5!" << std::endl;
+    if (disasmView_->rowCount() == 0) {
+        std::cerr << "[doNavigate] WARNING: disassembly view has no content after STEP5!" << std::endl;
         disasmView_->showDisassembly(QString(
             "; NO DISASSEMBLY\n"
             "; doNavigate reached addr=0x%1\n"
             "; Check stderr\n")
             .arg(addr, 0, 16));
     }
-    std::cerr << "[doNavigate] POST-GUARANTEE: document="
-              << (void*)disasmView_->document()
-              << " lineCount="
-              << (disasmView_->document() ? disasmView_->document()->lineCount() : 0)
+    std::cerr << "[doNavigate] POST-GUARANTEE: rowCount="
+              << disasmView_->rowCount()
               << std::endl;
 
     // ── STEP 6: Decompile ─────────────────────────────────────────────────

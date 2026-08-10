@@ -1,401 +1,946 @@
 #include "DisassemblyFieldView.h"
+#include "EditorTheme.h"
+#include "SelectionManager.h"
 #include <ghidra/ProgramDB.h>
 #include <ghidra/DecompInterface.h>
 #include <ghidra/Memory.h>
-#include <ghidra/FunctionManager.h>
-#include <ghidra/FunctionIterator.h>
-#include <ghidra/Function.h>
-#include <ghidra/SymbolTable.h>
-#include <ghidra/SymbolIterator.h>
-#include <ghidra/Symbol.h>
-#include <ghidra/SymbolType.h>
-#include <iostream>
-#include <algorithm>
-#include <set>
 #include <ghidra/Address.h>
 #include <ghidra/AddressFactory.h>
+#include <QPainter>
+#include <QPaintEvent>
+#include <QResizeEvent>
+#include <QMouseEvent>
+#include <QContextMenuEvent>
+#include <QKeyEvent>
+#include <QWheelEvent>
+#include <QScrollBar>
+#include <QApplication>
+#include <QClipboard>
 #include <QMenu>
+#include <iostream>
+#include <algorithm>
 
 DisassemblyFieldView::DisassemblyFieldView(QWidget* parent)
-    : FieldView(parent)
+    : QAbstractScrollArea(parent)
 {
+    setFont(EditorTheme::baseFont());
+    setFocusPolicy(Qt::StrongFocus);
+    setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+
+    caretBlinkTimer_ = new QTimer(this);
+    caretBlinkTimer_->setInterval(qMax(100, QApplication::cursorFlashTime() / 2));
+    connect(caretBlinkTimer_, &QTimer::timeout, this, [this]() {
+        if (hasFocus()) {
+            caretVisible_ = !caretVisible_;
+            viewport()->update();
+        }
+    });
+    caretBlinkTimer_->start();
+    viewport()->setMouseTracking(true);
 }
 
 void DisassemblyFieldView::setProgram(ghidra::ProgramDB* program) {
     program_ = program;
     indexBuilt_ = false;
+    fallbackLines_.clear();
 }
 
 void DisassemblyFieldView::setDecompInterface(ghidra::DecompInterface* decomp) {
     decomp_ = decomp;
     indexBuilt_ = false;
+    fallbackLines_.clear();
 }
 
 void DisassemblyFieldView::setShowBytes(bool show) {
+    if (showBytes_ == show) return;
     showBytes_ = show;
-    if (parsed_.empty() && !lastText_.isEmpty()) {
-        showDisassembly(lastText_);
-    } else if (!parsed_.empty()) {
-        uint64_t currentAddr = addressAtCurrentLine();
-        buildDocumentFromParsed();
-        if (currentAddr != 0)
-            seek(currentAddr);
+    if (indexBuilt_) {
+        invalidateCache();
+    } else {
+        for (auto& fl : fallbackLines_)
+            buildTokensForFallback(fl);
+        updateScrollBars();
+        viewport()->update();
     }
 }
 
-bool DisassemblyFieldView::showBytes() const {
-    return showBytes_;
+void DisassemblyFieldView::showDisassembly(const QString& text) {
+    fallbackText_ = text;
+    fallbackLines_.clear();
+    indexBuilt_ = false;
+
+    QString expanded = text;
+    expanded.replace(QLatin1Char('\t'), QString(8, QLatin1Char(' ')));
+    QStringList rawLines = expanded.split(QLatin1Char('\n'));
+
+    fallbackLines_.reserve(rawLines.size());
+    for (const QString& rawLine : rawLines) {
+        FallbackLine fl;
+        parseFallbackLine(rawLine, fl);
+        buildTokensForFallback(fl);
+        fallbackLines_.push_back(std::move(fl));
+    }
+
+    currentRow_ = 0;
+    currentAddr_ = 0;
+    anchor_ = caret_ = {0, 0};
+    selecting_ = false;
+    dragging_ = false;
+    selectedToken_ = {};
+    highlightWord_.clear();
+    highlightKind_ = TokenKind::Plain;
+    currentSelection_ = {};
+    maxColsSeen_ = 0;
+    horizontalScrollBar()->setValue(0);
+    verticalScrollBar()->setValue(0);
+    updateScrollBars();
+    viewport()->update();
 }
 
 void DisassemblyFieldView::buildFullIndex() {
-    std::cerr << "[buildFullIndex] ENTER program_=" << (void*)program_ << " decomp_=" << (void*)decomp_ << std::endl;
     if (!program_ || !decomp_ || !decomp_->isOpen()) {
-        std::cerr << "[buildFullIndex] ABORT: program_=" << (void*)program_ << " decomp_=" << (void*)decomp_
-                  << " isOpen=" << (decomp_ ? decomp_->isOpen() : false) << std::endl;
+        indexBuilt_ = false;
         return;
     }
-
-    auto* mem = program_->getMemory();
-    auto* af = program_->getAddressFactory();
-    auto* fm = program_->getFunctionManager();
-    auto* st = program_->getSymbolTable();
-    if (!mem || !af) {
-        std::cerr << "[buildFullIndex] ABORT: mem=" << (void*)mem << " af=" << (void*)af << std::endl;
-        return;
+    try {
+        model_.buildIndex(program_, decomp_);
+    } catch (const std::exception& e) {
+        std::cerr << "[DisassemblyFieldView] buildIndex crashed: " << e.what() << std::endl;
+        model_.clear();
+    } catch (...) {
+        std::cerr << "[DisassemblyFieldView] buildIndex crashed: unknown exception" << std::endl;
+        model_.clear();
     }
-
-    auto allBlocks = mem->getBlocks();
-    std::cerr << "[buildFullIndex] blocks count=" << allBlocks.size() << std::endl;
-    if (allBlocks.empty()) return;
-
-    // --- Collect known functions from FunctionManager ---
-    struct FuncInfo {
-        uint64_t entry;
-        uint64_t bodyStart;
-        uint64_t bodyEnd;
-        std::string name;
-        bool thunk;
-    };
-    std::vector<FuncInfo> functions;
-    std::set<uint64_t> coveredAddresses;
-    if (fm) {
-        ghidra::FunctionIterator fit = fm->getFunctions(true);
-        while (fit.hasNext()) {
-            ghidra::Function* func = fit.next();
-            if (!func) continue;
-            ghidra::Address bodyMin = func->getBody().getMinAddress();
-            ghidra::Address bodyMax = func->getBody().getMaxAddress();
-            if (!bodyMin.isValid() || !bodyMax.isValid()) continue;
-            uint64_t entry = func->getEntryPoint().getUnsignedOffset();
-            uint64_t bStart = bodyMin.getUnsignedOffset();
-            uint64_t bEnd = bodyMax.getUnsignedOffset();
-            functions.push_back({ entry, bStart, bEnd, func->getName(), func->isThunk() });
-            for (uint64_t a = bStart; a <= bEnd; ++a)
-                coveredAddresses.insert(a);
-        }
-    }
-    std::cerr << "[buildFullIndex] known functions: " << functions.size() << std::endl;
-
-    // --- IMPROVEMENT 1: Add exports/symbols not yet covered ---
-    auto isInExecBlock = [&](uint64_t addr) -> bool {
-        for (auto* b : allBlocks) {
-            if (!b) continue;
-            if (!(b->getFlags() & ghidra::MemoryBlock::FLAG_EXECUTE)) continue;
-            uint64_t bs = b->getStart().getUnsignedOffset();
-            if (addr >= bs && addr < bs + b->getSize()) return true;
-        }
-        return false;
-    };
-
-    int symbolAdditions = 0;
-    if (st) {
-        ghidra::SymbolIterator sit = st->getAllProgramSymbols(true);
-        while (sit.hasNext()) {
-            ghidra::Symbol* sym = sit.next();
-            if (!sym) continue;
-            if (sym->getSymbolType() == ghidra::SymbolType::NAMESPACE ||
-                sym->getSymbolType() == ghidra::SymbolType::CLASS ||
-                sym->getSymbolType() == ghidra::SymbolType::LIBRARY)
-                continue;
-            uint64_t addr = sym->getAddress().getUnsignedOffset();
-            if (addr == 0 || !isInExecBlock(addr)) continue;
-            if (coveredAddresses.count(addr)) continue;
-            // Not covered — add as a discovered function
-            std::string name = sym->getName();
-            if (name.empty()) {
-                std::ostringstream oss;
-                oss << "sub_0x" << std::hex << addr;
-                name = oss.str();
-            }
-            functions.push_back({ addr, addr, addr + 0xFF, name, false });
-            for (uint64_t a = addr; a <= addr + 0xFF; ++a)
-                coveredAddresses.insert(a);
-            ++symbolAdditions;
-        }
-    }
-    std::cerr << "[buildFullIndex] added " << symbolAdditions << " symbol-based functions" << std::endl;
-
-    // Sort by body start
-    std::sort(functions.begin(), functions.end(),
-        [](const FuncInfo& a, const FuncInfo& b) { return a.bodyStart < b.bodyStart; });
-
-    // --- Disassemble function-by-function ---
-    // Use a queue for flow-following: new addresses discovered from CALL targets go here
-    std::vector<FuncInfo> toDisassemble = functions;
-    std::set<uint64_t> seenEntries;
-    for (auto& f : toDisassemble) seenEntries.insert(f.entry);
-
-    // Helper to extract CALL/JMP target addresses from disassembly text
-    // Format: "0xADDR:  MNEM  TARGET" — e.g. "0x140001234:  CALL  0x140005678"
-    auto extractCallTargets = [&](const QString& text) -> std::vector<uint64_t> {
-        std::vector<uint64_t> targets;
-        for (const auto& line : text.split(QLatin1Char('\n'))) {
-            // Find "CALL 0x" or "JMP 0x" anywhere in the line
-            int callIdx = line.indexOf("CALL 0x");
-            if (callIdx < 0) callIdx = line.indexOf("CALL\t0x");
-            if (callIdx >= 0) {
-                QString rest = line.mid(callIdx + 4).trimmed();
-                bool ok;
-                uint64_t addr = rest.toULongLong(&ok, 16);
-                if (ok && addr != 0) targets.push_back(addr);
-            }
-            int jmpIdx = line.indexOf("JMP 0x");
-            if (jmpIdx < 0) jmpIdx = line.indexOf("JMP\t0x");
-            if (jmpIdx >= 0) {
-                QString rest = line.mid(jmpIdx + 3).trimmed();
-                bool ok;
-                uint64_t addr = rest.toULongLong(&ok, 16);
-                if (ok && addr != 0) targets.push_back(addr);
-            }
-        }
-        return targets;
-    };
-
-    QString allText;
-    int round = 0;
-    int flowDiscoveries = 0;
-
-    while (!toDisassemble.empty()) {
-        ++round;
-        std::vector<FuncInfo> currentBatch = std::move(toDisassemble);
-        toDisassemble.clear();
-        std::cerr << "[buildFullIndex] round " << round << " disassembling " << currentBatch.size() << " functions" << std::endl;
-
-        // Sort this batch by entry for clean output
-        std::sort(currentBatch.begin(), currentBatch.end(),
-            [](const FuncInfo& a, const FuncInfo& b) { return a.entry < b.entry; });
-
-        for (auto& func : currentBatch) {
-            if (seenEntries.count(func.entry) && round > 1) {
-                // Already disassembled in a previous round
-                // But we still need to emit it if it wasn't emitted before
-                // Check if it was already in the text
-                QString entryHex = QString("0x%1").arg(func.entry, 0, 16);
-                if (allText.contains(entryHex)) continue;
-            }
-            seenEntries.insert(func.entry);
-
-            uint64_t disasmEnd = func.bodyEnd;
-            if (disasmEnd >= func.entry + 0x1000) disasmEnd = func.entry + 0x1000; // cap at 4KB
-            int maxBytes = static_cast<int>(disasmEnd - func.entry + 1);
-            if (maxBytes <= 0 || maxBytes > 0x10000) maxBytes = 0x1000;
-
-            ghidra::Address funcAddr = af->oldGetAddressFromLong(func.entry);
-            try {
-                std::string text = decomp_->disassembleAt(funcAddr, 10000, maxBytes);
-                if (!text.empty()) {
-                    QString qtext = QString::fromStdString(text);
-                    allText += QString("\n; === %1 ===\n").arg(QString::fromStdString(func.name));
-                    allText += qtext;
-
-                    // --- IMPROVEMENT 2: Flow-following — extract CALL targets ---
-                    if (round <= 2) {
-                        auto targets = extractCallTargets(qtext);
-                        for (uint64_t tgt : targets) {
-                            if (tgt == 0 || seenEntries.count(tgt)) continue;
-                            if (!isInExecBlock(tgt)) continue;
-                            if (coveredAddresses.count(tgt)) continue;
-                            // Found a new function via flow
-                            std::ostringstream oss;
-                            oss << "sub_0x" << std::hex << tgt;
-                            toDisassemble.push_back({ tgt, tgt, tgt + 0xFF, oss.str(), false });
-                            for (uint64_t a = tgt; a <= tgt + 0xFF; ++a)
-                                coveredAddresses.insert(a);
-                            ++flowDiscoveries;
-                        }
-                    }
-                }
-            } catch (const std::exception& e) {
-                allText += QString("; disassembly failed for %1: %2\n")
-                    .arg(QString::fromStdString(func.name)).arg(e.what());
-            } catch (...) {
-                allText += QString("; disassembly failed for %1 (unknown)\n")
-                    .arg(QString::fromStdString(func.name));
-            }
-        }
-    }
-    std::cerr << "[buildFullIndex] flow-following discovered " << flowDiscoveries << " new functions" << std::endl;
-
-    // --- IMPROVEMENT 3: Analyze uncovered data gaps ---
-    auto getBlockBytes = [&](uint64_t addr, int count) -> std::vector<uint8_t> {
-        ghidra::Address gAddr = af->oldGetAddressFromLong(addr);
-        std::vector<uint8_t> buf(count);
-        try {
-            int got = mem->getBytes(gAddr, buf.data(), count);
-            buf.resize(got);
-            return buf;
-        } catch (...) {}
-        return {};
-    };
-
-    auto isPrintableAscii = [](uint8_t b) -> bool {
-        return (b >= 0x20 && b < 0x7F) || b == '\t' || b == '\n' || b == '\r';
-    };
-
-    auto analyzeDataGap = [&](uint64_t gapStart, uint64_t gapEnd) -> QString {
-        uint64_t gapSize = gapEnd - gapStart;
-        if (gapSize < 4) return QString();
-
-        auto bytes = getBlockBytes(gapStart, static_cast<int>(gapSize));
-        if (bytes.size() < 4) return QString();
-
-        // Check for zero padding (alignment)
-        bool allZero = true;
-        for (auto b : bytes) { if (b != 0) { allZero = false; break; } }
-        if (allZero) {
-            return QString("; --- %1 bytes of zero padding ---\n").arg(gapSize);
-        }
-
-        // Check for ASCII string data
-        int printableCount = 0;
-        int nullTerminated = 0;
-        for (auto b : bytes) {
-            if (isPrintableAscii(b)) ++printableCount;
-            if (b == 0) ++nullTerminated;
-        }
-        double printableRatio = static_cast<double>(printableCount) / bytes.size();
-        if (printableRatio > 0.85 && gapSize >= 4) {
-            // Try to read as null-terminated string
-            std::string str;
-            for (auto b : bytes) {
-                if (b == 0) break;
-                if (isPrintableAscii(b)) str += static_cast<char>(b);
-                else { str.clear(); break; }
-            }
-            if (str.size() >= 3) {
-                return QString("; --- string data: \"%1\" ---\n")
-                    .arg(QString::fromStdString(str).left(80));
-            }
-        }
-
-        // Check for pointer table (array of 8-byte or 4-byte values pointing to valid addresses)
-        bool looksLikePtrTable64 = false;
-        bool looksLikePtrTable32 = false;
-        if (gapSize >= 8 && (gapSize % 8) == 0) {
-            int validPtrs = 0;
-            for (size_t i = 0; i + 7 < bytes.size(); i += 8) {
-                uint64_t val = 0;
-                for (int j = 0; j < 8; ++j) val |= static_cast<uint64_t>(bytes[i + j]) << (j * 8);
-                if (val >= 0x10000 && isInExecBlock(val)) ++validPtrs;
-            }
-            if (validPtrs >= 2) looksLikePtrTable64 = true;
-        }
-        if (gapSize >= 4 && (gapSize % 4) == 0 && !looksLikePtrTable64) {
-            int validPtrs = 0;
-            for (size_t i = 0; i + 3 < bytes.size(); i += 4) {
-                uint32_t val = 0;
-                for (int j = 0; j < 4; ++j) val |= static_cast<uint32_t>(bytes[i + j]) << (j * 8);
-                if (val >= 0x10000 && isInExecBlock(val)) ++validPtrs;
-            }
-            if (validPtrs >= 2) looksLikePtrTable32 = true;
-        }
-
-        if (looksLikePtrTable64) {
-            QString result = QString("; --- pointer table (%1 entries) ---\n").arg(gapSize / 8);
-            for (size_t i = 0; i + 7 < bytes.size(); i += 8) {
-                uint64_t val = 0;
-                for (int j = 0; j < 8; ++j) val |= static_cast<uint64_t>(bytes[i + j]) << (j * 8);
-                result += QString(";   0x%1 -> 0x%2\n")
-                    .arg(gapStart + i, 0, 16)
-                    .arg(val, 0, 16);
-            }
-            return result;
-        }
-        if (looksLikePtrTable32) {
-            QString result = QString("; --- pointer table (%1 entries) ---\n").arg(gapSize / 4);
-            for (size_t i = 0; i + 3 < bytes.size(); i += 4) {
-                uint32_t val = 0;
-                for (int j = 0; j < 4; ++j) val |= static_cast<uint32_t>(bytes[i + j]) << (j * 8);
-                result += QString(";   0x%1 -> 0x%2\n")
-                    .arg(gapStart + i, 0, 16)
-                    .arg(val, 0, 16);
-            }
-            return result;
-        }
-
-        // Generic data — show first 16 bytes as hex dump
-        QString hexdump;
-        int showBytes = static_cast<int>((std::min)(gapSize, static_cast<uint64_t>(32)));
-        for (int i = 0; i < showBytes; ++i)
-            hexdump += QString("%1 ").arg(bytes[i], 2, 16, QLatin1Char('0'));
-        if (gapSize > 32) hexdump += "...";
-        return QString("; --- %1 bytes of data: %2 ---\n").arg(gapSize).arg(hexdump.trimmed());
-    };
-
-    for (auto* block : allBlocks) {
-        if (!block) continue;
-        if (!(block->getFlags() & ghidra::MemoryBlock::FLAG_EXECUTE)) continue;
-        uint64_t blockStart = block->getStart().getUnsignedOffset();
-        uint64_t blockEnd = blockStart + block->getSize();
-
-        // Find uncovered ranges within this block
-        uint64_t gapStart = blockStart;
-        for (uint64_t a = blockStart; a < blockEnd; ++a) {
-            if (coveredAddresses.count(a)) {
-                if (a > gapStart) {
-                    allText += analyzeDataGap(gapStart, a);
-                }
-                gapStart = a + 1;
-            }
-        }
-        if (gapStart < blockEnd) {
-            allText += analyzeDataGap(gapStart, blockEnd);
-        }
-    }
-
-    std::cerr << "[buildFullIndex] allText.size=" << allText.size() << std::endl;
-    if (allText.isEmpty())
-        return;
-
-    indexBuilt_ = true;
-    lastText_ = allText;
-    showDisassembly(allText);
-    std::cerr << "[buildFullIndex] DONE indexBuilt_=true" << std::endl;
+    indexBuilt_ = model_.rowCount() > 0;
+    fallbackLines_.clear();
+    decodedCache_.clear();
+    currentRow_ = 0;
+    currentAddr_ = 0;
+    anchor_ = caret_ = {0, 0};
+    selecting_ = false;
+    dragging_ = false;
+    selectedToken_ = {};
+    highlightWord_.clear();
+    highlightKind_ = TokenKind::Plain;
+    currentSelection_ = {};
+    maxColsSeen_ = 0;
+    horizontalScrollBar()->setValue(0);
+    verticalScrollBar()->setValue(0);
+    updateScrollBars();
+    viewport()->update();
 }
 
 void DisassemblyFieldView::seekToAddress(uint64_t addr) {
-    if (!indexBuilt_ || !document())
+    if (!indexBuilt_ && fallbackLines_.empty())
         return;
-
     seek(addr);
+}
+
+int DisassemblyFieldView::lineCount() const {
+    if (indexBuilt_) return model_.rowCount();
+    return static_cast<int>(fallbackLines_.size());
+}
+
+int DisassemblyFieldView::rows() const {
+    return lineCount();
+}
+
+int DisassemblyFieldView::rowCount() const {
+    return lineCount();
+}
+
+int DisassemblyFieldView::maxContentCols() const {
+    if (!indexBuilt_) {
+        int m = 0;
+        for (const auto& fl : fallbackLines_)
+            m = std::max(m, fl.totalCols);
+        return m;
+    }
+    return maxColsSeen_;
+}
+
+uint64_t DisassemblyFieldView::addressAtCurrentRow() const {
+    if (indexBuilt_) {
+        const DisasmRow* r = model_.rowAt(currentRow_);
+        if (r && r->kind == DisasmRow::Kind::Instruction) return r->address;
+        return 0;
+    }
+    if (currentRow_ >= 0 && currentRow_ < static_cast<int>(fallbackLines_.size()))
+        return fallbackLines_[currentRow_].addr;
+    return 0;
+}
+
+void DisassemblyFieldView::syncCurrentAddress() {
+    uint64_t addr = addressAtCurrentRow();
+    if (addr != 0 && addr != currentAddr_) {
+        currentAddr_ = addr;
+        emit cursorAddressChanged(addr);
+    } else if (addr == 0) {
+        currentAddr_ = 0;
+    }
+}
+
+void DisassemblyFieldView::seek(uint64_t addr) {
+    int row = -1;
+    if (indexBuilt_) {
+        row = model_.addressToRow(addr);
+        if (row < 0) {
+            // nearest instruction at or below addr
+            int lo = 0, hi = model_.rowCount() - 1, best = -1;
+            while (lo <= hi) {
+                int mid = lo + (hi - lo) / 2;
+                const DisasmRow* r = model_.rowAt(mid);
+                if (!r) break;
+                if (r->address <= addr) {
+                    best = mid;
+                    lo = mid + 1;
+                } else {
+                    hi = mid - 1;
+                }
+            }
+            // best = last row with address <= addr; walk backward to an instruction row.
+            // Note: a FunctionHeader shares its address with the instruction that follows it.
+            while (best >= 0) {
+                const DisasmRow* r = model_.rowAt(best);
+                if (!r) break;
+                if (r->kind == DisasmRow::Kind::Instruction) {
+                    row = best;
+                    break;
+                }
+                if (r->kind == DisasmRow::Kind::FunctionHeader && best + 1 < model_.rowCount()) {
+                    const DisasmRow* next = model_.rowAt(best + 1);
+                    if (next && next->kind == DisasmRow::Kind::Instruction && next->address <= addr) {
+                        row = best + 1;
+                        break;
+                    }
+                }
+                --best;
+            }
+            if (row < 0 && model_.rowCount() > 0) row = 0;
+        }
+    } else {
+        for (int i = 0; i < static_cast<int>(fallbackLines_.size()); ++i) {
+            if (fallbackLines_[i].addr != 0 && fallbackLines_[i].addr <= addr)
+                row = i;
+            else if (fallbackLines_[i].addr > addr)
+                break;
+        }
+        if (row < 0 && !fallbackLines_.empty()) row = 0;
+    }
+    if (row < 0) return;
+
+    currentRow_ = row;
+    currentAddr_ = (indexBuilt_ ? model_.rowToAddress(row) : fallbackLines_[row].addr);
+    anchor_ = caret_ = {row, 0};
+    selectedToken_ = {};
+    highlightWord_.clear();
+    highlightKind_ = TokenKind::Plain;
+    ensureVisible(row);
+    viewport()->update();
+}
+
+void DisassemblyFieldView::invalidateCache() {
+    decodedCache_.clear();
+    maxColsSeen_ = 0;
+    updateScrollBars();
+    viewport()->update();
+}
+
+void DisassemblyFieldView::invalidateRange(uint64_t start, uint64_t end) {
+    for (auto it = decodedCache_.begin(); it != decodedCache_.end();) {
+        const DecodedInstruction& inst = it->second;
+        uint64_t a = inst.address;
+        uint64_t len = inst.length > 0 ? static_cast<uint64_t>(inst.length) : 1;
+        if (a < end && a + len > start)
+            it = decodedCache_.erase(it);
+        else
+            ++it;
+    }
+    maxColsSeen_ = 0;
+    updateScrollBars();
+    viewport()->update();
+}
+
+const DisassemblyFieldView::DecodedInstruction* DisassemblyFieldView::decodedInstruction(uint64_t addr) {
+    auto it = decodedCache_.find(addr);
+    if (it != decodedCache_.end())
+        return &it->second;
+
+    DecodedInstruction inst;
+    inst.address = addr;
+    inst.length = model_.instructionLengthAt(addr);
+    if (inst.length <= 0) {
+        inst.mnemonic.clear();
+        inst.operands.clear();
+    } else {
+        inst.rawBytes = fetchBytesLocal(program_, addr, inst.length);
+        if (decomp_ && decomp_->isOpen()) {
+            ghidra::AddressFactory* af = program_ ? program_->getAddressFactory() : nullptr;
+            if (af) {
+                try {
+                    std::string text = decomp_->disassembleAt(af->oldGetAddressFromLong(addr), 1);
+                    static QRegularExpression instRe(
+                        QStringLiteral("^0x([0-9a-fA-F]+):\\s+([A-Za-z][A-Za-z0-9]*)\\s*(.*)$"));
+                    QString qtext = QString::fromStdString(text);
+                    QString trimmed = qtext.trimmed();
+                    auto m = instRe.match(trimmed);
+                    if (m.hasMatch()) {
+                        bool ok = false;
+                        uint64_t parsedAddr = m.captured(1).toULongLong(&ok, 16);
+                        if (ok && parsedAddr == addr) {
+                            inst.mnemonic = m.captured(2);
+                            inst.operands = m.captured(3);
+                        }
+                    }
+                } catch (const std::exception& e) {
+                    std::cerr << "[decodedInstruction] exception at 0x" << std::hex
+                              << addr << std::dec << ": " << e.what() << std::endl;
+                } catch (...) {
+                }
+            }
+        }
+        if (inst.mnemonic.isEmpty()) {
+            // decode failed — emit raw bytes as a comment
+            inst.mnemonic.clear();
+            inst.operands = QString("; <failed to decode %1 bytes>")
+                               .arg(inst.rawBytes.empty() ? inst.length : static_cast<int>(inst.rawBytes.size()));
+        }
+    }
+    buildTokensForDecoded(inst);
+    auto inserted = decodedCache_.insert({addr, std::move(inst)});
+    return &inserted.first->second;
+}
+
+void DisassemblyFieldView::buildTokensForDecoded(DecodedInstruction& inst) {
+    inst.tokens.clear();
+    inst.totalCols = 0;
+
+    if (inst.mnemonic.isEmpty() && !inst.operands.startsWith(QLatin1Char(';'))) {
+        inst.mnemonic.clear();
+        inst.operands.clear();
+    }
+
+    if (!inst.mnemonic.isEmpty()) {
+        Token addrTok;
+        addrTok.text = QStringLiteral("0x%1  ").arg(inst.address, 8, 16, QLatin1Char('0'));
+        addrTok.kind = TokenKind::Address;
+        addrTok.addr = inst.address;
+        addrTok.startCol = inst.totalCols;
+        addrTok.len = addrTok.text.size();
+        inst.tokens.push_back(addrTok);
+        inst.totalCols += addrTok.len;
+
+        if (showBytes_ && !inst.rawBytes.empty()) {
+            Token bytesTok;
+            bytesTok.text = formatBytes(inst.rawBytes);
+            bytesTok.kind = TokenKind::Bytes;
+            bytesTok.addr = inst.address;
+            bytesTok.startCol = inst.totalCols;
+            bytesTok.len = bytesTok.text.size();
+            int gap = 30 - bytesTok.len;
+            bytesTok.spaceAfter = (gap >= 2) ? gap : 2;
+            inst.tokens.push_back(bytesTok);
+            inst.totalCols += bytesTok.len + bytesTok.spaceAfter;
+        }
+
+        Token mneTok;
+        mneTok.text = inst.mnemonic.leftJustified(8, QLatin1Char(' '));
+        mneTok.kind = isBranchMnemonic(inst.mnemonic) ? TokenKind::Branch : TokenKind::Mnemonic;
+        mneTok.addr = inst.address;
+        mneTok.startCol = inst.totalCols;
+        mneTok.len = mneTok.text.size();
+        inst.tokens.push_back(mneTok);
+        inst.totalCols += mneTok.len;
+
+        auto opTokens = tokenizeOperands(inst.operands, inst.address);
+        for (auto& t : opTokens) {
+            t.startCol = inst.totalCols;
+            t.len = t.text.size();
+            inst.totalCols += t.len + t.spaceAfter;
+            inst.tokens.push_back(t);
+        }
+    } else {
+        Token t;
+        t.text = inst.operands.isEmpty() ? QStringLiteral(";") : inst.operands;
+        t.kind = TokenKind::Comment;
+        t.addr = inst.address;
+        t.startCol = 0;
+        t.len = t.text.size();
+        inst.tokens.push_back(t);
+        inst.totalCols += t.len;
+    }
+}
+
+void DisassemblyFieldView::parseFallbackLine(const QString& rawLine, FallbackLine& out) {
+    out = FallbackLine{};
+    QString trimmed = rawLine.trimmed();
+    if (trimmed.isEmpty()) {
+        out.comment = QStringLiteral(";");
+        return;
+    }
+    if (isCommentLine(trimmed)) {
+        out.comment = trimmed;
+        return;
+    }
+    static QRegularExpression instRe(
+        QStringLiteral("^0x([0-9a-fA-F]+):\\s+([A-Za-z][A-Za-z0-9]*)\\s*(.*)$"));
+    auto m = instRe.match(trimmed);
+    if (m.hasMatch()) {
+        bool ok = false;
+        out.addr = m.captured(1).toULongLong(&ok, 16);
+        out.mne = m.captured(2);
+        out.body = m.captured(3);
+    } else {
+        out.comment = trimmed;
+    }
+}
+
+void DisassemblyFieldView::buildTokensForFallback(FallbackLine& line) {
+    line.tokens.clear();
+    line.totalCols = 0;
+
+    if (line.comment.isEmpty() && line.mne.isEmpty()) {
+        line.totalCols = 0;
+        return;
+    }
+
+    if (!line.mne.isEmpty()) {
+        Token addrTok;
+        addrTok.text = QStringLiteral("0x%1  ").arg(line.addr, 8, 16, QLatin1Char('0'));
+        addrTok.kind = TokenKind::Address;
+        addrTok.addr = line.addr;
+        addrTok.startCol = 0;
+        addrTok.len = addrTok.text.size();
+        line.tokens.push_back(addrTok);
+        line.totalCols += addrTok.len;
+
+        if (showBytes_ && decomp_) {
+            int len = 0;
+            try {
+                len = decomp_->instructionLengthAt(line.addr);
+            } catch (...) {
+                len = 0;
+            }
+            if (len > 0) {
+                auto bytes = fetchBytesLocal(program_, line.addr, len);
+                if (!bytes.empty()) {
+                    Token bytesTok;
+                    bytesTok.text = formatBytes(bytes);
+                    bytesTok.kind = TokenKind::Bytes;
+                    bytesTok.addr = line.addr;
+                    bytesTok.startCol = line.totalCols;
+                    bytesTok.len = bytesTok.text.size();
+                    int gap = 30 - bytesTok.len;
+                    bytesTok.spaceAfter = (gap >= 2) ? gap : 2;
+                    line.tokens.push_back(bytesTok);
+                    line.totalCols += bytesTok.len + bytesTok.spaceAfter;
+                }
+            }
+        }
+
+        Token mneTok;
+        mneTok.text = line.mne.leftJustified(8, QLatin1Char(' '));
+        mneTok.kind = isBranchMnemonic(line.mne) ? TokenKind::Branch : TokenKind::Mnemonic;
+        mneTok.addr = line.addr;
+        mneTok.startCol = line.totalCols;
+        mneTok.len = mneTok.text.size();
+        line.tokens.push_back(mneTok);
+        line.totalCols += mneTok.len;
+
+        auto opTokens = tokenizeOperands(line.body, line.addr);
+        for (auto& t : opTokens) {
+            t.startCol = line.totalCols;
+            t.len = t.text.size();
+            line.totalCols += t.len + t.spaceAfter;
+            line.tokens.push_back(t);
+        }
+    } else {
+        Token t;
+        t.text = line.comment;
+        t.kind = TokenKind::Comment;
+        t.addr = line.addr;
+        t.startCol = 0;
+        t.len = t.text.size();
+        line.tokens.push_back(t);
+        line.totalCols += t.len;
+    }
+}
+
+QString DisassemblyFieldView::lineText(int row) const {
+    if (indexBuilt_) {
+        const DisasmRow* r = model_.rowAt(row);
+        if (!r) return QString();
+        if (r->kind == DisasmRow::Kind::Instruction) {
+            auto it = decodedCache_.find(r->address);
+            if (it != decodedCache_.end()) {
+                const DecodedInstruction& inst = it->second;
+                QString out;
+                for (const Token& t : inst.tokens) {
+                    out += t.text;
+                    out += QString(t.spaceAfter, QLatin1Char(' '));
+                }
+                return out;
+            }
+        }
+        if (r->kind == DisasmRow::Kind::FunctionHeader)
+            return QString("; === %1 ===").arg(r->text);
+        if (r->kind == DisasmRow::Kind::GapComment)
+            return r->text;
+        return QString();
+    }
+    if (row < 0 || row >= static_cast<int>(fallbackLines_.size())) return QString();
+    const FallbackLine& fl = fallbackLines_[row];
+    QString out;
+    for (const Token& t : fl.tokens) {
+        out += t.text;
+        out += QString(t.spaceAfter, QLatin1Char(' '));
+    }
+    return out;
+}
+
+const std::vector<Token>* DisassemblyFieldView::rowTokens(int row) const {
+    if (indexBuilt_) {
+        const DisasmRow* r = model_.rowAt(row);
+        if (!r) return nullptr;
+        if (r->kind == DisasmRow::Kind::Instruction) {
+            auto it = decodedCache_.find(r->address);
+            if (it == decodedCache_.end()) return nullptr;
+            return &it->second.tokens;
+        }
+        scratchTokens_.clear();
+        Token t;
+        t.text = (r->kind == DisasmRow::Kind::FunctionHeader)
+            ? QString("; === %1 ===").arg(r->text)
+            : r->text;
+        t.kind = TokenKind::Comment;
+        t.addr = 0;
+        t.startCol = 0;
+        t.len = t.text.size();
+        scratchTokens_.push_back(t);
+        return &scratchTokens_;
+    }
+    if (row < 0 || row >= static_cast<int>(fallbackLines_.size())) return nullptr;
+    return &fallbackLines_[row].tokens;
+}
+
+DisassemblyFieldView::CursorPos DisassemblyFieldView::caretAtPos(const QPoint& pos) const {
+    int n = lineCount();
+    if (n == 0) return {0, 0};
+    int cellW = EditorTheme::cellWidth();
+    int cellH = EditorTheme::cellHeight();
+    int scrollY = verticalScrollBar()->value();
+    int scrollX = horizontalScrollBar()->value();
+    int row = (pos.y() + scrollY) / cellH;
+    row = std::clamp(row, 0, n - 1);
+    int col = (pos.x() + scrollX - EditorTheme::leftPadding()) / cellW;
+    col = std::clamp(col, 0, static_cast<int>(lineText(row).size()));
+    return {row, col};
+}
+
+const Token* DisassemblyFieldView::tokenAt(int row, int col) const {
+    if (row < 0 || row >= lineCount()) return nullptr;
+    const std::vector<Token>* toks = rowTokens(row);
+    if (!toks) return nullptr;
+    for (const Token& t : *toks) {
+        if (col >= t.startCol && col < t.startCol + t.len)
+            return &t;
+    }
+    return nullptr;
+}
+
+int DisassemblyFieldView::tokenIndexAt(int row, int col) const {
+    if (row < 0 || row >= lineCount()) return -1;
+    const std::vector<Token>* toks = rowTokens(row);
+    if (!toks) return -1;
+    for (int i = 0; i < static_cast<int>(toks->size()); ++i) {
+        if (col >= (*toks)[i].startCol && col < (*toks)[i].startCol + (*toks)[i].len)
+            return i;
+    }
+    return -1;
+}
+
+void DisassemblyFieldView::selectTokenAt(int row, int col) {
+    if (row < 0 || row >= lineCount()) return;
+
+    uint64_t lineAddr = 0;
+    int length = 0;
+    if (indexBuilt_) {
+        const DisasmRow* r = model_.rowAt(row);
+        if (!r) return;
+        if (r->kind != DisasmRow::Kind::Instruction) return; // headers/gaps: no token selection
+        lineAddr = r->address;
+        length = r->length;
+    } else {
+        lineAddr = fallbackLines_[row].addr;
+    }
+
+    const Token* tok = tokenAt(row, col);
+    if (!tok) {
+        anchor_ = caret_ = {row, col};
+        selectedToken_ = {};
+        highlightWord_.clear();
+        highlightKind_ = TokenKind::Plain;
+        currentRow_ = row;
+        currentAddr_ = lineAddr;
+        if (lineAddr != 0) {
+            SelectionState sel;
+            sel.valid = true;
+            sel.address = lineAddr;
+            sel.endAddress = (length > 0) ? lineAddr + length : 0;
+            sel.originView = this;
+            if (selectionMgr_)
+                selectionMgr_->select(sel, this);
+            emit cursorAddressChanged(lineAddr);
+        }
+        return;
+    }
+
+    selectedToken_ = {row, tok->startCol, tok->len};
+    anchor_ = {row, tok->startCol};
+    caret_ = {row, tok->startCol + tok->len};
+    highlightWord_ = tok->text;
+    highlightKind_ = tok->kind;
+    currentRow_ = row;
+    currentAddr_ = lineAddr;
+
+    if (lineAddr != 0) {
+        SelectionState sel;
+        sel.valid = true;
+        sel.address = lineAddr;
+        sel.endAddress = (length > 0) ? lineAddr + length : 0;
+        sel.tokenText = tok->text;
+        sel.tokenKind = tok->kind;
+        sel.originView = this;
+        if (selectionMgr_)
+            selectionMgr_->select(sel, this);
+        emit cursorAddressChanged(lineAddr);
+    }
+    viewport()->update();
+}
+
+void DisassemblyFieldView::updateScrollBars() {
+    int cellW = EditorTheme::cellWidth();
+    int cellH = EditorTheme::cellHeight();
+    int leftPad = EditorTheme::leftPadding();
+    int n = lineCount();
+    if (n == 0) {
+        verticalScrollBar()->setRange(0, 0);
+        horizontalScrollBar()->setRange(0, 0);
+        return;
+    }
+    int vpH = viewport()->height();
+    int vpW = viewport()->width();
+    int vMax = std::max(0, n * cellH - vpH);
+    verticalScrollBar()->setRange(0, vMax);
+    verticalScrollBar()->setPageStep(vpH);
+    verticalScrollBar()->setSingleStep(cellH);
+
+    int contentW = vpW - 2 * leftPad;
+    int hMax = std::max(0, maxContentCols() * cellW + 2 * leftPad - vpW);
+    horizontalScrollBar()->setRange(0, hMax);
+    horizontalScrollBar()->setPageStep(std::max(1, contentW));
+    horizontalScrollBar()->setSingleStep(cellW * 4);
+}
+
+void DisassemblyFieldView::ensureVisible(int row) {
+    int cellH = EditorTheme::cellHeight();
+    int y = row * cellH;
+    int scrollY = verticalScrollBar()->value();
+    int vpH = viewport()->height();
+    if (y < scrollY)
+        verticalScrollBar()->setValue(std::max(0, y));
+    else if (y + cellH > scrollY + vpH)
+        verticalScrollBar()->setValue(std::max(0, y + cellH - vpH));
+}
+
+void DisassemblyFieldView::paintEvent(QPaintEvent* event) {
+    QPainter painter(viewport());
+    painter.fillRect(event->rect(), EditorTheme::backgroundColor());
+
+    int n = lineCount();
+    if (n == 0) {
+        // placeholder
+        painter.setPen(QColor(0x88, 0x88, 0x88));
+        painter.drawText(EditorTheme::leftPadding(), EditorTheme::ascent() + 4,
+                         QStringLiteral("No disassembly"));
+        return;
+    }
+
+    int cellW = EditorTheme::cellWidth();
+    int cellH = EditorTheme::cellHeight();
+    int ascent = EditorTheme::ascent();
+    int glyphH = EditorTheme::glyphHeight();
+    int leftPad = EditorTheme::leftPadding();
+    int scrollY = verticalScrollBar()->value();
+    int scrollX = horizontalScrollBar()->value();
+    int vpH = viewport()->height();
+    int vpW = viewport()->width();
+
+    int first = scrollY / cellH;
+    int last = std::min((scrollY + vpH) / cellH + 1, n - 1);
+    int maxSeenBefore = maxColsSeen_;
+
+    const QColor* colorTbl = EditorTheme::colorTable();
+    const QFont* fontTbl = EditorTheme::fontTable();
+    bool hasHighlight = !highlightWord_.isEmpty();
+
+    auto lineSelection = [&](int ri, int& sCol, int& eCol) -> bool {
+        if (anchor_ == caret_) return false;
+        int r1 = anchor_.row, r2 = caret_.row;
+        int c1 = anchor_.col, c2 = caret_.col;
+        if (r1 > r2 || (r1 == r2 && c1 > c2)) { std::swap(r1, r2); std::swap(c1, c2); }
+        if (ri < r1 || ri > r2) return false;
+        if (r1 == r2) { sCol = c1; eCol = c2; }
+        else if (ri == r1) { sCol = c1; eCol = static_cast<int>(lineText(r1).size()); }
+        else if (ri == r2) { sCol = 0;  eCol = c2; }
+        else { sCol = 0; eCol = static_cast<int>(lineText(ri).size()); }
+        return true;
+    };
+
+    for (int ri = first; ri <= last; ++ri) {
+        int y = ri * cellH - scrollY;
+        int baseX = leftPad - scrollX;
+
+        if (ri == currentRow_) {
+            painter.fillRect(0, y, vpW, cellH, EditorTheme::caretLineColor());
+        }
+
+        const std::vector<Token>* toks = nullptr;
+        int maxCol = 0;
+        if (indexBuilt_) {
+            const DisasmRow* r = model_.rowAt(ri);
+            if (!r) continue;
+            if (r->kind == DisasmRow::Kind::Instruction) {
+                const DecodedInstruction* inst = decodedInstruction(r->address);
+                if (!inst) continue;
+                toks = &inst->tokens;
+                maxCol = inst->totalCols;
+            } else {
+                toks = rowTokens(ri);
+                maxCol = (toks && !toks->empty()) ? (*toks)[0].len : 0;
+            }
+        } else {
+            if (ri >= static_cast<int>(fallbackLines_.size())) continue;
+            toks = &fallbackLines_[ri].tokens;
+            maxCol = fallbackLines_[ri].totalCols;
+        }
+        if (!toks || toks->empty()) continue;
+
+        maxColsSeen_ = std::max(maxColsSeen_, maxCol);
+
+        int selS = 0, selE = 0;
+        bool hasSel = lineSelection(ri, selS, selE);
+        bool selectedTokenOnLine = (selectedToken_.row == ri && selectedToken_.len > 0);
+        if (hasSel && !selectedTokenOnLine) {
+            int sx = baseX + selS * cellW;
+            int sw = (selE - selS) * cellW;
+            painter.fillRect(sx, y, sw, cellH, EditorTheme::selectionColor());
+        }
+
+        if (selectedTokenOnLine) {
+            int sx = baseX + selectedToken_.startCol * cellW;
+            int sw = selectedToken_.len * cellW;
+            painter.fillRect(sx, y, sw, cellH, EditorTheme::primarySelectionColor());
+        }
+
+        for (const Token& tok : *toks) {
+            int ki = static_cast<int>(tok.kind);
+            painter.setPen(colorTbl[ki]);
+            painter.setFont(fontTbl[ki]);
+
+            bool isSelectedToken = selectedTokenOnLine &&
+                tok.startCol == selectedToken_.startCol &&
+                tok.len == selectedToken_.len;
+
+            int tx = baseX + tok.startCol * cellW;
+            int ty = y + ascent;
+
+            if (hasHighlight && !isSelectedToken &&
+                tok.kind == highlightKind_ && tok.text == highlightWord_) {
+                painter.fillRect(tx, y, tok.len * cellW, cellH, EditorTheme::occurrenceColor());
+            }
+
+            if (isSelectedToken)
+                painter.setPen(Qt::white);
+            painter.drawText(tx, ty, tok.text);
+            if (isSelectedToken)
+                painter.setPen(colorTbl[ki]);
+        }
+    }
+
+    if (hasFocus() && caretVisible_) {
+        int cx = leftPad - scrollX + caret_.col * cellW;
+        int cy = caret_.row * cellH - scrollY;
+        painter.fillRect(cx, cy, 2, glyphH, EditorTheme::textColor());
+    }
+
+    if (maxColsSeen_ > maxSeenBefore)
+        updateScrollBars();
+}
+
+void DisassemblyFieldView::resizeEvent(QResizeEvent* event) {
+    QAbstractScrollArea::resizeEvent(event);
+    updateScrollBars();
+}
+
+void DisassemblyFieldView::wheelEvent(QWheelEvent* event) {
+    QAbstractScrollArea::wheelEvent(event);
+}
+
+void DisassemblyFieldView::mousePressEvent(QMouseEvent* event) {
+    if (event->button() == Qt::LeftButton) {
+        if (lineCount() == 0) return;
+        viewport()->setFocus();
+        resetCaretBlink();
+        auto hit = caretAtPos(event->pos());
+        anchor_ = caret_ = {hit.row, hit.col};
+        selecting_ = true;
+        dragging_ = false;
+        currentRow_ = hit.row;
+        currentAddr_ = (indexBuilt_ ? model_.rowToAddress(hit.row) : fallbackLines_[hit.row].addr);
+        viewport()->update();
+        return;
+    }
+    QAbstractScrollArea::mousePressEvent(event);
+}
+
+void DisassemblyFieldView::mouseMoveEvent(QMouseEvent* event) {
+    if (selecting_) {
+        auto hit = caretAtPos(event->pos());
+        if (hit.row != caret_.row || hit.col != caret_.col) {
+            dragging_ = true;
+            selectedToken_ = {};
+            highlightWord_.clear();
+            highlightKind_ = TokenKind::Plain;
+        }
+        caret_ = {hit.row, hit.col};
+        viewport()->update();
+        return;
+    }
+    auto hit = caretAtPos(event->pos());
+    const Token* tok = tokenAt(hit.row, hit.col);
+    bool clickable = tok && (tok->refTarget != 0 ||
+        tok->kind == TokenKind::Function ||
+        tok->kind == TokenKind::Label ||
+        tok->kind == TokenKind::Address);
+    viewport()->setCursor(clickable ? Qt::PointingHandCursor : Qt::ArrowCursor);
+    QAbstractScrollArea::mouseMoveEvent(event);
+}
+
+void DisassemblyFieldView::mouseReleaseEvent(QMouseEvent* event) {
+    if (event->button() == Qt::LeftButton && selecting_) {
+        if (lineCount() == 0) { selecting_ = false; return; }
+        selecting_ = false;
+        if (!dragging_) {
+            auto hit = caretAtPos(event->pos());
+            caret_ = {hit.row, hit.col};
+            const Token* tok = tokenAt(hit.row, hit.col);
+            if (tok) {
+                if (event->modifiers() & Qt::ControlModifier) {
+                    uint64_t target = tok->refTarget
+                        ? tok->refTarget
+                        : (tok->kind == TokenKind::Address ? tok->addr : 0);
+                    if (target != 0) {
+                        seek(target);
+                        emit seekRequested(target);
+                        dragging_ = false;
+                        return;
+                    }
+                }
+            }
+            selectTokenAt(hit.row, hit.col);
+        } else {
+            selectedToken_ = {};
+            highlightWord_.clear();
+            highlightKind_ = TokenKind::Plain;
+            uint64_t addr = (indexBuilt_ ? model_.rowToAddress(caret_.row) : fallbackLines_[caret_.row].addr);
+            if (addr != 0)
+                emit cursorAddressChanged(addr);
+        }
+        dragging_ = false;
+        viewport()->update();
+        return;
+    }
+    QAbstractScrollArea::mouseReleaseEvent(event);
+}
+
+void DisassemblyFieldView::mouseDoubleClickEvent(QMouseEvent* event) {
+    if (event->button() == Qt::LeftButton) {
+        if (lineCount() == 0) return;
+        selecting_ = false;
+        dragging_ = false;
+        auto hit = caretAtPos(event->pos());
+        const Token* tok = tokenAt(hit.row, hit.col);
+        if (tok) {
+            uint64_t target = tok->refTarget
+                ? tok->refTarget
+                : (tok->kind == TokenKind::Address ? tok->addr : 0);
+            if (target != 0) {
+                seek(target);
+                emit seekRequested(target);
+                SelectionState sel;
+                sel.valid = true;
+                sel.address = target;
+                sel.endAddress = target + 1;
+                sel.tokenText = QString("0x%1").arg(target, 0, 16);
+                sel.tokenKind = TokenKind::Address;
+                sel.originView = this;
+                if (selectionMgr_)
+                    selectionMgr_->select(sel, this);
+                return;
+            }
+            selectedToken_ = {hit.row, tok->startCol, tok->len};
+            anchor_ = {hit.row, tok->startCol};
+            caret_ = {hit.row, tok->startCol + tok->len};
+            highlightWord_ = tok->text;
+            highlightKind_ = tok->kind;
+            currentRow_ = hit.row;
+            currentAddr_ = (indexBuilt_ ? model_.rowToAddress(hit.row) : fallbackLines_[hit.row].addr);
+            if (currentAddr_ != 0) {
+                SelectionState sel;
+                sel.valid = true;
+                sel.address = currentAddr_;
+                sel.endAddress = 0;
+                sel.tokenText = tok->text;
+                sel.tokenKind = tok->kind;
+                sel.originView = this;
+                if (selectionMgr_)
+                    selectionMgr_->select(sel, this);
+                emit cursorAddressChanged(currentAddr_);
+            }
+            viewport()->update();
+            return;
+        }
+    }
+    QAbstractScrollArea::mouseDoubleClickEvent(event);
 }
 
 void DisassemblyFieldView::contextMenuEvent(QContextMenuEvent* event) {
     auto hit = caretAtPos(event->pos());
-    if (hit.line < 0 || hit.col < 0 || !document()) {
-        FieldView::contextMenuEvent(event);
-        return;
+    if (hit.row < 0 || hit.row >= lineCount()) return;
+
+    uint64_t addr = 0;
+    QString mne;
+    QString ops;
+    if (indexBuilt_) {
+        const DisasmRow* r = model_.rowAt(hit.row);
+        if (!r || r->kind != DisasmRow::Kind::Instruction) return;
+        addr = r->address;
+        const DecodedInstruction* inst = decodedInstruction(addr);
+        if (inst) {
+            mne = inst->mnemonic;
+            ops = inst->operands;
+        }
+    } else {
+        const FallbackLine& fl = fallbackLines_[hit.row];
+        addr = fl.addr;
+        mne = fl.mne;
+        ops = fl.body;
+        if (addr == 0) return;
     }
 
-    const Token* tok = tokenAt(hit.line, hit.col);
-    if (!tok || tok->addr == 0) {
-        FieldView::contextMenuEvent(event);
-        return;
-    }
-
-    uint64_t addr = tok->addr;
     QMenu menu(this);
-
     QAction* actAssemble = menu.addAction(tr("Assemble Instruction at 0x%1").arg(addr, 0, 16));
     menu.addSeparator();
     QAction* actGoTo = menu.addAction(tr("Go to 0x%1").arg(addr, 0, 16));
@@ -410,13 +955,7 @@ void DisassemblyFieldView::contextMenuEvent(QContextMenuEvent* event) {
     if (!chosen) return;
 
     if (chosen == actAssemble) {
-        QString currentMnemonic;
-        QString currentOperands;
-        if (hit.line >= 0 && hit.line < static_cast<int>(parsed_.size())) {
-            currentMnemonic = parsed_[hit.line].mne;
-            currentOperands = parsed_[hit.line].body;
-        }
-        emit patchInstructionRequested(addr, currentMnemonic, currentOperands);
+        emit patchInstructionRequested(addr, mne, ops);
     } else if (actJumpToCave && chosen == actJumpToCave) {
         emit addressJumpRequested(caveIt->second);
     } else if (chosen == actGoTo) {
@@ -424,141 +963,285 @@ void DisassemblyFieldView::contextMenuEvent(QContextMenuEvent* event) {
     }
 }
 
-static bool isCommentLine(const QString& trimmed) {
-    return trimmed.startsWith(QLatin1Char(';'))
-        || trimmed.startsWith(QStringLiteral("//"));
-}
+void DisassemblyFieldView::keyPressEvent(QKeyEvent* event) {
+    resetCaretBlink();
+    if (event->matches(QKeySequence::Copy)) {
+        copySelection();
+        return;
+    }
+    if (event->matches(QKeySequence::SelectAll)) {
+        selectAll();
+        return;
+    }
+    int n = lineCount();
+    if (n == 0) {
+        QAbstractScrollArea::keyPressEvent(event);
+        return;
+    }
+    int oldRow = caret_.row;
+    bool shifted = event->modifiers() & Qt::ShiftModifier;
+    int rowsPerPage = std::max(1, viewport()->height() / EditorTheme::cellHeight());
 
-static std::vector<uint8_t> fetchBytesLocal(ghidra::ProgramDB* program, uint64_t addr, int len) {
-    if (!program || len <= 0) return {};
-    auto* mem = program->getMemory();
-    auto* af = program->getAddressFactory();
-    if (!mem || !af) return {};
-    ghidra::Address a = af->oldGetAddressFromLong(addr);
-    std::vector<uint8_t> buf(len);
-    try {
-        int got = mem->getBytes(a, buf.data(), len);
-        if (got > 0) {
-            buf.resize(got);
-            return buf;
-        }
-    } catch (...) {}
-    return {};
-}
-
-void DisassemblyFieldView::showDisassembly(const QString& text) {
-    std::cerr << "[showDisassembly] text.size=" << text.size() << " first80='" << text.left(80).toStdString() << "'" << std::endl;
-    lastText_ = text;
-    parsed_.clear();
-
-    QString expanded = text;
-    expanded.replace(QLatin1Char('\t'), QString(8, QLatin1Char(' ')));
-    QStringList rawLines = expanded.split(QLatin1Char('\n'));
-
-    parsed_.reserve(rawLines.size());
-
-    static QRegularExpression instRe(
-        QStringLiteral("^0x([0-9a-fA-F]+):\\s+([A-Za-z][A-Za-z0-9]*)\\s*(.*)$"));
-
-    for (const QString& rawLine : rawLines) {
-        if (rawLine.trimmed().isEmpty()) {
-            parsed_.push_back(ParsedLine{});
-            continue;
-        }
-        QString trimmed = rawLine.trimmed();
-        if (isCommentLine(trimmed)) {
-            ParsedLine rl;
-            rl.body = trimmed;
-            parsed_.push_back(rl);
-            continue;
-        }
-        auto m = instRe.match(trimmed);
-        if (m.hasMatch()) {
-            ParsedLine rl;
-            bool ok = false;
-            rl.addr = m.captured(1).toULongLong(&ok, 16);
-            rl.mne = m.captured(2);
-            rl.body = m.captured(3);
-            parsed_.push_back(rl);
+    auto moveTo = [&](int newRow, int newCol) {
+        newRow = std::clamp(newRow, 0, n - 1);
+        newCol = std::clamp(newCol, 0, static_cast<int>(lineText(newRow).size()));
+        if (shifted) {
+            caret_ = {newRow, newCol};
         } else {
-            ParsedLine rl;
-            rl.body = trimmed;
-            parsed_.push_back(rl);
+            anchor_ = caret_ = {newRow, newCol};
+        }
+        currentRow_ = newRow;
+        currentAddr_ = (indexBuilt_ ? model_.rowToAddress(newRow) : fallbackLines_[newRow].addr);
+        ensureVisible(newRow);
+        viewport()->update();
+    };
+
+    switch (event->key()) {
+    case Qt::Key_Up:       moveTo(caret_.row - 1, caret_.col); break;
+    case Qt::Key_Down:     moveTo(caret_.row + 1, caret_.col); break;
+    case Qt::Key_PageUp:   moveTo(caret_.row - rowsPerPage, caret_.col); break;
+    case Qt::Key_PageDown: moveTo(caret_.row + rowsPerPage, caret_.col); break;
+    case Qt::Key_Home:
+        if (event->modifiers() & Qt::ControlModifier)
+            moveTo(0, 0);
+        else
+            moveTo(caret_.row, 0);
+        break;
+    case Qt::Key_End:
+        if (event->modifiers() & Qt::ControlModifier)
+            moveTo(n - 1, static_cast<int>(lineText(n - 1).size()));
+        else
+            moveTo(caret_.row, static_cast<int>(lineText(caret_.row).size()));
+        break;
+    case Qt::Key_Left: {
+        int row = caret_.row;
+        int col = caret_.col;
+        int idx = tokenIndexAt(row, col);
+        const std::vector<Token>* toks = rowTokens(row);
+        if (idx > 0 && toks) {
+            moveTo(row, (*toks)[idx - 1].startCol);
+        } else if (idx == 0 || (idx < 0 && col > 0)) {
+            moveTo(row, 0);
+        } else if (row > 0) {
+            moveTo(row - 1, static_cast<int>(lineText(row - 1).size()));
+        }
+        break;
+    }
+    case Qt::Key_Right: {
+        int row = caret_.row;
+        int col = caret_.col;
+        int idx = tokenIndexAt(row, col);
+        const std::vector<Token>* toks = rowTokens(row);
+        if (idx >= 0 && toks && idx + 1 < static_cast<int>(toks->size())) {
+            moveTo(row, (*toks)[idx + 1].startCol);
+        } else if (row + 1 < n) {
+            moveTo(row + 1, 0);
+        }
+        break;
+    }
+    default:
+        QAbstractScrollArea::keyPressEvent(event);
+        return;
+    }
+
+    if (!shifted) {
+        selectedToken_ = {};
+        highlightWord_.clear();
+        highlightKind_ = TokenKind::Plain;
+        selectTokenAt(caret_.row, caret_.col);
+    }
+
+    if (oldRow != caret_.row) {
+        uint64_t newAddr = (indexBuilt_ ? model_.rowToAddress(caret_.row) : fallbackLines_[caret_.row].addr);
+        if (newAddr != 0)
+            emit cursorAddressChanged(newAddr);
+    }
+}
+
+void DisassemblyFieldView::selectAll() {
+    int n = lineCount();
+    if (n == 0) return;
+    anchor_ = {0, 0};
+    caret_ = {n - 1, static_cast<int>(lineText(n - 1).size())};
+    viewport()->update();
+}
+
+void DisassemblyFieldView::copySelection() {
+    if (anchor_ == caret_) return;
+    int r1 = anchor_.row, r2 = caret_.row;
+    int c1 = anchor_.col, c2 = caret_.col;
+    if (r1 > r2 || (r1 == r2 && c1 > c2)) { std::swap(r1, r2); std::swap(c1, c2); }
+    QString result;
+    for (int i = r1; i <= r2; ++i) {
+        const QString line = lineText(i);
+        if (i == r1 && i == r2)
+            result += line.mid(c1, c2 - c1);
+        else if (i == r1)
+            result += line.mid(c1);
+        else if (i == r2)
+            result += line.left(c2);
+        else
+            result += line;
+        if (i < r2) result += QLatin1Char('\n');
+    }
+    QApplication::clipboard()->setText(result);
+}
+
+void DisassemblyFieldView::resetCaretBlink() {
+    caretVisible_ = true;
+    if (caretBlinkTimer_) {
+        caretBlinkTimer_->setInterval(qMax(100, QApplication::cursorFlashTime() / 2));
+        caretBlinkTimer_->start();
+    }
+    viewport()->update();
+}
+
+void DisassemblyFieldView::focusInEvent(QFocusEvent* event) {
+    QAbstractScrollArea::focusInEvent(event);
+    resetCaretBlink();
+}
+
+void DisassemblyFieldView::focusOutEvent(QFocusEvent* event) {
+    QAbstractScrollArea::focusOutEvent(event);
+    caretVisible_ = false;
+    viewport()->update();
+}
+
+void DisassemblyFieldView::moveCursorTo(int row, int col) {
+    int n = lineCount();
+    if (n == 0) return;
+    row = std::clamp(row, 0, n - 1);
+    col = std::clamp(col, 0, static_cast<int>(lineText(row).size()));
+    anchor_ = caret_ = {row, col};
+    currentRow_ = row;
+    currentAddr_ = (indexBuilt_ ? model_.rowToAddress(row) : fallbackLines_[row].addr);
+    ensureVisible(row);
+    viewport()->update();
+}
+
+void DisassemblyFieldView::setSelectionManager(SelectionManager* mgr) {
+    if (selectionMgr_ == mgr) return;
+    if (selectionMgr_)
+        disconnect(selectionMgr_, &SelectionManager::selectionChanged,
+                   this, &DisassemblyFieldView::applySelection);
+    selectionMgr_ = mgr;
+    if (selectionMgr_)
+        connect(selectionMgr_, &SelectionManager::selectionChanged,
+                this, &DisassemblyFieldView::applySelection);
+}
+
+void DisassemblyFieldView::applySelection(const SelectionState& sel) {
+    if (sel.originView == this) return;
+    currentSelection_ = sel;
+    if (!sel.valid || lineCount() == 0) {
+        selectedToken_ = {};
+        highlightWord_.clear();
+        highlightKind_ = TokenKind::Plain;
+        viewport()->update();
+        return;
+    }
+
+    bool moved = false;
+    int row = -1;
+    if (sel.address != 0) {
+        if (indexBuilt_) {
+            row = model_.addressToRow(sel.address);
+            if (row < 0) {
+                // fall back to nearest
+                int lo = 0, hi = model_.rowCount() - 1, best = -1;
+                while (lo <= hi) {
+                    int mid = lo + (hi - lo) / 2;
+                    const DisasmRow* r = model_.rowAt(mid);
+                    if (r && r->address <= sel.address) { best = mid; lo = mid + 1; }
+                    else hi = mid - 1;
+                }
+                while (best >= 0) {
+                    const DisasmRow* r = model_.rowAt(best);
+                    if (!r) break;
+                    if (r->kind == DisasmRow::Kind::Instruction) { row = best; break; }
+                    if (r->kind == DisasmRow::Kind::FunctionHeader &&
+                        best + 1 < model_.rowCount()) {
+                        const DisasmRow* next = model_.rowAt(best + 1);
+                        if (next && next->kind == DisasmRow::Kind::Instruction &&
+                            next->address <= sel.address) {
+                            row = best + 1;
+                            break;
+                        }
+                    }
+                    --best;
+                }
+            }
+        } else {
+            for (int i = 0; i < static_cast<int>(fallbackLines_.size()); ++i) {
+                if (fallbackLines_[i].addr != 0 && fallbackLines_[i].addr <= sel.address)
+                    row = i;
+                else if (fallbackLines_[i].addr > sel.address)
+                    break;
+            }
+        }
+        if (row >= 0) {
+            currentRow_ = row;
+            currentAddr_ = sel.address;
+            moved = true;
         }
     }
 
-    buildDocumentFromParsed();
-}
-
-void DisassemblyFieldView::buildDocumentFromParsed() {
-    auto doc = std::make_unique<Document>();
-
-    for (size_t i = 0; i < parsed_.size(); ++i) {
-        const ParsedLine& rl = parsed_[i];
-        if (rl.body.isEmpty() && rl.mne.isEmpty()) {
-            doc->addLine(Line{});
-            continue;
-        }
-
-        Line l;
-        l.addr = rl.addr;
-
-        if (!rl.mne.isEmpty()) {
-            Token addrTok;
-            addrTok.text = QStringLiteral("0x%1  ").arg(rl.addr, 8, 16, QLatin1Char('0'));
-            addrTok.kind = TokenKind::Address;
-            addrTok.addr = rl.addr;
-            l.tokens.push_back(addrTok);
-
-            int len = 0;
-            try {
-                if (i + 1 < parsed_.size() && parsed_[i + 1].addr > rl.addr)
-                    len = static_cast<int>(parsed_[i + 1].addr - rl.addr);
-                else if (decomp_)
-                    len = decomp_->instructionLengthAt(rl.addr);
-            } catch (...) {
-                len = 0;
-            }
-
-            if (showBytes_ && len > 0) {
-                try {
-                    l.bytes = fetchBytesLocal(program_, rl.addr, len);
-                } catch (...) {
-                    l.bytes = {};
+    if (!sel.tokenText.isEmpty()) {
+        const Token* tok = nullptr;
+        if (row >= 0)
+            tok = tokenAt(row, 0); // find by matching tokens below
+        bool found = false;
+        if (row >= 0) {
+            if (indexBuilt_) {
+                const DisasmRow* r = model_.rowAt(row);
+                if (r && r->kind == DisasmRow::Kind::Instruction) {
+                    auto it = decodedCache_.find(r->address);
+                    if (it != decodedCache_.end()) {
+                        for (const Token& t : it->second.tokens) {
+                            if (t.text == sel.tokenText &&
+                                (sel.tokenKind == TokenKind::Plain || t.kind == sel.tokenKind)) {
+                                selectedToken_ = {row, t.startCol, t.len};
+                                anchor_ = {row, t.startCol};
+                                caret_ = {row, t.startCol + t.len};
+                                highlightWord_ = t.text;
+                                highlightKind_ = t.kind;
+                                found = true;
+                                break;
+                            }
+                        }
+                    }
                 }
-                if (!l.bytes.empty()) {
-                    Token bytesTok;
-                    bytesTok.text = formatBytes(l.bytes);
-                    bytesTok.kind = TokenKind::Bytes;
-                    bytesTok.addr = rl.addr;
-                    int gap = 30 - static_cast<int>(bytesTok.text.size());
-                    bytesTok.spaceAfter = (gap >= 2) ? gap : 2;
-                    l.tokens.push_back(bytesTok);
+            } else {
+                for (const Token& t : fallbackLines_[row].tokens) {
+                    if (t.text == sel.tokenText &&
+                        (sel.tokenKind == TokenKind::Plain || t.kind == sel.tokenKind)) {
+                        selectedToken_ = {row, t.startCol, t.len};
+                        anchor_ = {row, t.startCol};
+                        caret_ = {row, t.startCol + t.len};
+                        highlightWord_ = t.text;
+                        highlightKind_ = t.kind;
+                        found = true;
+                        break;
+                    }
                 }
             }
-
-            Token mneTok;
-            mneTok.text = rl.mne.leftJustified(8, QLatin1Char(' '));
-            mneTok.kind = isBranchMnemonic(rl.mne) ? TokenKind::Branch : TokenKind::Mnemonic;
-            mneTok.addr = rl.addr;
-            l.tokens.push_back(mneTok);
-
-            auto opTokens = tokenizeOperands(rl.body, rl.addr);
-            for (auto& t : opTokens)
-                l.tokens.push_back(t);
-
-        } else {
-            Token t;
-            t.text = rl.body;
-            t.kind = isCommentLine(rl.body) ? TokenKind::Comment : TokenKind::Plain;
-            l.tokens.push_back(t);
         }
-
-        doc->addLine(l);
+        if (!found) {
+            selectedToken_ = {};
+            highlightWord_ = sel.tokenText;
+            highlightKind_ = sel.tokenKind;
+        }
+    } else {
+        selectedToken_ = {};
+        highlightWord_.clear();
+        highlightKind_ = TokenKind::Plain;
+        if (row >= 0)
+            anchor_ = caret_ = {row, 0};
     }
 
-    doc->finalize();
-    setDocument(std::move(doc));
+    if (moved)
+        ensureVisible(currentRow_);
+    viewport()->update();
 }
 
 QString DisassemblyFieldView::formatBytes(const std::vector<uint8_t>& bytes) {
@@ -722,4 +1405,26 @@ std::vector<Token> DisassemblyFieldView::tokenizeOperands(const QString& ops, ui
         ++i;
     }
     return result;
+}
+
+bool DisassemblyFieldView::isCommentLine(const QString& trimmed) {
+    return trimmed.startsWith(QLatin1Char(';'))
+        || trimmed.startsWith(QStringLiteral("//"));
+}
+
+std::vector<uint8_t> DisassemblyFieldView::fetchBytesLocal(ghidra::ProgramDB* program, uint64_t addr, int len) {
+    if (!program || len <= 0) return {};
+    auto* mem = program->getMemory();
+    auto* af = program->getAddressFactory();
+    if (!mem || !af) return {};
+    ghidra::Address a = af->oldGetAddressFromLong(addr);
+    std::vector<uint8_t> buf(len);
+    try {
+        int got = mem->getBytes(a, buf.data(), len);
+        if (got > 0) {
+            buf.resize(got);
+            return buf;
+        }
+    } catch (...) {}
+    return {};
 }
