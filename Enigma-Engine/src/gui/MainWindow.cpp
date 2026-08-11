@@ -6,6 +6,7 @@
 #include "HexSearchBar.h"
 #include "ConsoleWidget.h"
 #include "PatchListWidget.h"
+#include "StringTableWidget.h"
 #include "AddressMinimap.h"
 #include "SelectionManager.h"
 
@@ -237,6 +238,11 @@ void MainWindow::createMenuBar() {
     consoleAct->setText(tr("&Console"));
     view->addAction(consoleAct);
 
+    auto* stringAct = stringTableDock_->toggleViewAction();
+    stringAct->setText(tr("&Strings"));
+    showStringTableAction_ = stringAct;
+    view->addAction(stringAct);
+
     view->addSeparator();
     showBytesAction_ = view->addAction(tr("Show &Bytes"));
     showBytesAction_->setCheckable(true);
@@ -315,6 +321,8 @@ void MainWindow::createDockWidgets() {
     console_ = new ConsoleWidget(this);
     explorer_ = new FunctionExplorer(this);
     patchList_ = new PatchListWidget(this);
+    stringTable_ = new StringTableWidget(this);
+    auto* stringFilterBar = new StringTableFilterBar(stringTable_);
 
     auto createDock = [&](const QString& title, QWidget* widget, bool closable = true) -> QDockWidget* {
         auto* dock = new QDockWidget(title, this);
@@ -334,6 +342,15 @@ void MainWindow::createDockWidgets() {
     hexDock_      = createDock("HEX", hexView_);
     consoleDock_  = createDock("CONSOLE", console_);
     patchListDock_ = createDock("PATCH LIST", patchList_);
+    {
+        auto* stringContainer = new QWidget;
+        auto* v = new QVBoxLayout(stringContainer);
+        v->setContentsMargins(0, 0, 0, 0);
+        v->setSpacing(0);
+        v->addWidget(stringFilterBar);
+        v->addWidget(stringTable_, 1);
+        stringTableDock_ = createDock("STRING TABLE", stringContainer);
+    }
 
     // Full-width address-range minimap bar below the menu bar (File, Edit...).
     {
@@ -377,6 +394,17 @@ void MainWindow::createDockWidgets() {
     splitDockWidget(disasmDock_, consoleDock_, Qt::Vertical);
     splitDockWidget(decompDock_, hexDock_, Qt::Vertical);
     splitDockWidget(hexDock_, patchListDock_, Qt::Vertical);
+    splitDockWidget(patchListDock_, stringTableDock_, Qt::Vertical);
+    connect(stringTableDock_, &QDockWidget::visibilityChanged, this, [this](bool visible) {
+        if (showStringTableAction_)
+            showStringTableAction_->setChecked(visible);
+    });
+    connect(stringTable_, &StringTableWidget::navigateRequested, this,
+        [this](uint64_t addr) {
+            if (!disasmView_) return;
+            disasmView_->seek(addr);
+            hexView_->seek(addr);
+        });
     connect(patchListDock_, &QDockWidget::visibilityChanged, this, [this](bool visible) {
         if (showPatchListAction_)
             showPatchListAction_->setChecked(visible);
@@ -948,6 +976,32 @@ void MainWindow::loadBinary(const QString& path) {
     }
     DBG("[loadBinary] populateProgram() succeeded.\n");
 
+    // Set program min/max addresses from memory blocks. The GUI load path never
+    // calls setMinAddress/setMaxAddress (only SnapshotReader does), which left
+    // getMinAddress() invalid and disabled many analyzers (Scalar Operand
+    // References, Constant Propagation, etc.) that gate on it in
+    // canAnalyze()/getDefaultEnablement().
+    {
+        auto* mem = prog->getMemory();
+        auto blocks = mem ? mem->getBlocks() : std::vector<ghidra::MemoryBlock*>();
+        if (!blocks.empty()) {
+            ghidra::Address minAddr = blocks.front()->getStart();
+            ghidra::Address maxAddr = blocks.front()->getEnd();
+            for (auto* b : blocks) {
+                if (!b) continue;
+                if (b->getStart() < minAddr) minAddr = b->getStart();
+                if (b->getEnd() > maxAddr) maxAddr = b->getEnd();
+            }
+            prog->setMinAddress(minAddr);
+            prog->setMaxAddress(maxAddr);
+            DBG("[loadBinary] set min=0x%llx max=0x%llx from %zu blocks\n",
+                (unsigned long long)minAddr.getOffset(),
+                (unsigned long long)maxAddr.getOffset(), blocks.size());
+        } else {
+            DBG("[loadBinary] WARNING: no memory blocks, min/max not set\n");
+        }
+    }
+
     // DIAGNOSTIC: dump post-populate state
     {
         auto* fm = prog->getFunctionManager();
@@ -1364,6 +1418,17 @@ void MainWindow::onAnalysisFinished() {
     } catch (...) {
         DBG("[onAnalysisFinished] populateExplorer threw unknown - CAUGHT (no crash)\n");
         console_->log("Analysis: populateExplorer unknown error");
+    }
+
+    DBG("[onAnalysisFinished] refreshing string table...\n");
+    if (stringTable_) {
+        try {
+            stringTable_->refresh(program_.get());
+        } catch (const std::exception& e) {
+            DBG("[onAnalysisFinished] stringTable refresh threw: %s - CAUGHT\n", e.what());
+        } catch (...) {
+            DBG("[onAnalysisFinished] stringTable refresh threw unknown - CAUGHT\n");
+        }
     }
 
     DBG("[onAnalysisFinished] checking navigation target...\n");

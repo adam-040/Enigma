@@ -15,6 +15,8 @@
 #include <ghidra/RefTypeFactory.h>
 #include <ghidra/TaskMonitor.h>
 #include <ghidra/MessageLog.h>
+#include <ghidra/FunctionManager.h>
+#include <ghidra/Function.h>
 
 namespace ghidra {
 
@@ -63,6 +65,27 @@ bool ConstantPropagationAnalyzer::added(Program* program, const AddressSetView& 
             monitor->setProgress(++count);
         }
         checkInstruction(program, instr, memory);
+    }
+
+    // Symbolic constant propagation through each function body.
+    // This is what creates references for LEA/mov-address patterns
+    // (e.g. x86 "lea reg, [rip+disp]" -> string/data address reference).
+    // NOTE: recursion inside SymbolicPropogator is depth-limited
+    // (MAX_FLOW_CALL_DEPTH) to prevent stack overflow on call cycles;
+    // C++ try/catch cannot catch the resulting AccessViolation.
+    SymbolicPropogator symEval(program);
+    auto funcIter = program->getFunctionManager()->getFunctions(set, true);
+    while (funcIter.hasNext()) {
+        if (monitor && monitor->isCancelled()) break;
+        Function* func = funcIter.next();
+        if (!func) continue;
+        try {
+            flowConstants(program, func->getEntryPoint(), &func->getBody(), &symEval, monitor);
+        } catch (const std::exception&) {
+            // Propagation is best-effort; a failure on one function must not
+            // abort the whole analysis pass.
+        } catch (...) {
+        }
     }
     return true;
 }

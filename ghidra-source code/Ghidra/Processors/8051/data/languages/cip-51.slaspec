@@ -1,4 +1,0 @@
-@define CIP51 ""
-
-@include "8051_main.sinc"
-

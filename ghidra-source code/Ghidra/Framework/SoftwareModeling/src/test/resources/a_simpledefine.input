@@ -1,4 +1,0 @@
-@define FOO def
-abc
-print $(FOO)
-ghi

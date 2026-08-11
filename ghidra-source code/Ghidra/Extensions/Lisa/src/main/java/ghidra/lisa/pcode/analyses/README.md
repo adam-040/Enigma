@@ -1,1 +1,0 @@
-Note: files in this directory are lightly-modified versions of analyses from https://github.com/lisa-analyzer, and, as such, are included with their original comments, author credits, and MIT License.

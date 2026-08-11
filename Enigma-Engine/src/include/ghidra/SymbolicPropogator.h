@@ -100,6 +100,11 @@ public:
     static constexpr int MAX_EXACT_INSTRUCTIONS = 100;
     static constexpr int MAX_EXTRA_INSTRUCTION_FLOW = 16;
     static constexpr int LRU_SIZE = 4096;
+    // Hard cap on nested flowConstants() recursion. The call-tracing pass
+    // recurses once per function call; call cycles (A->B->A) or deep chains
+    // would otherwise overflow the stack (which surfaces as an AccessViolation
+    // that C++ try/catch cannot catch).
+    static constexpr int MAX_FLOW_CALL_DEPTH = 512;
 
     SymbolicPropogator(Program* program);
     SymbolicPropogator(Program* program, bool recordStartEndState);
@@ -252,6 +257,7 @@ protected:
     bool hitCodeFlow = false;
     bool debug = false;
     bool recordStartEndState = false;
+    int flowCallDepth = 0;
 
     int64_t pointerMask;
     int pointerSize;

@@ -1,3 +1,0 @@
-@define ENDIAN "big"
-
-@include "nds32.sinc"

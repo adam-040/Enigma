@@ -225,8 +225,14 @@ AddressSet SymbolicPropogator::flowConstants(const Address& fromAddr,
             if (flowType->isCall()) {
                 AddressSet savedBody = visitedBody;
                 Function* func = getFunctionAt(nextAddr);
-                if (func) {
-                    flowConstants(nextFlow.source, nextAddr, &func->getBody(), eval, vContext, monitor);
+                if (func && flowCallDepth < MAX_FLOW_CALL_DEPTH) {
+                    flowCallDepth++;
+                    try {
+                        flowConstants(nextFlow.source, nextAddr, &func->getBody(), eval, vContext, monitor);
+                    } catch (...) {
+                        // best-effort: a failed sub-flow must not abort the whole pass
+                    }
+                    flowCallDepth--;
                 }
                 visitedBody = savedBody;
                 continue;

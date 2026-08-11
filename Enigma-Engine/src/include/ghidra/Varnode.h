@@ -23,7 +23,7 @@ public:
 
     Varnode(Address a, int sz) 
         : address(a), size(sz) {
-        spaceID = a.getAddressSpace()->getSpaceID();
+        spaceID = a.getAddressSpace() ? a.getAddressSpace()->getSpaceID() : 0;
         offset = a.getOffset();
     }
 

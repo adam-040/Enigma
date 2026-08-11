@@ -1,9 +1,0 @@
-##VERSION: 2.0
-##MODULE IP: GPL 3
-##MODULE IP: GPL 3 Linking Permitted
-##MODULE IP: LGPL 2.1
-##MODULE IP: LGPL 3.0
-##MODULE IP: Public Domain
-Module.manifest||Public Domain||||END|
-README.md||GHIDRA||||END|
-src/demangler_gnu_v2_24/README.txt||Public Domain||||END|

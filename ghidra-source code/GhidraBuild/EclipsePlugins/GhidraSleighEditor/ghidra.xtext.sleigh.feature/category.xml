@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<site>
-   <feature id="ghidra.xtext.sleigh.feature">
-      <category name="GhidraCategory"/>
-   </feature>
-   <category-def name="GhidraCategory" label="Ghidra"/>
-</site>

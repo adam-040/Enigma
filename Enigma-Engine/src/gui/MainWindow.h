@@ -39,6 +39,7 @@ class DecompilerView;
 class HexView;
 class ConsoleWidget;
 class PatchListWidget;
+class StringTableWidget;
 class AddressMinimap;
 
 namespace ghidra::patch { class PatchManager; }
@@ -153,6 +154,7 @@ private:
     QAction* undoAction_ = nullptr;
     QAction* redoAction_ = nullptr;
     QAction* showPatchListAction_ = nullptr;
+    QAction* showStringTableAction_ = nullptr;
 
     FunctionExplorer* explorer_;
     DisassemblyFieldView* disasmView_;
@@ -160,12 +162,14 @@ private:
     HexView* hexView_;
     ConsoleWidget* console_;
     PatchListWidget* patchList_ = nullptr;
+    StringTableWidget* stringTable_ = nullptr;
     QDockWidget* explorerDock_;
     QDockWidget* disasmDock_;
     QDockWidget* decompDock_;
     QDockWidget* hexDock_;
     QDockWidget* consoleDock_;
     QDockWidget* patchListDock_ = nullptr;
+    QDockWidget* stringTableDock_ = nullptr;
     QLabel* statusFunc_;
     QLabel* statusAddr_;
     QLabel* statusCount_;

@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<site>
-   <feature id="ghidra.ghidradev">
-      <category name="ghidra.ghidradev"/>
-   </feature>
-   <category-def name="ghidra.ghidradev" label="Ghidra"/>
-</site>

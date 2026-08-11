@@ -59,8 +59,12 @@ bool ScalarOperandAnalyzer::getDefaultEnablement(Program* program) const {
     if (format.find("ELF") != std::string::npos) return false;
 
     Address min = program->getMinAddress();
-    if (!min.isValid() || min.getOffset() == 0) return false;
-    if (program->getAddressFactory()->getDefaultAddressSpace()->getSize() < 32) return false;
+    if (!min.isValid() || min.getOffset() == 0) {
+        return false;
+    }
+    if (program->getAddressFactory()->getDefaultAddressSpace()->getSize() < 32) {
+        return false;
+    }
 
     return true;
 }
@@ -133,7 +137,7 @@ void ScalarOperandAnalyzer::checkOperands(Program* program, Instruction* instr) 
         auto scalars = instr->getOperandScalars(i);
         for (Scalar* scalar : scalars) {
             if (soaLogCounter_ >= SOA_MAX_SCALAR_ITER) return;
-            long value = static_cast<long>(scalar->getUnsignedValue());
+            uint64_t value = static_cast<uint64_t>(scalar->getUnsignedValue());
             // PHASE 10: aggressive filter for shell32-class binaries.
             // Skip values that are clearly not valid user-space pointers:
             // - Below 0x10000 (small constants, near-null, segment-like)
@@ -148,8 +152,10 @@ void ScalarOperandAnalyzer::checkOperands(Program* program, Instruction* instr) 
             }
             // Skip 0x7fff_xxxx range (stack limit constants, mask values)
             if (value >= 0x7fff0000 && value <= 0x7fffffff) continue;
-            // Skip 0xffff_xxxx range (sign-extended -1)
-            if (value >= 0xffff0000) continue;
+            // Skip sign-extended 32-bit negatives (0xffffffff_xxxxxxxx).
+            // NOTE: must mask on the high 32 bits; a plain ">= 0xffff0000"
+            // wrongly rejects real 64-bit image addresses above 4GB.
+            if ((value & 0xFFFFFFFF00000000ULL) == 0xFFFFFFFF00000000ULL) continue;
             // Skip 0x10000-0x1000000 (likely not real code pointers)
             if (value < 0x100000) continue;
 
