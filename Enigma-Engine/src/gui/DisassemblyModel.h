@@ -16,7 +16,7 @@ struct DisasmRow {
     enum class Kind {
         Instruction,    // a decoded instruction at `address`
         FunctionHeader, // "; === name ==="
-        GapComment      // "; --- N bytes of data ---"
+        GapComment,     // "; --- N bytes of data ---"
     };
     Kind kind = Kind::Instruction;
     uint64_t address = 0; // instruction address (Instruction) or anchor (header/gap)

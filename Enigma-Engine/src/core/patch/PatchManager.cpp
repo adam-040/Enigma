@@ -751,19 +751,19 @@ bool PatchManager::doRevertPatch(Patch& patch) {
 }
 
 void PatchManager::firePatchAdded(const PatchId& id) {
-    if (onPatchAdded_) onPatchAdded_(id);
+    for (const auto& cb : onPatchAdded_) cb(id);
 }
 
 void PatchManager::firePatchRemoved(const PatchId& id) {
-    if (onPatchRemoved_) onPatchRemoved_(id);
+    for (const auto& cb : onPatchRemoved_) cb(id);
 }
 
 void PatchManager::firePatchEnabled(const PatchId& id) {
-    if (onPatchEnabled_) onPatchEnabled_(id);
+    for (const auto& cb : onPatchEnabled_) cb(id);
 }
 
 void PatchManager::firePatchDisabled(const PatchId& id) {
-    if (onPatchDisabled_) onPatchDisabled_(id);
+    for (const auto& cb : onPatchDisabled_) cb(id);
 }
 
 void PatchManager::pushUndo(const std::string& id) {

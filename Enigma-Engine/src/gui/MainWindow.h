@@ -39,6 +39,7 @@ class DecompilerView;
 class HexView;
 class ConsoleWidget;
 class PatchListWidget;
+class AddressMinimap;
 
 namespace ghidra::patch { class PatchManager; }
 
@@ -178,4 +179,6 @@ private:
 
     void doNavigate(uint64_t addr, const QString& name);
     bool isCurrentFunctionValid() const;
+    void updateMinimapViewport();
+    AddressMinimap* addressMinimap_ = nullptr;
 };

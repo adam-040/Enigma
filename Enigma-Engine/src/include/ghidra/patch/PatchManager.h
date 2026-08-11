@@ -72,12 +72,12 @@ public:
     std::vector<ConflictInfo> findConflicts(const Patch& candidate) const;
     void setConflictHandler(std::function<ConflictInfo::Action(const ConflictInfo&)> handler);
 
-    // Callbacks
+    // Callbacks (multi-subscriber: every registered callback fires)
     using PatchCallback = std::function<void(const PatchId&)>;
-    void setOnPatchAdded(PatchCallback cb) { onPatchAdded_ = std::move(cb); }
-    void setOnPatchRemoved(PatchCallback cb) { onPatchRemoved_ = std::move(cb); }
-    void setOnPatchEnabled(PatchCallback cb) { onPatchEnabled_ = std::move(cb); }
-    void setOnPatchDisabled(PatchCallback cb) { onPatchDisabled_ = std::move(cb); }
+    void setOnPatchAdded(PatchCallback cb) { onPatchAdded_.push_back(std::move(cb)); }
+    void setOnPatchRemoved(PatchCallback cb) { onPatchRemoved_.push_back(std::move(cb)); }
+    void setOnPatchEnabled(PatchCallback cb) { onPatchEnabled_.push_back(std::move(cb)); }
+    void setOnPatchDisabled(PatchCallback cb) { onPatchDisabled_.push_back(std::move(cb)); }
     void setOnPatchGroupChanged(std::function<void(const std::string&)> cb) {
         onGroupChanged_ = std::move(cb);
     }
@@ -103,10 +103,10 @@ private:
     std::map<std::string, std::unique_ptr<Patch>> patches_;
     std::map<std::string, std::unique_ptr<PatchGroup>> groups_;
 
-    PatchCallback onPatchAdded_;
-    PatchCallback onPatchRemoved_;
-    PatchCallback onPatchEnabled_;
-    PatchCallback onPatchDisabled_;
+    std::vector<PatchCallback> onPatchAdded_;
+    std::vector<PatchCallback> onPatchRemoved_;
+    std::vector<PatchCallback> onPatchEnabled_;
+    std::vector<PatchCallback> onPatchDisabled_;
     std::function<void(const std::string&)> onGroupChanged_;
     std::function<ConflictInfo::Action(const ConflictInfo&)> conflictHandler_;
 

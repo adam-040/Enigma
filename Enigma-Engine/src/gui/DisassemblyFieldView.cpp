@@ -157,6 +157,19 @@ int DisassemblyFieldView::rowCount() const {
     return lineCount();
 }
 
+std::pair<uint64_t, uint64_t> DisassemblyFieldView::visibleAddressRange() const {
+    int n = lineCount();
+    if (n == 0) return {0, 0};
+    int cellH = EditorTheme::cellHeight();
+    int scrollY = verticalScrollBar()->value();
+    int vpH = viewport()->height();
+    int first = std::min(scrollY / cellH, n - 1);
+    int last = std::min((scrollY + vpH) / cellH, n - 1);
+    uint64_t a = (indexBuilt_ ? model_.rowToAddress(first) : fallbackLines_[first].addr);
+    uint64_t b = (indexBuilt_ ? model_.rowToAddress(last) : fallbackLines_[last].addr);
+    return {a, b};
+}
+
 int DisassemblyFieldView::maxContentCols() const {
     if (!indexBuilt_) {
         int m = 0;
@@ -733,7 +746,11 @@ void DisassemblyFieldView::paintEvent(QPaintEvent* event) {
                 maxCol = inst->totalCols;
             } else {
                 toks = rowTokens(ri);
-                maxCol = (toks && !toks->empty()) ? (*toks)[0].len : 0;
+                maxCol = 0;
+                if (toks) {
+                    for (const Token& t : *toks)
+                        maxCol = std::max(maxCol, t.startCol + t.len);
+                }
             }
         } else {
             if (ri >= static_cast<int>(fallbackLines_.size())) continue;

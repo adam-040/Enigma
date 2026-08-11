@@ -41,6 +41,7 @@ public:
     bool isIndexBuilt() const { return indexBuilt_; }
     int totalInstructions() const { return indexBuilt_ ? model_.totalInstructions() : 0; }
     int rowCount() const;
+    std::pair<uint64_t, uint64_t> visibleAddressRange() const;
     void setTrampolineMap(std::map<uint64_t, uint64_t> map) { trampolineMap_ = std::move(map); }
 
     // Invalidate decoded instruction cache (after byte patches)

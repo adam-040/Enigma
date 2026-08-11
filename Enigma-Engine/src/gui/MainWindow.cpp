@@ -6,6 +6,7 @@
 #include "HexSearchBar.h"
 #include "ConsoleWidget.h"
 #include "PatchListWidget.h"
+#include "AddressMinimap.h"
 #include "SelectionManager.h"
 
 #include <QFileDialog>
@@ -38,6 +39,8 @@
 #include <chrono>       // timestamps
 #include <QInputDialog>
 #include <QDialog>
+#include <QScrollBar>
+#include <QToolBar>
 #include <QVBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
@@ -130,6 +133,20 @@ MainWindow::MainWindow(QWidget* parent)
     patchManager_ = std::make_unique<ghidra::patch::PatchManager>();
     disasmView_->setPatchManager(patchManager_.get());
     if (patchList_) patchList_->setPatchManager(patchManager_.get());
+    if (addressMinimap_) {
+        patchManager_->setOnPatchAdded([this](const ghidra::patch::PatchId&) {
+            if (addressMinimap_) addressMinimap_->refresh();
+        });
+        patchManager_->setOnPatchRemoved([this](const ghidra::patch::PatchId&) {
+            if (addressMinimap_) addressMinimap_->refresh();
+        });
+        patchManager_->setOnPatchEnabled([this](const ghidra::patch::PatchId&) {
+            if (addressMinimap_) addressMinimap_->refresh();
+        });
+        patchManager_->setOnPatchDisabled([this](const ghidra::patch::PatchId&) {
+            if (addressMinimap_) addressMinimap_->refresh();
+        });
+    }
     navTimer_ = new QTimer(this);
     navTimer_->setSingleShot(true);
     navTimer_->setInterval(80);
@@ -317,6 +334,36 @@ void MainWindow::createDockWidgets() {
     hexDock_      = createDock("HEX", hexView_);
     consoleDock_  = createDock("CONSOLE", console_);
     patchListDock_ = createDock("PATCH LIST", patchList_);
+
+    // Full-width address-range minimap bar below the menu bar (File, Edit...).
+    {
+        addressMinimap_ = new AddressMinimap(this);
+        auto* mapToolBar = addToolBar(tr("address-minimap"));
+        mapToolBar->setObjectName("address-minimap");
+        mapToolBar->setMovable(false);
+        mapToolBar->setFloatable(false);
+        mapToolBar->setContextMenuPolicy(Qt::PreventContextMenu);
+        mapToolBar->setFixedHeight(24);
+        mapToolBar->addWidget(addressMinimap_);
+        addressMinimap_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+
+        connect(addressMinimap_, &AddressMinimap::navigateRequested, this,
+                [this](uint64_t addr) {
+                    if (disasmView_) disasmView_->seekToAddress(addr);
+                });
+        connect(addressMinimap_, &AddressMinimap::hexNavigateRequested, this,
+                [this](uint64_t addr) {
+                    if (!hexView_) return;
+                    if (hexDock_ && !hexDock_->isVisible())
+                        hexDock_->show();
+                    hexDock_->raise();
+                    hexView_->seek(addr);
+                });
+        connect(disasmView_->verticalScrollBar(), &QScrollBar::valueChanged, this,
+                &MainWindow::updateMinimapViewport);
+        connect(disasmView_->verticalScrollBar(), &QScrollBar::rangeChanged, this,
+                &MainWindow::updateMinimapViewport);
+    }
 
     setDockNestingEnabled(true);
     if (centralWidget()) {
@@ -1086,6 +1133,12 @@ void MainWindow::loadBinary(const QString& path) {
 
     NAVLOG("calling runAnalysisAsync...\n");
     runAnalysisAsync();
+
+    if (addressMinimap_) {
+        addressMinimap_->setData(program_->getMemory(), program_->getFunctionManager(),
+                                 patchManager_.get());
+        updateMinimapViewport();
+    }
     } catch (const std::exception& e) {
         NAVLOG("loadBinary UNHANDLED EXCEPTION: %s\n", e.what());
         console_->log(QString("FATAL: loadBinary threw: %1").arg(e.what()));
@@ -1329,6 +1382,12 @@ void MainWindow::onAnalysisFinished() {
         } else {
             DBG("[onAnalysisFinished] no functions found, skipping navigation\n");
         }
+    }
+
+    if (addressMinimap_ && program_) {
+        addressMinimap_->setData(program_->getMemory(), program_->getFunctionManager(),
+                                 patchManager_.get());
+        updateMinimapViewport();
     }
     GUARD_EXIT("onAnalysisFinished");
 }
@@ -2333,4 +2392,11 @@ void MainWindow::updateTrampolineMap() {
         }
     }
     disasmView_->setTrampolineMap(std::move(map));
+}
+
+void MainWindow::updateMinimapViewport() {
+    if (!addressMinimap_ || !disasmView_) return;
+    auto [start, end] = disasmView_->visibleAddressRange();
+    if (start != 0 && end != 0)
+        addressMinimap_->setViewport(start, end);
 }
