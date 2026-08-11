@@ -101,6 +101,4 @@ Tested on real Windows binaries:
 
 ## License
 
-This project is a translation and extension of [Ghidra](https://github.com/NationalSecurityAgency/ghidra), licensed under **Apache License 2.0**.
-
-Enigma is distributed under the same license.
+This project is separate from [Ghidra](https://github.com/NationalSecurityAgency/ghidra), licensed under **Apache License 2.0**.
