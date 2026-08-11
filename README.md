@@ -1,3 +1,5 @@
+<img width="1920" height="1015" alt="image" src="https://github.com/user-attachments/assets/91501029-1186-44d9-9d0a-151eb3c207eb" />
+
 # Enigma Engine
 
 A ground-up C++ reimplementation of Ghidra's analytical core, built to eliminate the JVM dependency and enable deep AI integration.
@@ -101,6 +103,4 @@ Tested on real Windows binaries:
 
 ## License
 
-This project is a translation and extension of [Ghidra](https://github.com/NationalSecurityAgency/ghidra), licensed under **Apache License 2.0**.
-
-Enigma is distributed under the same license.
+This project is separate from [Ghidra](https://github.com/NationalSecurityAgency/ghidra), licensed under **Apache License 2.0**.
