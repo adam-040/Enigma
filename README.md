@@ -5,7 +5,7 @@
 
 # Enigma Engine
 
-A ground-up C++ reimplementation of Ghidra's analytical core, built to eliminate the JVM dependency and enable deep AI integration.
+A ground-up C++ inspired by Ghidra's analytical core, built to eliminate the JVM dependency and enable deep AI integration.
 
 ---
 
@@ -28,7 +28,8 @@ The project is in active development. The core analysis pipeline is functional:
 - C decompiled output from real binaries
 - Type recovery with Windows API signature seeding (1400+ prototypes)
 - Custom repository-based project persistence (FlatBuffers snapshots, LMDB index, git-like commits and branches)
-- Qt-based GUI with Disassembly, Decompiler, and Hex views
+- Qt-based GUI: Disassembly, Decompiler, Hex, and inline CFG graph side-by-side with assembly
+- Centralized cross-view synchronization — navigating in any view precisely syncs Disassembly, Decompiler, and Hex to the exact matching position
 
 ---
 
@@ -72,7 +73,7 @@ Qt GUI                — Disassembly / Decompiler / Hex / Explorer
 - C++17 compiler (GCC 11+ or Clang 13+)
 - CMake 3.20+
 - Qt 6.x
-- Capstone, SQLite3, LMDB (via MSYS2/vcpkg)
+- Capstone, Zlib, LMDB (via MSYS2/vcpkg)
 
 ```bash
 git clone https://github.com/adam-040/Enigma.git
@@ -97,13 +98,35 @@ Tested on real Windows binaries:
 
 ## Roadmap
 
-- [ ] LIEF integration for full PE/ELF/Mach-O parsing
-- [ ] Improve decompiler output quality (struct recovery, better type inference)
-- [ ] GUI stability and navigation
-- [ ] AI integration — function naming, type inference, pattern recognition
+## Analysis
+ - Improved type inference
+ - Struct and class recovery
+ - Additional binary formats and architectures
+ - LIEF integration
+## Reverse Engineering
+ [x] Interactive Disassembly
+ [x] Hex view
+ [x] Decompiled C view
+ [x] Cross-view navigation
+ [x] Basic block visualization
+ [x] Control-flow arrows
+ [x] Cross-reference navigation
+ [x] Rename symbols/functions
+ [x] Binary patching
+ [ ] Function Graph
+ [ ] Call Graph
+ [ ] Advanced cross-reference browser
+ [ ] Comments and bookmarks
+## Knowledge and AI
+ [ ] Function Knowledge System (FKS)
+ [ ] Function fingerprint extraction
+ [ ] Repository-based knowledge sharing
+ [ ] AI-assisted function naming
+ [ ] AI-assisted type inference
+ [ ] Pattern recognition
 
 ---
 
 ## License
 
-This project is separate from [Ghidra](https://github.com/NationalSecurityAgency/ghidra), licensed under **Apache License 2.0**.
+This project is licensed under **Apache License 2.0**.
