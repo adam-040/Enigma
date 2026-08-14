@@ -23,47 +23,40 @@ QFont EditorTheme::emphasisFont() {
 }
 
 int EditorTheme::cellWidth() {
-    static int w = -1;
-    if (w < 0) {
+    static const int w = [] {
         QFontMetrics fm(baseFont());
-        w = std::max(1, fm.horizontalAdvance(QLatin1Char('0')));
-    }
+        return std::max(1, fm.horizontalAdvance(QLatin1Char('0')));
+    }();
     return w;
 }
 
 int EditorTheme::cellHeight() {
-    static int h = -1;
-    if (h < 0) {
+    static const int h = [] {
         QFontMetrics fm(baseFont());
-        h = static_cast<int>(fm.height() * lineSpacing());
-        if (h < fm.height()) h = fm.height();
-    }
+        const int rh = static_cast<int>(fm.height() * lineSpacing());
+        return std::max(rh, fm.height());
+    }();
     return h;
 }
 
 int EditorTheme::ascent() {
-    static int a = -1;
-    if (a < 0) {
+    static const int a = [] {
         QFontMetrics fm(baseFont());
-        a = fm.ascent();
-    }
+        return fm.ascent();
+    }();
     return a;
 }
 
 int EditorTheme::descent() {
-    static int d = -1;
-    if (d < 0) {
+    static const int d = [] {
         QFontMetrics fm(baseFont());
-        d = fm.descent();
-    }
+        return fm.descent();
+    }();
     return d;
 }
 
 int EditorTheme::glyphHeight() {
-    static int h = -1;
-    if (h < 0) {
-        h = ascent() + descent();
-    }
+    static const int h = ascent() + descent();
     return h;
 }
 
@@ -122,7 +115,9 @@ bool EditorTheme::isEmphasis(TokenKind kind) {
 // Pre-computed lookup tables indexed by TokenKind for O(1) per-token access.
 // Avoids per-token switch statements and virtual function calls in paint hot path.
 
-static const int TOKEN_KIND_COUNT = 21; // Plain..Semicolon
+// Derived from the enum so adding new TokenKind values keeps the tables in sync,
+// avoiding out-of-bounds access in the paint hot path.
+static const int TOKEN_KIND_COUNT = static_cast<int>(TokenKind::Semicolon) + 1;
 
 const QColor* EditorTheme::colorTable() {
     static QColor table[TOKEN_KIND_COUNT] = {

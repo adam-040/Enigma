@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <QString>
 
+class QTimer;
 namespace ghidra { class ProgramDB; }
 
 /// Table of all strings discovered in the loaded binary.
@@ -42,6 +43,7 @@ private:
     uint64_t addrAtRow(int row) const;
 
     QString filterText_;
+    QTimer* filterTimer_ = nullptr;
 };
 
 class StringTableFilterBar : public QWidget {

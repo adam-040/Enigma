@@ -550,6 +550,23 @@ const std::unordered_set<std::string>& getNoReturnTable() {
     return noReturn;
 }
 
+// C-style variadic functions: parameters up to the '...' are fixed.
+const std::unordered_set<std::string>& getVariadicTable() {
+    static const std::unordered_set<std::string> variadic = {
+        "printf", "__mingw_printf", "printf_s",
+        "sprintf", "__mingw_sprintf", "sprintf_s",
+        "snprintf", "__mingw_snprintf", "snprintf_s",
+        "fprintf", "__mingw_fprintf", "fprintf_s",
+        "scanf", "__mingw_scanf", "scanf_s",
+        "fscanf", "__mingw_fscanf", "fscanf_s",
+        "sscanf", "__mingw_sscanf", "sscanf_s",
+        "wprintf", "wsprintfA", "wsprintfW",
+        "swprintf", "sprintfW", "vsprintf",
+        "vfprintf", "vprintf", "vswprintf",
+    };
+    return variadic;
+}
+
 // Include auto-generated extended signature table (inside anonymous namespace)
 #include "wintype_siggen.inc"
 
@@ -583,6 +600,11 @@ public:
 
     bool isNoReturn(const std::string& funcName) const override {
         const auto& table = getNoReturnTable();
+        return table.find(funcName) != table.end();
+    }
+
+    bool isVariadic(const std::string& funcName) const override {
+        const auto& table = getVariadicTable();
         return table.find(funcName) != table.end();
     }
 

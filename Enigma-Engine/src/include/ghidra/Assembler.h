@@ -32,6 +32,11 @@ public:
     static std::vector<uint8_t> generateMultiByteNop(size_t size);
     static void fillMultiByteNopGap(std::vector<uint8_t>& out, size_t gapSize);
 
+    // Ghidra-style suggestion list: given the current typed text (first token
+    // treated as mnemonic), returns all mnemonics in the same instruction
+    // family (e.g. "jz" -> all Jcc variants, "mov" -> MOV/MOVZX/MOVSX/LEA/XCHG).
+    static std::vector<std::string> getSuggestions(const std::string& input);
+
 private:
     struct Token {
         std::string mnemonic;

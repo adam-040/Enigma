@@ -606,6 +606,26 @@ ghidra_decompiler::Datatype* AnalysisBridge::resolveTypeName(const std::string& 
              typeName == "HCRYPTPROV"||typeName=="HCRYPTKEY"||typeName=="HCRYPTHASH"||
              typeName == "BCRYPT_ALG_HANDLE"||typeName=="BCRYPT_KEY_HANDLE"||
              typeName == "BCRYPT_HASH_HANDLE"||typeName=="BCRYPT_HANDLE")       { auto* p = tf->getTypePointer(tf->getSizeOfPointer(), tf->getTypeVoid(), 1); typeCache_[typeName] = p; return p; }
+    // String pointer types: map to char*/wchar16* so call sites show real strings
+    else if (typeName == "const char*"  || typeName == "char*"      ||
+             typeName == "LPCSTR"       || typeName == "LPSTR"      ||
+             typeName == "PCSTR"        || typeName == "PSTR"       ||
+             typeName == "LPCCH"        || typeName == "LPCH"       ||
+             typeName == "const wchar_t*" || typeName == "wchar_t*" ||
+             typeName == "LPCWSTR"      || typeName == "LPWSTR"     ||
+             typeName == "PCWSTR"       || typeName == "PWSTR"      ||
+             typeName == "LPCWCH"       || typeName == "LPWCH") {
+        bool wide = (typeName.find('W') != std::string::npos ||
+                     typeName.find("wchar") != std::string::npos);
+        // "char" and "wchar16" are cached core types; fall back to a
+        // plain 1/2-byte integer if unavailable.
+        ghidra_decompiler::Datatype* ch = tf->findByName(wide ? "wchar16" : "char");
+        if (!ch)
+            ch = tf->getBase(wide ? 2 : 1, ghidra_decompiler::TYPE_INT);
+        auto* p = tf->getTypePointer(tf->getSizeOfPointer(), ch, 1);
+        typeCache_[typeName] = p;
+        return p;
+    }
     else if (typeName.find("LP") == 0 || typeName.find("P") == 0 ||
              typeName.find("LPC") == 0 || typeName.find("*") != std::string::npos ||
              typeName.find("H") == 0 || typeName.find("PF") == 0) {
@@ -750,7 +770,8 @@ void AnalysisBridge::bridgeImportSignatures() {
         pieces.name = cleanName;
         pieces.outtype = retType;
         pieces.intypes = resolvedParams;
-        pieces.firstVarArgSlot = -1;
+        pieces.firstVarArgSlot = typeDB_->isVariadic(cleanName)
+            ? static_cast<int>(paramTypes.size()) : -1;
 
         for (size_t i = 0; i < paramTypes.size(); i++)
             pieces.innames.push_back("param" + std::to_string(i));

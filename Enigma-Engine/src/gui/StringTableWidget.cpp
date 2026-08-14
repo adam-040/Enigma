@@ -23,6 +23,7 @@
 #include <QApplication>
 #include <QClipboard>
 #include <QLineEdit>
+#include <QTimer>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <cstdlib>
@@ -107,6 +108,11 @@ StringTableWidget::StringTableWidget(QWidget* parent)
     header->resizeSection(ColEncoding, 70);
     header->resizeSection(ColLabels, 150);
     header->resizeSection(ColXrefs, 50);
+
+    filterTimer_ = new QTimer(this);
+    filterTimer_->setSingleShot(true);
+    filterTimer_->setInterval(150);
+    connect(filterTimer_, &QTimer::timeout, this, &StringTableWidget::applyFilter);
 }
 
 StringTableWidget::~StringTableWidget() = default;
@@ -179,18 +185,23 @@ void StringTableWidget::refresh(ghidra::ProgramDB* program) {
         [](const StringEntry& a, const StringEntry& b) { return a.address < b.address; });
 
     clearContentsAndRows();
+    // Batch population: disable sorting and UI updates so setRowCount/setItem
+    // for every cell doesn't trigger per-item re-sorts and repaints.
+    setSortingEnabled(false);
+    setUpdatesEnabled(false);
     setRowCount(static_cast<int>(entries.size()));
+    QFont itemFont = QApplication::font();
     for (int i = 0; i < static_cast<int>(entries.size()); ++i) {
         const StringEntry& e = entries[i];
 
         auto* addrItem = new QTableWidgetItem(QStringLiteral("0x%1").arg(e.address, 0, 16));
         addrItem->setData(Qt::UserRole, static_cast<qlonglong>(e.address));
         addrItem->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
-        addrItem->setFont(QApplication::font());
+        addrItem->setFont(itemFont);
         setItem(i, ColAddress, addrItem);
 
         auto* textItem = new QTableWidgetItem(e.text);
-        textItem->setFont(QApplication::font());
+        textItem->setFont(itemFont);
         textItem->setToolTip(e.text);
         setItem(i, ColString, textItem);
 
@@ -208,6 +219,8 @@ void StringTableWidget::refresh(ghidra::ProgramDB* program) {
         xrefItem->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
         setItem(i, ColXrefs, xrefItem);
     }
+    setUpdatesEnabled(true);
+    setSortingEnabled(true);
 
     applyFilter();
 }
@@ -221,11 +234,14 @@ void StringTableWidget::clearContentsAndRows() {
 
 void StringTableWidget::setFilter(const QString& text) {
     filterText_ = text;
-    applyFilter();
+    // Debounce rapid typing: coalesce consecutive edits into a single full scan.
+    filterTimer_->start();
 }
 
 void StringTableWidget::applyFilter() {
     const QString needle = filterText_.trimmed();
+    // Batch row-hiding updates into a single repaint.
+    setUpdatesEnabled(false);
     for (int i = 0; i < rowCount(); ++i) {
         bool match = needle.isEmpty();
         if (!match) {
@@ -239,6 +255,7 @@ void StringTableWidget::applyFilter() {
         }
         setRowHidden(i, !match);
     }
+    setUpdatesEnabled(true);
 }
 
 uint64_t StringTableWidget::addrAtRow(int row) const {

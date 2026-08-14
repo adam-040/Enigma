@@ -9,6 +9,8 @@
 #include <ghidra/FunctionIterator.h>
 #include <ghidra/LanguageID.h>
 #include <ghidra/AddressSet.h>
+#include <ghidra/AnalysisBridge.h>
+#include <ghidra/TypeDatabase.h>
 
 #include <libdecomp.hh>
 #include <sleigh_arch.hh>
@@ -23,6 +25,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <cctype>
 #include <cstring>
 #include <mutex>
 #include <sstream>
@@ -321,6 +324,42 @@ struct DecompInterface::Impl {
                 }
                 return "";
             });
+        }
+
+        // Bridge analysis results and API import signatures into the decompiler.
+        // Gives imported functions typed parameters (e.g. VirtualProtect takes
+        // LPVOID, SIZE_T, DWORD, PDWORD) so call sites show real types.
+        if (auto* progDB = dynamic_cast<ghidra::ProgramDB*>(program)) {
+            uint64_t imgBase = program->getImageBase().getOffset();
+            ghidra::AnalysisBridge bridge(progDB, arch.get(), symbolNames,
+                imgBase, imgBase, false);
+
+            std::unique_ptr<ghidra::TypeDatabase> typeDB;
+            std::string fmt = program->getExecutableFormat();
+            for (auto& c : fmt) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+            if (fmt.find("PE") != std::string::npos)
+                typeDB = ghidra::createWindowsTypeDatabase();
+            else if (fmt.find("ELF") != std::string::npos)
+                typeDB = ghidra::createLinuxTypeDatabase();
+            else if (fmt.find("MACH-O") != std::string::npos ||
+                     fmt.find("FAT") != std::string::npos ||
+                     fmt.find("PEF") != std::string::npos)
+                typeDB = ghidra::createMacOSTypeDatabase();
+
+            if (typeDB) bridge.setTypeDatabase(typeDB.get());
+
+            try {
+                bridge.bridgeFunctions();
+                bridge.bridgeTypes();
+                bridge.bridgeImportSignatures();
+                bridge.bridgeNoReturnFlags();
+                bridge.bridgeLabels();
+                bridge.bridgeReadOnlyRanges();
+            } catch (const std::exception& e) {
+                std::cerr << "DecompInterface: type bridge failed: " << e.what() << "\n";
+            } catch (...) {
+                std::cerr << "DecompInterface: type bridge failed (unknown exception)\n";
+            }
         }
 
         archInitialized = true;

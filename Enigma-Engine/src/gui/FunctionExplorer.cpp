@@ -67,6 +67,8 @@ void FunctionExplorer::onItemDoubleClicked(QTreeWidgetItem* item, int) {
 }
 
 void FunctionExplorer::onFilterChanged(const QString& text) {
+    tree_->blockSignals(true);
+    tree_->setUpdatesEnabled(false);
     for (int i = 0; i < tree_->topLevelItemCount(); ++i) {
         QTreeWidgetItem* top = tree_->topLevelItem(i);
         bool topMatch = text.isEmpty() ||
@@ -82,6 +84,8 @@ void FunctionExplorer::onFilterChanged(const QString& text) {
         }
         top->setHidden(!topMatch && !childVisible);
     }
+    tree_->setUpdatesEnabled(true);
+    tree_->blockSignals(false);
 }
 
 void FunctionExplorer::onItemClicked(QTreeWidgetItem* item, int) {

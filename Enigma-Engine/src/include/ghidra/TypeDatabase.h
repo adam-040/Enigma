@@ -14,6 +14,10 @@ public:
                                  std::string& returnType,
                                  std::vector<std::string>& paramTypes) const = 0;
 
+    /// \brief Whether the function uses a C-style variadic argument list
+    /// (e.g. printf). Fixed parameters precede the '...' slot.
+    virtual bool isVariadic(const std::string& funcName) const { return false; }
+
     virtual bool isNoReturn(const std::string& funcName) const = 0;
 
     virtual std::string getPlatformName() const = 0;

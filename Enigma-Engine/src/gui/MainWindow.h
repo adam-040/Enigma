@@ -9,6 +9,7 @@
 #include <QStatusBar>
 #include <QMenuBar>
 #include <QAction>
+#include <QToolBar>
 #include <QStack>
 #include <QFutureWatcher>
 #include <QReadWriteLock>
@@ -155,6 +156,7 @@ private:
     QAction* redoAction_ = nullptr;
     QAction* showPatchListAction_ = nullptr;
     QAction* showStringTableAction_ = nullptr;
+    QAction* explorerToggleAction_ = nullptr;
 
     FunctionExplorer* explorer_;
     DisassemblyFieldView* disasmView_;
@@ -164,6 +166,7 @@ private:
     PatchListWidget* patchList_ = nullptr;
     StringTableWidget* stringTable_ = nullptr;
     QDockWidget* explorerDock_;
+    QToolBar* explorerFallbackBar_ = nullptr;
     QDockWidget* disasmDock_;
     QDockWidget* decompDock_;
     QDockWidget* hexDock_;
@@ -180,6 +183,9 @@ private:
     QTimer* navTimer_ = nullptr;
     uint64_t pendingNavAddr_ = 0;
     QString pendingNavName_;
+    QTimer* cursorSyncTimer_ = nullptr;
+    uint64_t pendingSyncAddr_ = 0;
+    QObject* pendingSyncOrigin_ = nullptr;
 
     void doNavigate(uint64_t addr, const QString& name);
     bool isCurrentFunctionValid() const;

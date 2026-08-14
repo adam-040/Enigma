@@ -14,6 +14,11 @@
 #include <QMessageBox>
 #include <QApplication>
 #include <QFileInfo>
+#include <QToolButton>
+#include <QSvgRenderer>
+#include <QPainter>
+#include <QPixmap>
+#include <QCheckBox>
 #include <QtConcurrent>
 #include <ghidra/DecompInterface.h>
 #include <ghidra/ProgramDB.h>
@@ -45,6 +50,9 @@
 #include <QVBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
+#include <QListWidget>
+#include <QKeyEvent>
+#include <functional>
 #include <QDialogButtonBox>
 #include <QDir>
 #include <ghidra/Assembler.h>
@@ -158,6 +166,37 @@ MainWindow::MainWindow(QWidget* parent)
             pendingNavName_.clear();
         }
     });
+
+    // Cross-view cursor sync coalescing: sub-frame delay only, so rapid cursor
+    // movement (mouse drags, key repeats) collapses into one seek per frame
+    // without introducing a visible lag.
+    cursorSyncTimer_ = new QTimer(this);
+    cursorSyncTimer_->setSingleShot(true);
+    cursorSyncTimer_->setInterval(16);
+    connect(cursorSyncTimer_, &QTimer::timeout, this, [this]() {
+        const uint64_t addr = pendingSyncAddr_;
+        QObject* s = pendingSyncOrigin_;
+        pendingSyncAddr_ = 0;
+        pendingSyncOrigin_ = nullptr;
+        if (addr == 0 || !program_) return;
+
+        // Scroll disasm to the same address
+        if (s != disasmView_)
+            disasmView_->seek(addr);
+
+        // Scroll decompiler to the same address
+        if (s != decompView_)
+            decompView_->seek(addr);
+
+        if (s != hexView_) {
+            if (!hexView_->document() || hexView_->document()->lineCount() == 0) {
+                hexView_->buildFullHex(program_.get(), currentBinaryPath_);
+            }
+            if (hexView_->containsAddress(addr)) {
+                hexView_->seek(addr);
+            }
+        }
+    });
 }
 
 MainWindow::~MainWindow() = default;
@@ -242,6 +281,10 @@ void MainWindow::createMenuBar() {
     stringAct->setText(tr("&Strings"));
     showStringTableAction_ = stringAct;
     view->addAction(stringAct);
+
+    auto* explorerAct = explorerToggleAction_;
+    explorerAct->setText(tr("&Explorer"));
+    view->addAction(explorerAct);
 
     view->addSeparator();
     showBytesAction_ = view->addAction(tr("Show &Bytes"));
@@ -337,6 +380,87 @@ void MainWindow::createDockWidgets() {
     };
 
     explorerDock_ = createDock("EXPLORER", explorer_, false);
+
+    // Explorer toggle button (replaces the X on the dock title bar).
+    // A fallback toolbar at the top-left keeps the button accessible while
+    // the dock is hidden. Icon swaps: folder-open (visible) / folder-free (hidden).
+    explorerToggleAction_ = new QAction(tr("Toggle Explorer"), this);
+    explorerToggleAction_->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_1));
+
+    auto loadSvgIcon = [](const QString& fileName, int size) -> QIcon {
+        // Icons are embedded in the exe (resources.qrc) so they work from any
+        // working directory; fall back to a sibling file on disk if missing.
+        QSvgRenderer renderer(":/icons/" + fileName);
+        if (!renderer.isValid())
+            renderer.load(QCoreApplication::applicationDirPath() + "/" + fileName);
+        if (!renderer.isValid()) return QIcon();
+        // Supersample at 2x and smooth-downscale so the icon stays crisp at
+        // small button sizes without any blur or clipping.
+        const int hi = size * 2;
+        QPixmap pm(hi, hi);
+        pm.fill(Qt::transparent);
+        QPainter p(&pm);
+        p.setRenderHint(QPainter::Antialiasing, true);
+        p.setRenderHint(QPainter::SmoothPixmapTransform, true);
+        renderer.render(&p, QRectF(0, 0, hi, hi));
+        p.end();
+        if (hi != size)
+            pm = pm.scaled(size, size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        return QIcon(pm);
+    };
+
+    auto syncExplorerIcon = [this, loadSvgIcon]() {
+        bool vis = explorerDock_ && explorerDock_->isVisible();
+        explorerToggleAction_->setIcon(loadSvgIcon(vis ? "folder-open.svg" : "folder-free.svg", 16));
+        if (explorerFallbackBar_) explorerFallbackBar_->setVisible(!vis);
+    };
+
+    connect(explorerToggleAction_, &QAction::triggered, this, [this, syncExplorerIcon](bool) {
+        if (!explorerDock_) return;
+        explorerDock_->setVisible(!explorerDock_->isVisible());
+        syncExplorerIcon();
+    });
+    connect(explorerDock_, &QDockWidget::visibilityChanged, this, [this, syncExplorerIcon](bool) {
+        syncExplorerIcon();
+    });
+
+    // Custom title bar: [EXPLORER label] ... [folder toggle button]
+    auto* explorerTitleBar = new QWidget(this);
+    auto* explorerTitleLayout = new QHBoxLayout(explorerTitleBar);
+    explorerTitleLayout->setContentsMargins(6, 0, 4, 0);
+    explorerTitleLayout->setSpacing(4);
+    auto* explorerTitleLabel = new QLabel(tr("EXPLORER"), explorerTitleBar);
+    explorerTitleLayout->addWidget(explorerTitleLabel);
+    explorerTitleLayout->addStretch();
+    auto* explorerTitleBtn = new QToolButton(explorerTitleBar);
+    explorerTitleBtn->setDefaultAction(explorerToggleAction_);
+    explorerTitleBtn->setAutoRaise(true);
+    explorerTitleBtn->setStyleSheet("QToolButton { border: none; background: transparent; }");
+    explorerTitleBtn->setFocusPolicy(Qt::NoFocus);
+    explorerTitleBtn->setIconSize(QSize(16, 16));
+    explorerTitleBtn->setToolButtonStyle(Qt::ToolButtonIconOnly);
+    explorerTitleLayout->addWidget(explorerTitleBtn);
+    explorerDock_->setTitleBarWidget(explorerTitleBar);
+
+    // Fallback toolbar (top-left corner, before the minimap toolbar).
+    explorerFallbackBar_ = addToolBar(tr("explorer-toggle"));
+    explorerFallbackBar_->setObjectName("explorer-toggle");
+    explorerFallbackBar_->setMovable(false);
+    explorerFallbackBar_->setFloatable(false);
+    explorerFallbackBar_->setIconSize(QSize(16, 16));
+    explorerFallbackBar_->setContextMenuPolicy(Qt::PreventContextMenu);
+    explorerFallbackBar_->setFixedHeight(24);
+    explorerFallbackBar_->setStyleSheet(
+        "QToolBar#explorer-toggle { border: none; background: transparent; padding: 0; margin: 0; spacing: 0; }"
+        "QToolBar#explorer-toggle::separator { background: transparent; width: 0; }"
+        "QToolBar#explorer-toggle QToolButton { border: none; background: transparent; padding: 2px; }");
+    auto* fallbackBtn = new QToolButton(explorerFallbackBar_);
+    fallbackBtn->setDefaultAction(explorerToggleAction_);
+    fallbackBtn->setAutoRaise(true);
+    fallbackBtn->setFocusPolicy(Qt::NoFocus);
+    fallbackBtn->setIconSize(QSize(16, 16));
+    fallbackBtn->setToolButtonStyle(Qt::ToolButtonIconOnly);
+    explorerFallbackBar_->addWidget(fallbackBtn);
     disasmDock_   = createDock("DISASSEMBLY", disasmView_);
     decompDock_   = createDock("DECOMPILER", decompView_);
     hexDock_      = createDock("HEX", hexView_);
@@ -382,6 +506,96 @@ void MainWindow::createDockWidgets() {
                 &MainWindow::updateMinimapViewport);
     }
 
+    // Settings (gear) and Help (exclamation) buttons, aligned with the menu
+    // bar (File, Edit, ...) at the top-right corner of the window.
+    {
+        auto* corner = new QWidget(this);
+        auto* h = new QHBoxLayout(corner);
+        h->setContentsMargins(4, 0, 4, 0);
+        h->setSpacing(2);
+
+        auto* donateBtn = new QToolButton(corner);
+        donateBtn->setIcon(loadSvgIcon("donate.svg", 16));
+        donateBtn->setToolTip(tr("Donate"));
+        donateBtn->setAutoRaise(true);
+        donateBtn->setToolButtonStyle(Qt::ToolButtonIconOnly);
+        h->addWidget(donateBtn);
+
+        auto* helpBtn = new QToolButton(corner);
+        helpBtn->setIcon(loadSvgIcon("help.svg", 16));
+        helpBtn->setToolTip(tr("Help"));
+        helpBtn->setAutoRaise(true);
+        helpBtn->setToolButtonStyle(Qt::ToolButtonIconOnly);
+        h->addWidget(helpBtn);
+
+        auto* settingsBtn = new QToolButton(corner);
+        settingsBtn->setIcon(loadSvgIcon("settings.svg", 16));
+        settingsBtn->setToolTip(tr("Settings"));
+        settingsBtn->setAutoRaise(true);
+        settingsBtn->setToolButtonStyle(Qt::ToolButtonIconOnly);
+        h->addWidget(settingsBtn);
+
+        menuBar()->setCornerWidget(corner, Qt::TopRightCorner);
+
+        connect(donateBtn, &QToolButton::clicked, this, [this]() {
+            QDialog dlg(this);
+            dlg.setWindowTitle(tr("Donate"));
+            auto* v = new QVBoxLayout(&dlg);
+            auto* label = new QLabel(tr(
+                "Support Enigma IDE development!\n\n"
+                "Your donation helps keep the project alive.\n"
+                "You can contribute via the project's donation page."));
+            label->setTextInteractionFlags(Qt::TextSelectableByMouse);
+            v->addWidget(label);
+            auto* ok = new QDialogButtonBox(QDialogButtonBox::Ok);
+            v->addWidget(ok);
+            QObject::connect(ok, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
+            dlg.exec();
+        });
+
+        connect(settingsBtn, &QToolButton::clicked, this, [this]() {
+            QDialog dlg(this);
+            dlg.setWindowTitle(tr("Settings"));
+            auto* v = new QVBoxLayout(&dlg);
+            auto* autoClear = new QCheckBox(tr("Auto clear index on binary load"));
+            autoClear->setChecked(autoClearIndex_);
+            v->addWidget(autoClear);
+            auto* showBytes = new QCheckBox(tr("Show bytes in disassembly"));
+            if (showBytesAction_) showBytes->setChecked(showBytesAction_->isChecked());
+            v->addWidget(showBytes);
+            auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+            v->addWidget(buttons);
+            QObject::connect(buttons, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
+            QObject::connect(buttons, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+            if (dlg.exec() == QDialog::Accepted) {
+                onAutoClearToggled(autoClear->isChecked());
+                if (showBytesAction_) showBytesAction_->setChecked(showBytes->isChecked());
+            }
+        });
+
+        connect(helpBtn, &QToolButton::clicked, this, [this]() {
+            QDialog dlg(this);
+            dlg.setWindowTitle(tr("Help"));
+            auto* v = new QVBoxLayout(&dlg);
+            auto* label = new QLabel(tr(
+                "Enigma IDE\n\n"
+                "Shortcuts:\n"
+                "  Ctrl+1       Toggle Explorer panel\n\n"
+                "Patching:\n"
+                "  Right-click an instruction -> Assemble Instruction\n"
+                "  Hex view inline byte editing (type hex digits)\n"
+                "  Patch menu: export / save / load / revert patches\n\n"
+                "Navigation:\n"
+                "  Double-click address in disassembly or decompiler\n"));
+            label->setTextInteractionFlags(Qt::TextSelectableByMouse);
+            v->addWidget(label);
+            auto* ok = new QDialogButtonBox(QDialogButtonBox::Ok);
+            v->addWidget(ok);
+            QObject::connect(ok, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
+            dlg.exec();
+        });
+    }
+
     setDockNestingEnabled(true);
     if (centralWidget()) {
         centralWidget()->hide();
@@ -389,6 +603,7 @@ void MainWindow::createDockWidgets() {
 
     addDockWidget(Qt::LeftDockWidgetArea, explorerDock_);
     addDockWidget(Qt::RightDockWidgetArea, disasmDock_);
+    syncExplorerIcon();
 
     splitDockWidget(disasmDock_, decompDock_, Qt::Horizontal);
     splitDockWidget(disasmDock_, consoleDock_, Qt::Vertical);
@@ -624,6 +839,104 @@ void MainWindow::createDockWidgets() {
 
         auto* edit = new QLineEdit(currentInstruction);
         lay->addWidget(edit);
+
+        // Ghidra-style mnemonic suggestion popup (same instruction family).
+        // ToolTip flag: floating but does NOT grab mouse/keyboard, so the user
+        // can keep typing their own text freely while the list is open.
+        auto* sugPopup = new QListWidget(&dlg);
+        sugPopup->setWindowFlags(Qt::ToolTip);
+        sugPopup->setFocusPolicy(Qt::NoFocus);
+        sugPopup->hide();
+
+        auto tokenLength = [](const QString& s) {
+            int n = 0;
+            while (n < s.size() && s[n] != QChar(' ') && s[n] != QChar('\t')) ++n;
+            return n;
+        };
+
+        bool suppressSuggestions = false;
+        auto refreshSuggestions = [&]() {
+            if (suppressSuggestions) { suppressSuggestions = false; return; }
+            int cursor = edit->cursorPosition();
+            auto token = edit->text().left(cursor);
+            int tokenLen = tokenLength(token);
+            // Only suggest while the user is editing the mnemonic token itself,
+            // never while typing operands.
+            if (cursor > tokenLen) { sugPopup->hide(); return; }
+            token = token.left(tokenLen);
+            auto suggestions = ghidra::Assembler::getSuggestions(token.toStdString());
+            if (suggestions.empty()) { sugPopup->hide(); return; }
+            sugPopup->clear();
+            for (auto& s : suggestions)
+                sugPopup->addItem(QString::fromStdString(s));
+            sugPopup->setCurrentRow(0);
+            int rowH = sugPopup->sizeHintForRow(0);
+            int total = static_cast<int>(suggestions.size());
+            sugPopup->resize(edit->width(), qMin(rowH * total + 4, rowH * 8 + 4));
+            sugPopup->move(edit->mapToGlobal(QPoint(0, edit->height() + 2)));
+            sugPopup->show();
+            sugPopup->raise();
+        };
+
+        auto positionPopup = [&]() {
+            if (sugPopup->isVisible())
+                sugPopup->move(edit->mapToGlobal(QPoint(0, edit->height() + 2)));
+        };
+
+        auto applySuggestion = [&](const QString& mnemonic) {
+            if (!sugPopup->isVisible()) return;
+            suppressSuggestions = true;
+            auto text = edit->text();
+            int cursor = edit->cursorPosition();
+            int tokenLen = tokenLength(text.left(cursor));
+            edit->setText(mnemonic + text.mid(tokenLen));
+            edit->setCursorPosition(mnemonic.length());
+            edit->setFocus();
+            sugPopup->hide();
+        };
+
+        struct SuggestionFilter : QObject {
+            SuggestionFilter(QLineEdit* e, QListWidget* p, std::function<void()> r, std::function<void(const QString&)> a)
+                : edit(e), popup(p), refresh(std::move(r)), apply(std::move(a)) {}
+            QLineEdit* edit;
+            QListWidget* popup;
+            std::function<void()> refresh;
+            std::function<void(const QString&)> apply;
+            bool eventFilter(QObject* o, QEvent* e) override {
+                if (e->type() == QEvent::FocusOut && o == edit && popup->isVisible()) {
+                    popup->hide();
+                }
+                if (e->type() == QEvent::KeyPress && o == edit) {
+                    auto* ke = static_cast<QKeyEvent*>(e);
+                    if (popup->isVisible()) {
+                        if (ke->key() == Qt::Key_Down) {
+                            popup->setCurrentRow((popup->currentRow() + 1) % popup->count());
+                            return true;
+                        }
+                        if (ke->key() == Qt::Key_Up) {
+                            popup->setCurrentRow((popup->currentRow() + popup->count() - 1) % popup->count());
+                            return true;
+                        }
+                        if (ke->key() == Qt::Key_Return || ke->key() == Qt::Key_Enter || ke->key() == Qt::Key_Tab) {
+                            auto* item = popup->currentItem();
+                            if (item) { apply(item->text()); return true; }
+                        }
+                        if (ke->key() == Qt::Key_Escape) { popup->hide(); return true; }
+                    }
+                }
+                return QObject::eventFilter(o, e);
+            }
+        };
+        auto* sugFilter = new SuggestionFilter(edit, sugPopup, refreshSuggestions, applySuggestion);
+        edit->installEventFilter(sugFilter);
+
+        QObject::connect(edit, &QLineEdit::textChanged, [&](const QString&) { refreshSuggestions(); });
+        QObject::connect(edit, &QLineEdit::cursorPositionChanged, [&](int, int) { positionPopup(); });
+        QObject::connect(sugPopup, &QListWidget::itemClicked,
+                         [&](QListWidgetItem* item) { applySuggestion(item->text()); });
+        QObject::connect(sugPopup, &QListWidget::itemActivated,
+                         [&](QListWidgetItem* item) { applySuggestion(item->text()); });
+        QObject::connect(&dlg, &QDialog::finished, [&]() { sugPopup->hide(); });
 
         auto* newSizeLabel = new QLabel(tr("New Size: - bytes"));
         lay->addWidget(newSizeLabel);
@@ -1233,18 +1546,20 @@ void MainWindow::populateExplorer() {
             listing ? listing->getDataCount() : 0);
     }
 
+    // Batch the whole population (Functions, Exports, Imports, Segments) under
+    // a single update/sort suppression so each addEntry doesn't trigger a repaint
+    // or re-sort. Restored once all categories are inserted.
+    explorer_->treeWidget()->setUpdatesEnabled(false);
+    explorer_->treeWidget()->setSortingEnabled(false);
+
     QTreeWidgetItem* root = explorer_->addCategory("Functions");
     NAVLOG("getting function list from decompInterface...\n");
     auto funcs = decompInterface_->getFunctions();
     NAVLOG("got %zu functions\n", funcs.size());
-    explorer_->treeWidget()->setUpdatesEnabled(false);
-    explorer_->treeWidget()->setSortingEnabled(false);
     for (auto& f : funcs) {
         uint64_t addr = f.entryAddress.getOffset();
         explorer_->addEntry(root, addr, QString::fromStdString(f.name));
     }
-    explorer_->treeWidget()->setSortingEnabled(true);
-    explorer_->treeWidget()->setUpdatesEnabled(true);
 
     QString binaryName = QString::fromStdString(program_->getName());
     if (binaryName.isEmpty()) binaryName = "Program";
@@ -1301,6 +1616,9 @@ void MainWindow::populateExplorer() {
             }
         }
     }
+
+    explorer_->treeWidget()->setSortingEnabled(true);
+    explorer_->treeWidget()->setUpdatesEnabled(true);
     GUARD_EXIT("populateExplorer");
 }
 
@@ -1429,6 +1747,18 @@ void MainWindow::onAnalysisFinished() {
         } catch (...) {
             DBG("[onAnalysisFinished] stringTable refresh threw unknown - CAUGHT\n");
         }
+    }
+
+    // Re-open decompiler so the type bridge picks up post-analysis state
+    // (import thunks, function names, applied signature types). This makes
+    // API import calls show typed parameters in the decompiler view.
+    decompCache_.clear();
+    try {
+        decompInterface_->refreshFunctionSymbols();
+    } catch (const std::exception& e) {
+        DBG("[onAnalysisFinished] refreshFunctionSymbols threw: %s - CAUGHT\n", e.what());
+    } catch (...) {
+        DBG("[onAnalysisFinished] refreshFunctionSymbols threw unknown - CAUGHT\n");
     }
 
     DBG("[onAnalysisFinished] checking navigation target...\n");
@@ -1825,27 +2155,12 @@ void MainWindow::logOnce(const QString& msg) {
 void MainWindow::onAddressCursorSync(uint64_t addr) {
     if (addr == 0 || !program_) return;
 
-    // Update status bar
+    // Update status bar immediately (cheap), coalesce the view seeks.
     statusAddr_->setText(QString("0x%1").arg(addr, 0, 16));
 
-    QObject* s = sender();
-
-    // Scroll disasm to the same address
-    if (s != disasmView_)
-        disasmView_->seek(addr);
-
-    // Scroll decompiler to the same address
-    if (s != decompView_)
-        decompView_->seek(addr);
-
-    if (s != hexView_) {
-        if (!hexView_->document() || hexView_->document()->lineCount() == 0) {
-            hexView_->buildFullHex(program_.get(), currentBinaryPath_);
-        }
-        if (hexView_->containsAddress(addr)) {
-            hexView_->seek(addr);
-        }
-    }
+    pendingSyncAddr_ = addr;
+    pendingSyncOrigin_ = sender();
+    cursorSyncTimer_->start();
 }
 
 void MainWindow::onCommit() {

@@ -1,6 +1,11 @@
 <!DOCTYPE RCC>
 <RCC version="1.0">
-    <qresource prefix="/icons">
+    <qresource prefix="/">
         <file>icons/app_icon.png</file>
+        <file>icons/folder-free.svg</file>
+        <file>icons/folder-open.svg</file>
+        <file>icons/settings.svg</file>
+        <file>icons/help.svg</file>
+        <file>icons/donate.svg</file>
     </qresource>
 </RCC>

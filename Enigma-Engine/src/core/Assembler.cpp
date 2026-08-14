@@ -1154,4 +1154,66 @@ AsmResult Assembler::asmSetcc(const std::string& mnem, const std::vector<std::st
     return {true, bytes, "", false, {}};
 }
 
+namespace {
+
+const std::vector<std::vector<std::string>>& instructionFamilies() {
+    static const std::vector<std::vector<std::string>> families = {
+        // Jcc family
+        {"JMP", "JMPNEAR", "JO", "JNO", "JB", "JNB", "JZ", "JNZ", "JBE", "JNBE",
+         "JS", "JNS", "JP", "JNP", "JL", "JNL", "JLE", "JNLE", "JE", "JNE",
+         "JA", "JAE", "JG", "JGE", "JNGE", "JNG", "JNAE", "JC", "JNC", "JNA",
+         "JECXZ", "JRCXZ"},
+        // SETcc family
+        {"SETO", "SETNO", "SETB", "SETNB", "SETZ", "SETNZ", "SETBE", "SETNBE",
+         "SETS", "SETNS", "SETP", "SETNP", "SETL", "SETNL", "SETLE", "SETNLE",
+         "SETE", "SETNE", "SETA", "SETAE", "SETG", "SETGE", "SETNGE", "SETNG",
+         "SETC", "SETNC"},
+        // Arithmetic
+        {"ADD", "SUB", "AND", "OR", "CMP", "TEST", "XOR", "INC", "DEC", "IMUL"},
+        // Data movement
+        {"MOV", "MOVZX", "MOVSX", "LEA", "XCHG", "BSWAP"},
+        // Stack / control flow
+        {"PUSH", "POP", "CALL", "RET", "RETN"},
+        // Misc
+        {"NOP", "NOOP", "INT3", "CDQ", "CQO"},
+    };
+    return families;
+}
+
+} // namespace
+
+std::vector<std::string> Assembler::getSuggestions(const std::string& input) {
+    std::string token = input;
+    size_t sp = token.find_first_of(" \t");
+    if (sp != std::string::npos)
+        token = token.substr(0, sp);
+    std::string up = token;
+    std::transform(up.begin(), up.end(), up.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+    std::string prefix = up.substr(0, 3);
+
+    std::vector<std::string> out;
+    const auto& families = instructionFamilies();
+    auto collect = [&](const std::vector<std::string>& family) {
+        for (const auto& m : family)
+            out.push_back(m);
+    };
+
+    if (up.empty()) {
+        for (const auto& f : families) collect(f);
+    } else if (prefix == "J") {
+        collect(families[0]);
+    } else if (prefix == "SET") {
+        collect(families[1]);
+    } else {
+        for (const auto& f : families) {
+            for (const auto& m : f) {
+                if (m.rfind(up, 0) == 0)
+                    out.push_back(m);
+            }
+        }
+    }
+    return out;
+}
+
 } // namespace ghidra
