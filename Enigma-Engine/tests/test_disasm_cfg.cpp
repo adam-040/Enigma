@@ -56,12 +56,17 @@ int main() {
     {
         TEST("CALL is call", DisassemblyCFG::isCallMnemonic("CALL") && DisassemblyCFG::isCallMnemonic("call"));
         TEST("CALLQ is call", DisassemblyCFG::isCallMnemonic("CALLQ"));
-        TEST("JMP unconditional", DisassemblyCFG::isUnconditionalJumpMnemonic("JMP"));
+        TEST("BL is call", DisassemblyCFG::isCallMnemonic("BL") && DisassemblyCFG::isCallMnemonic("JAL"));
+        TEST("JMP unconditional", DisassemblyCFG::isUnconditionalJumpMnemonic("JMP") && DisassemblyCFG::isUnconditionalJumpMnemonic("B"));
         TEST("JE conditional", DisassemblyCFG::isConditionalJumpMnemonic("JE"));
         TEST("LOOPNE conditional", DisassemblyCFG::isConditionalJumpMnemonic("LOOPNE"));
         TEST("JAE conditional", DisassemblyCFG::isConditionalJumpMnemonic("JAE"));
+        TEST("JNBE conditional alias", DisassemblyCFG::isConditionalJumpMnemonic("JNBE") && DisassemblyCFG::isConditionalJumpMnemonic("JNB"));
+        TEST("JCXZ conditional", DisassemblyCFG::isConditionalJumpMnemonic("JCXZ") && DisassemblyCFG::isConditionalJumpMnemonic("JRCXZ"));
+        TEST("ARM B.EQ conditional", DisassemblyCFG::isConditionalJumpMnemonic("B.EQ") && DisassemblyCFG::isConditionalJumpMnemonic("CBZ"));
+        TEST("RISCV BEQ conditional", DisassemblyCFG::isConditionalJumpMnemonic("BEQ"));
         TEST("JMP not conditional", !DisassemblyCFG::isConditionalJumpMnemonic("JMP"));
-        TEST("RET is return", DisassemblyCFG::isReturnMnemonic("RET") && DisassemblyCFG::isReturnMnemonic("IRETQ"));
+        TEST("RET is return", DisassemblyCFG::isReturnMnemonic("RET") && DisassemblyCFG::isReturnMnemonic("IRETQ") && DisassemblyCFG::isReturnMnemonic("SYSRET"));
         TEST("MOV is nothing", !DisassemblyCFG::isCallMnemonic("MOV") &&
                                !DisassemblyCFG::isReturnMnemonic("MOV") &&
                                !DisassemblyCFG::isConditionalJumpMnemonic("MOV") &&
@@ -298,7 +303,7 @@ int main() {
         TEST("tracks: overlapping spans get distinct lanes", a && b && a->lane != b->lane);
         TEST("tracks: shorter-spanning edge keeps inner lane", a && b && b->lane < a->lane && b->lane == 0);
         TEST("tracks: lanes stay within the track cap",
-             a && b && a->lane >= 0 && a->lane < 4 && b->lane >= 0 && b->lane < 4);
+             a && b && a->lane >= 0 && a->lane < cfg::kCFAMaxTracks && b->lane >= 0 && b->lane < cfg::kCFAMaxTracks);
     }
     {
         DisassemblyCFG cfg;
@@ -356,8 +361,8 @@ int main() {
         TEST("tracks: long overlapping span pushed to outer lane",
              jmp && jmp->lane == 1 && jmp->lane > j1->lane && jmp->lane > j2->lane);
         TEST("tracks: all lanes within cap", jmp && j1 && j2 &&
-             jmp->lane >= 0 && jmp->lane < 4 && j1->lane >= 0 && j1->lane < 4 &&
-             j2->lane >= 0 && j2->lane < 4);
+             jmp->lane >= 0 && jmp->lane < cfg::kCFAMaxTracks && j1->lane >= 0 && j1->lane < cfg::kCFAMaxTracks &&
+             j2->lane >= 0 && j2->lane < cfg::kCFAMaxTracks);
     }
     {
         // assignTracks is the shared per-subset reallocation the renderer calls

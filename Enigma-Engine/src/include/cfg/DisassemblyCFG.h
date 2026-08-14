@@ -40,7 +40,7 @@ const char* edgeKindName(EdgeKind kind);
 
 // Hard upper bound on drawing lanes. Edge overlap beyond this count shares
 // the outermost lane rather than overflowing the gutter.
-constexpr int kCFAMaxTracks = 4;
+constexpr int kCFAMaxTracks = 6;
 
 struct CfaEdge;
 

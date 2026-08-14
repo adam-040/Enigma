@@ -42,6 +42,9 @@ class ConsoleWidget;
 class PatchListWidget;
 class StringTableWidget;
 class AddressMinimap;
+class CrossReferenceExplorer;
+class DisasmSearchBar;
+class CommandPaletteDialog;
 
 namespace ghidra::patch { class PatchManager; }
 
@@ -65,13 +68,16 @@ public:
     int navSkipFlags_ = NavSkip_None;
     void setNavSkip(int flags) { navSkipFlags_ = flags; }
 
-private slots:
+public slots:
     void onOpenBinary();
     void onSaveProject();
     void onOpenProject();
     void onFunctionSelected(uint64_t addr, const QString& name);
     void onNavigateBack();
     void onNavigateForward();
+    void onGoToAddress();
+    void onShowCrossReferences();
+    void onToggleDecompilerFocus();
     void onAnalysisFinished();
     void onDisasmAddressDoubleClicked(uint64_t addr);
     void onDecompAddressDoubleClicked(uint64_t addr);
@@ -82,6 +88,7 @@ private slots:
     void onUndo();
     void onRedo();
     void onRenameFunction();
+    void onSetFunctionSignature();
     void onDeleteFunction();
     void onAddLabel();
     void onRemoveLabel();
@@ -107,11 +114,17 @@ private slots:
     void onClearIndex();
     void onAutoClearToggled(bool checked);
 
+    // Command Palette & Global Search
+    void onOpenCommandPalette();
+    void openDisassemblyFind();
+    void onShowHelp();
+    uint64_t currentAddress() const { return currentAddr_; }
+    void navigateTo(uint64_t addr, const QString& name = QString(), bool pushHistory = true);
+
 private:
     void createMenuBar();
     void createDockWidgets();
     void createStatusBar();
-    void navigateTo(uint64_t addr, const QString& name);
     void populateExplorer();
     void runAnalysisAsync();
     void logOnce(const QString& msg);
@@ -165,6 +178,8 @@ private:
     ConsoleWidget* console_;
     PatchListWidget* patchList_ = nullptr;
     StringTableWidget* stringTable_ = nullptr;
+    CrossReferenceExplorer* crossRefExplorer_ = nullptr;
+    DisasmSearchBar* disasmSearchBar_ = nullptr;
     QDockWidget* explorerDock_;
     QToolBar* explorerFallbackBar_ = nullptr;
     QDockWidget* disasmDock_;
@@ -173,6 +188,7 @@ private:
     QDockWidget* consoleDock_;
     QDockWidget* patchListDock_ = nullptr;
     QDockWidget* stringTableDock_ = nullptr;
+    QDockWidget* crossRefDock_ = nullptr;
     QLabel* statusFunc_;
     QLabel* statusAddr_;
     QLabel* statusCount_;
@@ -183,12 +199,14 @@ private:
     QTimer* navTimer_ = nullptr;
     uint64_t pendingNavAddr_ = 0;
     QString pendingNavName_;
+    bool pendingNavPushHistory_ = true;
     QTimer* cursorSyncTimer_ = nullptr;
     uint64_t pendingSyncAddr_ = 0;
     QObject* pendingSyncOrigin_ = nullptr;
 
-    void doNavigate(uint64_t addr, const QString& name);
+    void doNavigate(uint64_t addr, const QString& name, bool pushHistory = true);
     bool isCurrentFunctionValid() const;
     void updateMinimapViewport();
     AddressMinimap* addressMinimap_ = nullptr;
+    CommandPaletteDialog* commandPalette_ = nullptr;
 };

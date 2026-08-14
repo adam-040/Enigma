@@ -61,7 +61,8 @@ std::vector<int> assignTracks(const std::vector<const CfaEdge*>& edges) {
     // Interval graph coloring: reuse a track the moment its previous occupant
     // terminated (lastEnd < start), so non-conflicting jumps share columns and
     // only genuinely concurrent spans widen the layout.
-    int lastEnd[kCFAMaxTracks] = {-1, -1, -1, -1};
+    int lastEnd[kCFAMaxTracks];
+    std::fill_n(lastEnd, kCFAMaxTracks, -1);
     for (const int idx : order) {
         const CfaEdge& e = *edges[idx];
         const int start = std::min(e.fromRow, e.toRow);
@@ -69,7 +70,7 @@ std::vector<int> assignTracks(const std::vector<const CfaEdge*>& edges) {
         int t = 0;
         while (t < kCFAMaxTracks && lastEnd[t] >= start)
             ++t;
-        const int lane = std::min(t, kCFAMaxTracks - 1); // 4+ concurrent: overspill lane
+        const int lane = std::min(t, kCFAMaxTracks - 1); // overspill lane
         lanes[idx] = lane;
         lastEnd[lane] = end;
     }
@@ -78,28 +79,61 @@ std::vector<int> assignTracks(const std::vector<const CfaEdge*>& edges) {
 
 bool DisassemblyCFG::isCallMnemonic(const std::string& mne) {
     const std::string m = upper(mne);
-    return m == "CALL" || m == "CALLF" || m == "CALLQ" ||
-           m == "CALLW" || m == "CALLD" || m == "CALLT";
+    static const char* kCalls[] = {
+        "CALL", "CALLF", "CALLQ", "CALLW", "CALLD", "CALLT",
+        "BL", "BLX",
+        "JAL", "JALR"
+    };
+    for (const char* c : kCalls) {
+        if (m == c) return true;
+    }
+    return false;
 }
 
 bool DisassemblyCFG::isReturnMnemonic(const std::string& mne) {
     const std::string m = upper(mne);
-    return m == "RET" || m == "RETN" || m == "RETF" ||
-           m == "IRET" || m == "IRETD" || m == "IRETQ";
+    static const char* kRets[] = {
+        "RET", "RETN", "RETF", "RETL", "RETQ",
+        "IRET", "IRETD", "IRETQ", "SYSRET", "ERET"
+    };
+    for (const char* c : kRets) {
+        if (m == c) return true;
+    }
+    return false;
 }
 
 bool DisassemblyCFG::isUnconditionalJumpMnemonic(const std::string& mne) {
     const std::string m = upper(mne);
-    return m == "JMP" || m == "JMPF";
+    static const char* kJmps[] = {
+        "JMP", "JMPF", "JMPQ", "JMPW", "JMPD",
+        "B", "BX",
+        "J", "JR"
+    };
+    for (const char* c : kJmps) {
+        if (m == c) return true;
+    }
+    return false;
 }
 
 bool DisassemblyCFG::isConditionalJumpMnemonic(const std::string& mne) {
     const std::string m = upper(mne);
     static const char* kConds[] = {
-        "JE", "JNE", "JZ", "JNZ", "JA", "JAE", "JB", "JBE",
-        "JG", "JGE", "JL", "JLE", "JO", "JNO", "JS", "JNS",
-        "JP", "JNP", "JC", "JNC",
+        // x86 / x64 conditional jumps and all aliases
+        "JE", "JZ", "JNE", "JNZ",
+        "JA", "JNBE", "JAE", "JNB", "JNC",
+        "JB", "JNAE", "JC", "JBE", "JNA",
+        "JG", "JNLE", "JGE", "JNL",
+        "JL", "JNGE", "JLE", "JNG",
+        "JO", "JNO", "JS", "JNS",
+        "JP", "JPE", "JNP", "JPO",
+        "JCXZ", "JECXZ", "JRCXZ",
         "LOOP", "LOOPE", "LOOPNE", "LOOPZ", "LOOPNZ",
+        // ARM / AArch64 conditional branches
+        "B.EQ", "B.NE", "B.CS", "B.CC", "B.MI", "B.PL", "B.VS", "B.VC",
+        "B.HI", "B.LS", "B.GE", "B.LT", "B.GT", "B.LE", "B.AL", "B.NV",
+        "CBZ", "CBNZ", "TBZ", "TBNZ",
+        // RISC-V conditional branches
+        "BEQ", "BNE", "BLT", "BGE", "BLTU", "BGEU", "BEQZ", "BNEZ", "BLEZ", "BGEZ", "BLTZ", "BGTZ"
     };
     for (const char* c : kConds) {
         if (m == c) return true;

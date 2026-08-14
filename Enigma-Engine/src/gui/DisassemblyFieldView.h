@@ -43,6 +43,12 @@ public:
     bool isIndexBuilt() const { return indexBuilt_; }
     int totalInstructions() const { return indexBuilt_ ? model_.totalInstructions() : 0; }
     int rowCount() const;
+    int lineCount() const;
+    int currentRow() const { return currentRow_; }
+    void seekToRow(int row);
+    void setSearchHighlight(const QString& query, bool matchCase = false, int activeRow = -1);
+    void clearSearchHighlight();
+    QString lineText(int row) const;
     std::pair<uint64_t, uint64_t> visibleAddressRange() const;
     void setTrampolineMap(std::map<uint64_t, uint64_t> map) { trampolineMap_ = std::move(map); }
 
@@ -78,6 +84,7 @@ signals:
                                    const QString& currentOperands);
     void showReferencesRequested(uint64_t addr, bool to);
     void exportPatchedRequested();
+    void openSearchRequested();
 
 public slots:
     void applySelection(const SelectionState& sel);
@@ -143,7 +150,6 @@ private:
     static bool isCommentLine(const QString& trimmed);
     static std::vector<uint8_t> fetchBytesLocal(ghidra::ProgramDB* program, uint64_t addr, int len);
 
-    int lineCount() const; // instructions+headers+gaps in index mode, fallback lines otherwise
     int maxContentCols() const;
     CursorPos caretAtPos(const QPoint& pos) const;
     const Token* tokenAt(int row, int col) const;
@@ -155,7 +161,6 @@ private:
     void copySelection();
     void resetCaretBlink();
     void moveCursorTo(int row, int col);
-    QString lineText(int row) const;
     const std::vector<Token>* rowTokens(int row) const;
     uint64_t addressAtCurrentRow() const;
     void syncCurrentAddress();
@@ -193,18 +198,18 @@ private:
     // Each nesting level moves the vertical traversal column kCfaNestStep px
     // further left (laneX), so overlapping edges are drawn side by side,
     // never on top of each other.
-    static constexpr int kCfaMarginDefault = 48; // dedicated CFG margin width
-    static constexpr int kCfaMinMargin     = 44; // smallest margin that fits all tracks
-    static constexpr int kCfaLaneInset     = 42; // x of lane 0 (closest to text)
-    static constexpr int kCfaNestStep      = 10; // px shifted left per nesting level
+    static constexpr int kCfaMarginDefault = 78; // dedicated CFG margin width
+    static constexpr int kCfaMinMargin     = 72; // smallest margin that fits all tracks
+    static constexpr int kCfaLaneInset     = 70; // x of lane 0 (closest to text)
+    static constexpr int kCfaNestStep      = 11; // px shifted left per nesting level
     static constexpr int kCfaLineWidth     = 2;  // edge line thickness
     static constexpr int kCfaSelBoost      = 1;  // extra px for the selected edge
     static constexpr int kCfaSafetyPad     = 4;  // px of clip/paint safety margin
-    static constexpr int kCfaHeadLen       = 7;  // triangle arrowhead length
+    static constexpr int kCfaHeadLen       = 6;  // triangle arrowhead length
     static constexpr int kCfaHeadW         = 6;  // triangle arrowhead width (even -> integer coords)
     static constexpr int kCfaStopW         = 3;  // return-stop half width
-    // The deepest nesting level (lane 3 of 4) must stay inside the margin.
-    static_assert(kCfaLaneInset - 3 * kCfaNestStep >= 2,
+    // The deepest nesting level must stay inside the margin.
+    static_assert(kCfaLaneInset - (cfg::kCFAMaxTracks - 1) * kCfaNestStep >= 2,
                   "CFA lanes/arrowheads overflow the gutter");
 
     // Builds/rebuilds the control-flow graph over the current model rows.
@@ -295,4 +300,8 @@ private:
     bool caretVisible_ = true;
     int maxColsSeen_ = 0;
     mutable std::vector<Token> scratchTokens_; // transient tokens for comment/header rows
+
+    QString searchQuery_;
+    bool searchMatchCase_ = false;
+    int searchActiveRow_ = -1;
 };

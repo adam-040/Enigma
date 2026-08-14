@@ -7,6 +7,9 @@
 #include "ConsoleWidget.h"
 #include "PatchListWidget.h"
 #include "StringTableWidget.h"
+#include "CrossReferenceExplorer.h"
+#include "DisasmSearchBar.h"
+#include "CommandPaletteDialog.h"
 #include "AddressMinimap.h"
 #include "SelectionManager.h"
 
@@ -161,9 +164,10 @@ MainWindow::MainWindow(QWidget* parent)
     navTimer_->setInterval(80);
     connect(navTimer_, &QTimer::timeout, this, [this]() {
         if (pendingNavAddr_ != 0) {
-            doNavigate(pendingNavAddr_, pendingNavName_);
+            doNavigate(pendingNavAddr_, pendingNavName_, pendingNavPushHistory_);
             pendingNavAddr_ = 0;
             pendingNavName_.clear();
+            pendingNavPushHistory_ = true;
         }
     });
 
@@ -230,9 +234,26 @@ void MainWindow::createMenuBar() {
     redoAction_->setEnabled(false);
 
     edit->addSeparator();
+    auto* paletteAct = edit->addAction(tr("&Command Palette..."));
+    paletteAct->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_P));
+    connect(paletteAct, &QAction::triggered, this, &MainWindow::onOpenCommandPalette);
+    auto* paletteAct2 = edit->addAction(tr("Open Command Palette"));
+    paletteAct2->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_P));
+    paletteAct2->setVisible(false);
+    connect(paletteAct2, &QAction::triggered, this, &MainWindow::onOpenCommandPalette);
+
+    edit->addSeparator();
+    auto* findDisasmAct = edit->addAction(tr("&Find in Disassembly..."));
+    findDisasmAct->setShortcut(QKeySequence::Find);
+    connect(findDisasmAct, &QAction::triggered, this, &MainWindow::openDisassemblyFind);
+
+    edit->addSeparator();
     auto* renameFuncAct = edit->addAction(tr("Rename &Function"));
     renameFuncAct->setShortcut(QKeySequence(Qt::Key_N));
     connect(renameFuncAct, &QAction::triggered, this, &MainWindow::onRenameFunction);
+    auto* setSigAct = edit->addAction(tr("Set Function &Type / Signature..."));
+    setSigAct->setShortcut(QKeySequence(Qt::Key_Y));
+    connect(setSigAct, &QAction::triggered, this, &MainWindow::onSetFunctionSignature);
     auto* deleteFuncAct = edit->addAction(tr("&Delete Function"));
     deleteFuncAct->setShortcut(QKeySequence(Qt::SHIFT | Qt::Key_Delete));
     connect(deleteFuncAct, &QAction::triggered, this, &MainWindow::onDeleteFunction);
@@ -293,13 +314,27 @@ void MainWindow::createMenuBar() {
     connect(showBytesAction_, &QAction::toggled, this, &MainWindow::onToggleShowBytes);
 
     auto* navigate = menuBar()->addMenu(tr("&Navigate"));
+    auto* gotoAct = navigate->addAction(tr("&Go to Address / Symbol..."));
+    gotoAct->setShortcuts({QKeySequence(Qt::Key_G), QKeySequence(Qt::CTRL | Qt::Key_G)});
+    connect(gotoAct, &QAction::triggered, this, &MainWindow::onGoToAddress);
+
+    navigate->addSeparator();
     auto* back = navigate->addAction(tr("&Back"));
-    back->setShortcut(QKeySequence::Back);
+    back->setShortcuts({QKeySequence::Back, QKeySequence(Qt::Key_Escape), QKeySequence(Qt::Key_Backspace)});
     connect(back, &QAction::triggered, this, &MainWindow::onNavigateBack);
 
     auto* fwd = navigate->addAction(tr("&Forward"));
-    fwd->setShortcut(QKeySequence::Forward);
+    fwd->setShortcuts({QKeySequence::Forward, QKeySequence(Qt::ALT | Qt::Key_Right)});
     connect(fwd, &QAction::triggered, this, &MainWindow::onNavigateForward);
+
+    navigate->addSeparator();
+    auto* xrefsAct = navigate->addAction(tr("Show &References (XRefs)..."));
+    xrefsAct->setShortcut(QKeySequence(Qt::Key_X));
+    connect(xrefsAct, &QAction::triggered, this, &MainWindow::onShowCrossReferences);
+
+    auto* toggleDecompAct = navigate->addAction(tr("&Toggle Decompiler / Disassembly Focus"));
+    toggleDecompAct->setShortcut(QKeySequence(Qt::Key_Tab));
+    connect(toggleDecompAct, &QAction::triggered, this, &MainWindow::onToggleDecompilerFocus);
 
     auto* analysis = menuBar()->addMenu(tr("&Analysis"));
     auto* analyzeAct = analysis->addAction(tr("&Auto Analyze"));
@@ -460,11 +495,36 @@ void MainWindow::createDockWidgets() {
     fallbackBtn->setIconSize(QSize(16, 16));
     fallbackBtn->setToolButtonStyle(Qt::ToolButtonIconOnly);
     explorerFallbackBar_->addWidget(fallbackBtn);
-    disasmDock_   = createDock("DISASSEMBLY", disasmView_);
+    disasmSearchBar_ = new DisasmSearchBar(disasmView_, this);
+    connect(disasmView_, &DisassemblyFieldView::openSearchRequested, this, [this]() {
+        if (disasmSearchBar_) disasmSearchBar_->openSearch();
+    });
+    connect(disasmView_, &DisassemblyFieldView::showReferencesRequested, this, [this](uint64_t addr, bool) {
+        if (addr != 0) {
+            currentAddr_ = addr;
+            onShowCrossReferences();
+        }
+    });
+
+    {
+        auto* disasmContainer = new QWidget;
+        auto* v = new QVBoxLayout(disasmContainer);
+        v->setContentsMargins(0, 0, 0, 0);
+        v->setSpacing(0);
+        v->addWidget(disasmView_, 1);
+        v->addWidget(disasmSearchBar_);
+        disasmDock_ = createDock("DISASSEMBLY", disasmContainer);
+    }
     decompDock_   = createDock("DECOMPILER", decompView_);
     hexDock_      = createDock("HEX", hexView_);
     consoleDock_  = createDock("CONSOLE", console_);
     patchListDock_ = createDock("PATCH LIST", patchList_);
+    crossRefExplorer_ = new CrossReferenceExplorer(this);
+    crossRefDock_ = createDock("CROSS REFERENCES", crossRefExplorer_);
+    connect(crossRefExplorer_, &CrossReferenceExplorer::referenceSelected, this,
+            [this](uint64_t fromAddr, uint64_t /*toAddr*/) {
+                if (fromAddr != 0) navigateTo(fromAddr);
+            });
     {
         auto* stringContainer = new QWidget;
         auto* v = new QVBoxLayout(stringContainer);
@@ -572,27 +632,7 @@ void MainWindow::createDockWidgets() {
             }
         });
 
-        connect(helpBtn, &QToolButton::clicked, this, [this]() {
-            QDialog dlg(this);
-            dlg.setWindowTitle(tr("Help"));
-            auto* v = new QVBoxLayout(&dlg);
-            auto* label = new QLabel(tr(
-                "Enigma IDE\n\n"
-                "Shortcuts:\n"
-                "  Ctrl+1       Toggle Explorer panel\n\n"
-                "Patching:\n"
-                "  Right-click an instruction -> Assemble Instruction\n"
-                "  Hex view inline byte editing (type hex digits)\n"
-                "  Patch menu: export / save / load / revert patches\n\n"
-                "Navigation:\n"
-                "  Double-click address in disassembly or decompiler\n"));
-            label->setTextInteractionFlags(Qt::TextSelectableByMouse);
-            v->addWidget(label);
-            auto* ok = new QDialogButtonBox(QDialogButtonBox::Ok);
-            v->addWidget(ok);
-            QObject::connect(ok, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
-            dlg.exec();
-        });
+        connect(helpBtn, &QToolButton::clicked, this, &MainWindow::onShowHelp);
     }
 
     setDockNestingEnabled(true);
@@ -606,6 +646,7 @@ void MainWindow::createDockWidgets() {
 
     splitDockWidget(disasmDock_, decompDock_, Qt::Horizontal);
     splitDockWidget(disasmDock_, consoleDock_, Qt::Vertical);
+    tabifyDockWidget(consoleDock_, crossRefDock_);
     splitDockWidget(decompDock_, hexDock_, Qt::Vertical);
     splitDockWidget(hexDock_, patchListDock_, Qt::Vertical);
     splitDockWidget(patchListDock_, stringTableDock_, Qt::Vertical);
@@ -1794,14 +1835,15 @@ void MainWindow::onFunctionSelected(uint64_t addr, const QString& name) {
     GUARD_EXIT("onFunctionSelected");
 }
 
-void MainWindow::navigateTo(uint64_t addr, const QString& name) {
+void MainWindow::navigateTo(uint64_t addr, const QString& name, bool pushHistory) {
     // Debounce: restart timer on each call; only execute after 80ms of no calls.
     pendingNavAddr_ = addr;
     pendingNavName_ = name;
+    pendingNavPushHistory_ = pushHistory;
     navTimer_->start();
 }
 
-void MainWindow::doNavigate(uint64_t addr, const QString& name) {
+void MainWindow::doNavigate(uint64_t addr, const QString& name, bool pushHistory) {
     std::cerr << "[doNavigate] ENTER addr=0x" << std::hex << addr << std::dec
               << " name='" << name.toStdString() << "' navBusy_=" << navBusy_ << std::endl;
     GUARD_ENTER("navigateTo");
@@ -1854,10 +1896,12 @@ void MainWindow::doNavigate(uint64_t addr, const QString& name) {
     // ── STEP 2: Navigation stack ──────────────────────────────────────────
     NAVLOG("STEP2: updating nav stack (currAddr=0x%llx)\n", currentAddr_);
     try {
-        if (currentAddr_ != 0 && addr != currentAddr_) {
-            backStack_.push(currentAddr_);
-            forwardStack_.clear();
-            NAVLOG("  pushed to backStack (size=%d)\n", backStack_.size());
+        if (pushHistory) {
+            if (currentAddr_ != 0 && addr != currentAddr_) {
+                backStack_.push(currentAddr_);
+                forwardStack_.clear();
+                NAVLOG("  pushed to backStack (size=%d)\n", backStack_.size());
+            }
         }
         currentAddr_ = addr;
     } catch (const std::exception& e) {
@@ -2089,7 +2133,7 @@ void MainWindow::onNavigateBack() {
     uint64_t addr = backStack_.pop();
     NAVLOG("popped addr=0x%llx\n", addr);
     forwardStack_.push(currentAddr_);
-    navigateTo(addr, QString());
+    doNavigate(addr, QString(), false);
     GUARD_EXIT("onNavigateBack");
 }
 
@@ -2101,8 +2145,102 @@ void MainWindow::onNavigateForward() {
     if (!program_) { NAVLOG("abort: program_ null\n"); GUARD_EXIT("onNavigateForward"); return; }
     uint64_t addr = forwardStack_.pop();
     backStack_.push(currentAddr_);
-    navigateTo(addr, QString());
+    doNavigate(addr, QString(), false);
     GUARD_EXIT("onNavigateForward");
+}
+
+void MainWindow::onGoToAddress() {
+    if (!program_) return;
+    bool ok = false;
+    QString currentHex = QString("0x%1").arg(currentAddr_, 0, 16);
+    QString text = QInputDialog::getText(
+        this, tr("Go to Address / Symbol"),
+        tr("Enter target address (e.g. 0x140001000, +0x40) or function name:"),
+        QLineEdit::Normal, currentHex, &ok);
+    if (!ok || text.trimmed().isEmpty()) return;
+
+    QString input = text.trimmed();
+    uint64_t targetAddr = 0;
+    bool parsed = false;
+
+    // 1. Relative offset (+0x... or -0x...)
+    if (input.startsWith('+') || input.startsWith('-')) {
+        bool neg = input.startsWith('-');
+        QString numStr = input.mid(1).trimmed();
+        int base = numStr.startsWith("0x", Qt::CaseInsensitive) ? 16 : 10;
+        if (numStr.startsWith("0x", Qt::CaseInsensitive)) numStr = numStr.mid(2);
+        uint64_t offset = numStr.toULongLong(&parsed, base);
+        if (parsed) {
+            targetAddr = neg ? (currentAddr_ - offset) : (currentAddr_ + offset);
+        }
+    }
+    // 2. Direct hex or decimal number
+    if (!parsed) {
+        QString numStr = input;
+        int base = 10;
+        if (numStr.startsWith("0x", Qt::CaseInsensitive)) {
+            numStr = numStr.mid(2);
+            base = 16;
+        } else if (numStr.contains(QRegularExpression(QStringLiteral("[a-fA-F]")))) {
+            base = 16;
+        }
+        targetAddr = numStr.toULongLong(&parsed, base);
+    }
+    // 3. Search function/symbol by name
+    if (!parsed && program_) {
+        auto* fm = program_->getFunctionManager();
+        if (fm) {
+            std::string stdName = input.toStdString();
+            auto it = fm->getFunctions(true);
+            while (it.hasNext()) {
+                auto* f = it.next();
+                if (f && f->getName() == stdName) {
+                    targetAddr = f->getEntryPoint().getOffset();
+                    parsed = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    if (parsed && targetAddr != 0) {
+        navigateTo(targetAddr, QString());
+    } else {
+        statusBar()->showMessage(tr("Invalid address or symbol '%1'").arg(input), 3000);
+    }
+}
+
+void MainWindow::onShowCrossReferences() {
+    if (!program_ || currentAddr_ == 0) return;
+    auto* refMgr = program_->getReferenceManager();
+    if (!refMgr || !crossRefExplorer_) return;
+    ghidra::Address addr = program_->getAddressFactory()->oldGetAddressFromLong(currentAddr_);
+    std::string name;
+    auto* funcMgr = program_->getFunctionManager();
+    if (funcMgr) {
+        auto* func = funcMgr->getFunctionContaining(addr);
+        if (func) name = func->getName();
+    }
+    if (name.empty()) name = QString("0x%1").arg(currentAddr_, 0, 16).toStdString();
+
+    crossRefExplorer_->showReferencesTo(addr, name, refMgr);
+    if (crossRefDock_) {
+        crossRefDock_->show();
+        crossRefDock_->raise();
+    }
+}
+
+void MainWindow::onToggleDecompilerFocus() {
+    if (!disasmView_ || !decompView_) return;
+    if (disasmView_->hasFocus()) {
+        if (decompDock_ && !decompDock_->isVisible()) decompDock_->show();
+        decompDock_->raise();
+        decompView_->setFocus();
+    } else {
+        if (disasmDock_ && !disasmDock_->isVisible()) disasmDock_->show();
+        disasmDock_->raise();
+        disasmView_->setFocus();
+    }
 }
 
 void MainWindow::onDisasmAddressDoubleClicked(uint64_t addr) {
@@ -2508,6 +2646,46 @@ void MainWindow::onRenameFunction() {
     }
 }
 
+void MainWindow::onSetFunctionSignature() {
+    if (!program_ || !isCurrentFunctionValid()) {
+        console_->log("No function selected.");
+        return;
+    }
+    std::string currentSig = currentFunction_->getSignatureString();
+    if (currentSig.empty()) {
+        currentSig = "void " + currentFunction_->getName() + "()";
+    }
+
+    bool ok = false;
+    QString newSig = QInputDialog::getText(
+        this, tr("Edit Function Signature (Y)"),
+        tr("Function prototype / signature:"),
+        QLineEdit::Normal,
+        QString::fromStdString(currentSig), &ok);
+    if (!ok || newSig.trimmed().isEmpty()) return;
+
+    QString sigStr = newSig.trimmed();
+    uint64_t entryAddr = currentFunction_->getEntryPoint().getOffset();
+
+    // Check if name changed in signature (e.g. "int func_foo(int a)")
+    static const QRegularExpression nameRx(QStringLiteral(R"(\b([a-zA-Z_][a-zA-Z0-9_]*)\s*\()"));
+    auto match = nameRx.match(sigStr);
+    std::string newName;
+    if (match.hasMatch()) {
+        newName = match.captured(1).toStdString();
+    }
+
+    if (!newName.empty() && newName != currentFunction_->getName()) {
+        currentFunction_->setName(newName);
+    }
+
+    // Invalidate decomp cache to re-decompile with new prototype
+    decompCache_.erase(entryAddr);
+    console_->log(QString("Function signature updated: %1").arg(sigStr));
+    populateExplorer();
+    navigateTo(entryAddr, QString::fromStdString(currentFunction_->getName()), false);
+}
+
 void MainWindow::onDeleteFunction() {
     if (!program_ || !isCurrentFunctionValid() || !patchManager_) {
         console_->log("No function selected.");
@@ -2779,3 +2957,58 @@ void MainWindow::updateMinimapViewport() {
     if (start != 0 && end != 0)
         addressMinimap_->setViewport(start, end);
 }
+
+void MainWindow::onOpenCommandPalette() {
+    if (commandPalette_) {
+        delete commandPalette_;
+    }
+    commandPalette_ = new CommandPaletteDialog(this, program_.get(), this);
+    commandPalette_->showPalette();
+}
+
+void MainWindow::openDisassemblyFind() {
+    if (disasmSearchBar_) {
+        disasmSearchBar_->openSearch();
+    }
+}
+
+void MainWindow::onShowHelp() {
+    QDialog dlg(this);
+    dlg.setWindowTitle(tr("Help & Shortcuts - Enigma IDE"));
+    auto* v = new QVBoxLayout(&dlg);
+    auto* label = new QLabel(tr(
+        "Enigma Engine IDE - Keyboard Shortcuts & Reference\n\n"
+        "Global & Search:\n"
+        "  Ctrl+P / Ctrl+Shift+P  Command Palette (Fuzzy Omni-Search)\n"
+        "  Ctrl+F       Find in Disassembly (Interactive Search Bar)\n"
+        "  F3 / Shift+F3 Next / Previous Match\n"
+        "  G / Ctrl+G   Go to Address / Symbol / Relative Offset (+0x40, -0x10)\n"
+        "  Esc / Backspace / Alt+Left   Jump Back in History Stack\n"
+        "  Alt+Right    Jump Forward in History Stack\n"
+        "  Tab          Toggle Focus (Disassembly <-> Decompiler)\n"
+        "  Double-Click Follow Address / Jump Target / Function Call\n\n"
+        "Reverse Engineering Actions:\n"
+        "  Right-Click  Rich Context Menu (Copy Bytes, Follow Hex, Radix Convert)\n"
+        "  X            Show Cross References (XRefs) Explorer\n"
+        "  N            Rename Function / Symbol\n"
+        "  Y            Set Function Type / Signature\n"
+        "  Shift+Del    Delete Function\n"
+        "  L            Add Label\n"
+        "  Shift+L      Remove Label\n"
+        "  ; (Semicolon) Set / Edit Comment\n"
+        "  B            Add Bookmark\n"
+        "  Ctrl+1       Toggle Explorer Panel\n\n"
+        "Patching & Assembly:\n"
+        "  Right-click  Assemble Instruction (Inline Assembler)\n"
+        "  Hex View     Direct inline Byte Editing\n"
+        "  Patch Menu   Export / Save / Load / Revert Patches\n\n"
+        "Version Control:\n"
+        "  Ctrl+K       Commit Repository Changes\n"));
+    label->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    v->addWidget(label);
+    auto* ok = new QDialogButtonBox(QDialogButtonBox::Ok);
+    v->addWidget(ok);
+    QObject::connect(ok, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
+    dlg.exec();
+}
+
