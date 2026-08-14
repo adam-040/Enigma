@@ -19,8 +19,28 @@
 #include <QApplication>
 #include <QClipboard>
 #include <QMenu>
+#include <QPainterPath>
+#include <QPropertyAnimation>
+#include <QEasingCurve>
 #include <iostream>
 #include <algorithm>
+#include <cmath>
+#include <limits>
+
+namespace {
+// Euclidean distance from point p to segment ab.
+double pointSegDist(const QPoint& p, const QPoint& a, const QPoint& b) {
+    const double ax = a.x(), ay = a.y();
+    const double bx = b.x(), by = b.y();
+    const double px = p.x(), py = p.y();
+    const double dx = bx - ax, dy = by - ay;
+    const double len2 = dx * dx + dy * dy;
+    if (len2 < 1e-12) return std::hypot(px - ax, py - ay);
+    double t = ((px - ax) * dx + (py - ay) * dy) / len2;
+    t = std::clamp(t, 0.0, 1.0);
+    return std::hypot(px - (ax + t * dx), py - (ay + t * dy));
+}
+} // namespace
 
 DisassemblyFieldView::DisassemblyFieldView(QWidget* parent)
     : QAbstractScrollArea(parent)
@@ -122,6 +142,7 @@ void DisassemblyFieldView::buildFullIndex() {
     indexBuilt_ = model_.rowCount() > 0;
     fallbackLines_.clear();
     decodedCache_.clear();
+    buildCFG();
     currentRow_ = 0;
     currentAddr_ = 0;
     anchor_ = caret_ = {0, 0};
@@ -263,6 +284,7 @@ void DisassemblyFieldView::seek(uint64_t addr) {
 void DisassemblyFieldView::invalidateCache() {
     decodedCache_.clear();
     maxColsSeen_ = 0;
+    buildCFG();
     updateScrollBars();
     viewport()->update();
 }
@@ -278,6 +300,168 @@ void DisassemblyFieldView::invalidateRange(uint64_t start, uint64_t end) {
             ++it;
     }
     maxColsSeen_ = 0;
+    buildCFG();
+    updateScrollBars();
+    viewport()->update();
+}
+
+void DisassemblyFieldView::buildCFG() {
+    cfg_.clear();
+    cfgValid_ = false;
+    selectedEdge_ = nullptr; // edges are recreated below; drop stale highlight
+    scopeLanes_.clear(); // lane map is tied to the fresh edge set
+    scopeLanesStart_ = scopeLanesEnd_ = 0;
+    cfaDrawValid_ = false; // any rebuild invalidates the render cache
+    cfaDrawList_.clear();
+    funcStarts_.clear();
+    if (!indexBuilt_ || !program_) return;
+
+    try {
+        std::vector<cfg::CfgInsn> insns;
+        std::vector<uint64_t> entries;
+        insns.reserve(model_.totalInstructions());
+        for (int r = 0; r < model_.rowCount(); ++r) {
+            const DisasmRow* row = model_.rowAt(r);
+            if (!row) continue;
+            if (row->kind == DisasmRow::Kind::FunctionHeader) {
+                entries.push_back(row->address);
+                continue;
+            }
+            if (row->kind != DisasmRow::Kind::Instruction) continue;
+            const DecodedInstruction* inst = decodedInstruction(row->address);
+            cfg::CfgInsn ci;
+            ci.address = row->address;
+            ci.row = r;
+            ci.length = row->length;
+            if (inst) {
+                ci.mnemonic = inst->mnemonic.toStdString();
+                ci.operands = inst->operands.toStdString();
+            }
+            insns.push_back(std::move(ci));
+        }
+        std::sort(entries.begin(), entries.end());
+        entries.erase(std::unique(entries.begin(), entries.end()), entries.end());
+        cfg_.build(insns, entries);
+        cfgValid_ = !cfg_.empty();
+        funcStarts_ = std::move(entries);
+        funcEndMax_ = model_.rowCount() > 0 ? model_.rowToAddress(model_.rowCount() - 1) : 0;
+    } catch (const std::exception& e) {
+        std::cerr << "[buildCFG] crashed: " << e.what() << std::endl;
+        cfg_.clear();
+        cfgValid_ = false;
+    } catch (...) {
+        std::cerr << "[buildCFG] crashed: unknown exception" << std::endl;
+        cfg_.clear();
+        cfgValid_ = false;
+    }
+}
+
+int DisassemblyFieldView::laneX(int lane) {
+    return kCfaLaneInset - lane * kCfaNestStep; // 42, 32, 22, 12 for defaults
+}
+
+void DisassemblyFieldView::funcRangeFor(uint64_t addr, uint64_t& start, uint64_t& end) const {
+    // Intra-function scope: no known boundaries => unbounded (whole document).
+    if (funcStarts_.empty()) {
+        start = 0;
+        end = std::numeric_limits<uint64_t>::max();
+        return;
+    }
+    auto it = std::upper_bound(funcStarts_.begin(), funcStarts_.end(), addr);
+    if (it == funcStarts_.begin()) { // before the first function entry
+        start = 0;
+        end = funcStarts_.front() - 1;
+        return;
+    }
+    --it;
+    start = *it;
+    const auto nxt = it + 1;
+    end = (nxt != funcStarts_.end()) ? (*nxt - 1) : funcEndMax_;
+}
+
+void DisassemblyFieldView::rebuildCfaDrawList(int firstRow, int lastRow) {
+    cfaDrawList_.clear();
+    cfaWindowFirst_ = firstRow;
+    cfaWindowLast_ = lastRow;
+    if (!cfgValid_) {
+        cfaDrawValid_ = true;
+        return;
+    }
+
+    // 1) Intra-function scope: the function centered in the viewport.
+    const int midRow = (firstRow + lastRow) / 2;
+    uint64_t sStart = 0, sEnd = 0;
+    funcRangeFor(model_.rowToAddress(midRow), sStart, sEnd);
+    cfaScopeStart_ = sStart;
+    cfaScopeEnd_ = sEnd;
+
+    // 2a) Function-scope track lifetime & recycling: allocate lanes ONCE for
+    // every intra-function jump (spanning priority - shorter jumps hug the
+    // text, longer ones push out), keyed to the function range so lanes stay
+    // rock-stable while scrolling inside one function. Columns are recycled
+    // immediately once a jump's vertical span terminates.
+    if (scopeLanesStart_ != sStart || scopeLanesEnd_ != sEnd || scopeLanes_.empty()) {
+        scopeLanesStart_ = sStart;
+        scopeLanesEnd_ = sEnd;
+        std::vector<const cfg::CfaEdge*> scope;
+        scope.reserve(cfg_.edges().size());
+        for (const cfg::CfaEdge& e : cfg_.edges()) {
+            // External-branch rejection: returns, calls and global/indirect
+            // transitions never render as tracks.
+            if (e.isReturn()) continue;
+            if (e.kind == cfg::EdgeKind::Call || e.isComputed()) continue;
+            if (e.toRow < 0) continue; // no resolvable in-list destination
+            // Intra-function scoping: both endpoints in the function range.
+            if (e.fromAddr < sStart || e.fromAddr > sEnd) continue;
+            if (e.toAddr < sStart || e.toAddr > sEnd) continue;
+            scope.push_back(&e);
+        }
+        const std::vector<int> lanes = cfg::assignTracks(scope);
+        scopeLanes_.clear();
+        for (size_t k = 0; k < scope.size(); ++k)
+            scopeLanes_[scope[k]] = lanes[k];
+    }
+
+    // 2b) Destination-in-window eligibility: draw any jump whose LANDING ROW
+    // is comfortably inside the viewport, span-priority colored per window.
+    // Long jumps that merely cross the window without landing (destination
+    // off-screen) never draw - that is the spaghetti killer. Inbound jumps
+    // from functions above render as arrows clipped at the window top, so no
+    // visible landing is ever left without its arrow. Landing rows keep a
+    // one-row buffer from each viewport edge so arrowhead triangles are never
+    // half-clipped by the window boundary (random chopped heads while
+    // scrolling).
+    std::vector<const cfg::CfaEdge*> subset;
+    subset.reserve(cfg_.edges().size());
+    for (const cfg::CfaEdge& e : cfg_.edges()) {
+        // External-branch rejection: returns, calls and global/indirect
+        // transitions never render as tracks.
+        if (e.isReturn()) continue;
+        if (e.kind == cfg::EdgeKind::Call || e.isComputed()) continue;
+        if (e.toRow < 0) continue; // no resolvable in-list destination
+        if (e.toRow <= firstRow || e.toRow >= lastRow - 1) continue;
+        subset.push_back(&e);
+    }
+
+    // 2c) Dynamic track reallocation over the surviving edges only.
+    const std::vector<int> lanes = cfg::assignTracks(subset);
+    cfaDrawList_.reserve(subset.size());
+    for (size_t k = 0; k < subset.size(); ++k)
+        cfaDrawList_.push_back({subset[k], lanes[k]});
+
+    cfaDrawValid_ = true;
+}
+
+void DisassemblyFieldView::ensureCfaDrawList(int firstRow, int lastRow) {
+    if (cfaDrawValid_ && cfaWindowFirst_ == firstRow && cfaWindowLast_ == lastRow)
+        return;
+    rebuildCfaDrawList(firstRow, lastRow);
+}
+
+void DisassemblyFieldView::setCfaMargin(int px) {
+    const int clamped = std::clamp(px, kCfaMinMargin, 240);
+    if (clamped == cfaMarginPx_) return;
+    cfaMarginPx_ = clamped;
     updateScrollBars();
     viewport()->update();
 }
@@ -366,7 +550,9 @@ void DisassemblyFieldView::buildTokensForDecoded(DecodedInstruction& inst) {
 
         Token mneTok;
         mneTok.text = inst.mnemonic.leftJustified(8, QLatin1Char(' '));
-        mneTok.kind = isBranchMnemonic(inst.mnemonic) ? TokenKind::Branch : TokenKind::Mnemonic;
+        mneTok.kind = isCallMnemonic(inst.mnemonic) ? TokenKind::Call
+                    : isBranchMnemonic(inst.mnemonic) ? TokenKind::Branch
+                    : TokenKind::Mnemonic;
         mneTok.addr = inst.address;
         mneTok.startCol = inst.totalCols;
         mneTok.len = mneTok.text.size();
@@ -461,7 +647,9 @@ void DisassemblyFieldView::buildTokensForFallback(FallbackLine& line) {
 
         Token mneTok;
         mneTok.text = line.mne.leftJustified(8, QLatin1Char(' '));
-        mneTok.kind = isBranchMnemonic(line.mne) ? TokenKind::Branch : TokenKind::Mnemonic;
+        mneTok.kind = isCallMnemonic(line.mne) ? TokenKind::Call
+                    : isBranchMnemonic(line.mne) ? TokenKind::Branch
+                    : TokenKind::Mnemonic;
         mneTok.addr = line.addr;
         mneTok.startCol = line.totalCols;
         mneTok.len = mneTok.text.size();
@@ -553,7 +741,7 @@ DisassemblyFieldView::CursorPos DisassemblyFieldView::caretAtPos(const QPoint& p
     int scrollX = horizontalScrollBar()->value();
     int row = (pos.y() + scrollY) / cellH;
     row = std::clamp(row, 0, n - 1);
-    int col = (pos.x() + scrollX - kGutterWidth - EditorTheme::leftPadding()) / cellW;
+    int col = (pos.x() + scrollX - cfaMarginPx_ - EditorTheme::leftPadding()) / cellW;
     col = std::clamp(col, 0, static_cast<int>(lineText(row).size()));
     return {row, col};
 }
@@ -642,7 +830,7 @@ void DisassemblyFieldView::selectTokenAt(int row, int col) {
 void DisassemblyFieldView::updateScrollBars() {
     int cellW = EditorTheme::cellWidth();
     int cellH = EditorTheme::cellHeight();
-    int leftPad = kGutterWidth + EditorTheme::leftPadding();
+    int leftPad = cfaMarginPx_ + EditorTheme::leftPadding();
     int n = lineCount();
     if (n == 0) {
         verticalScrollBar()->setRange(0, 0);
@@ -676,13 +864,25 @@ void DisassemblyFieldView::ensureVisible(int row) {
 
 void DisassemblyFieldView::paintEvent(QPaintEvent* event) {
     QPainter painter(viewport());
+    painter.setRenderHint(QPainter::Antialiasing); // crisp lines + arrowheads
+
+    // Bounding-box safety margin: the exposed-region clip must never slice the
+    // outer edge of a thick line or arrowhead that straddles an update
+    // boundary. If this frame's update region left any part of the CFG margin
+    // strip (padded by kCfaSafetyPad) out, schedule it so partial updates
+    // converge to full ink on the next paint pass.
+    const QRect marginStrip(0, 0, cfaMarginPx_ + kCfaSafetyPad,
+                            viewport()->height());
+    if (!marginStrip.intersected(event->rect()).contains(marginStrip))
+        viewport()->update(marginStrip);
+
     painter.fillRect(event->rect(), EditorTheme::backgroundColor());
 
     int n = lineCount();
     if (n == 0) {
         // placeholder
         painter.setPen(QColor(0x88, 0x88, 0x88));
-        painter.drawText(kGutterWidth + EditorTheme::leftPadding(), EditorTheme::ascent() + 4,
+        painter.drawText(cfaMarginPx_ + EditorTheme::leftPadding(), EditorTheme::ascent() + 4,
                          QStringLiteral("No disassembly"));
         return;
     }
@@ -691,7 +891,7 @@ void DisassemblyFieldView::paintEvent(QPaintEvent* event) {
     int cellH = EditorTheme::cellHeight();
     int ascent = EditorTheme::ascent();
     int glyphH = EditorTheme::glyphHeight();
-    int leftPad = kGutterWidth + EditorTheme::leftPadding();
+    int leftPad = cfaMarginPx_ + EditorTheme::leftPadding();
     int scrollY = verticalScrollBar()->value();
     int scrollX = horizontalScrollBar()->value();
     int vpH = viewport()->height();
@@ -700,6 +900,18 @@ void DisassemblyFieldView::paintEvent(QPaintEvent* event) {
     int first = scrollY / cellH;
     int last = std::min((scrollY + vpH) / cellH + 1, n - 1);
     int maxSeenBefore = maxColsSeen_;
+
+    // Extremely faint 1px vertical separator isolating the CFG margin from
+    // the text area. Drawn BEFORE the CFG gutter so arrowhead tips always
+    // paint their apex over it - the old order sliced every head that landed
+    // at the margin boundary (random chopped tips).
+    painter.fillRect(cfaMarginPx_, 0, 1, vpH, QColor(0xdc, 0xe1, 0xe8));
+
+    if (cfgValid_) {
+        paintBlockBackdrop(painter, first, last, cellH, scrollY, vpW);
+        ensureCfaDrawList(first, last);
+        paintCfaGutter(painter, first, last, cellH, scrollY);
+    }
 
     const QColor* colorTbl = EditorTheme::colorTable();
     const QFont* fontTbl = EditorTheme::fontTable();
@@ -729,7 +941,7 @@ void DisassemblyFieldView::paintEvent(QPaintEvent* event) {
         int baseX = leftPad - scrollX;
 
         if (ri == currentRow_) {
-            painter.fillRect(0, y, vpW, cellH, EditorTheme::caretLineColor());
+            painter.fillRect(cfaMarginPx_, y, vpW - cfaMarginPx_, cellH, EditorTheme::caretLineColor());
         }
 
         const std::vector<Token>* toks = nullptr;
@@ -761,7 +973,9 @@ void DisassemblyFieldView::paintEvent(QPaintEvent* event) {
         if (!toks || toks->empty()) continue;
 
         if (!patchedSites.empty() && rowAddr != 0 && patchedSites.count(rowAddr)) {
-            painter.fillRect(2, y + 2, 4, cellH - 4, QColor(0x2e, 0xcc, 0x71));
+            // Patch marker sits at the margin/text boundary, keeping the CFG
+            // margin dedicated to arrow graphics.
+            painter.fillRect(cfaMarginPx_ + 2, y + 2, 4, cellH - 4, QColor(0x2e, 0xcc, 0x71));
         }
 
         maxColsSeen_ = std::max(maxColsSeen_, maxCol);
@@ -816,6 +1030,240 @@ void DisassemblyFieldView::paintEvent(QPaintEvent* event) {
         updateScrollBars();
 }
 
+void DisassemblyFieldView::paintBlockBackdrop(QPainter& painter, int first, int last,
+                                              int cellH, int scrollY, int vpW) {
+    int prevBlock = -2;
+    for (int ri = first; ri <= last; ++ri) {
+        const cfg::CfgBlock* blk = cfg_.blockAtRow(ri);
+        if (!blk) {
+            prevBlock = -2;
+            continue;
+        }
+        const int y = ri * cellH - scrollY;
+        if (blk->index != prevBlock) {
+            // Tints and separators are strictly constrained to the text area:
+            // the CFG margin keeps a pure, untouched background.
+            painter.fillRect(cfaMarginPx_, y, vpW - cfaMarginPx_, cellH,
+                             EditorTheme::blockTint(blk->index));
+            painter.setPen(EditorTheme::blockSeparatorColor());
+            painter.drawLine(cfaMarginPx_, y, vpW, y);
+            prevBlock = blk->index;
+        }
+    }
+}
+
+void DisassemblyFieldView::paintCfaGutter(QPainter& painter, int first, int last,
+                                          int cellH, int scrollY) {
+    const int x0 = cfaMarginPx_; // text boundary: exits start and tips land here
+    const uint64_t sStart = cfaScopeStart_, sEnd = cfaScopeEnd_;
+
+    // Pass A: scoped source stubs for returns and unresolved (computed) exits.
+    // Calls and computed calls are fully rejected from the margin; returns get
+    // a local stop tab and unresolved in-function jumps a short "?" stub - none
+    // of these ever draw a tracker line, so they add no spaghetti.
+    for (const cfg::CfaEdge& e : cfg_.edges()) {
+        if (e.kind == cfg::EdgeKind::Call || e.isComputed()) continue;
+        if (!e.isReturn() && e.toRow >= 0) continue; // real track handled in Pass B
+        if (e.fromRow < first || e.fromRow > last) continue;
+        if (e.fromAddr < sStart || e.fromAddr > sEnd) continue; // intra-function scope
+        QColor color = Qt::black; // crisp classic black for all gutter graphics
+        const int y = e.fromRow * cellH - scrollY;
+        const int ym = y + cellH / 2;
+        if (e.isReturn()) {
+            const int stubL = x0 - kCfaStopW * 2;
+            painter.setPen(QPen(color, kCfaLineWidth, Qt::SolidLine, Qt::FlatCap,
+                                Qt::MiterJoin));
+            painter.drawLine(stubL, ym, x0, ym); // short stub from the text edge
+            painter.setPen(Qt::NoPen);
+            painter.setBrush(color);
+            // Stop tab: a clean solid black square at the end of the stub.
+            painter.drawRect(QRect(stubL - kCfaStopW, ym - (kCfaStopW - 1),
+                                   kCfaStopW * 2, kCfaStopW * 2 - 2));
+        } else {
+            // Unresolved (computed) target: dashed stub + "?" indicator.
+            QPen dash(Qt::DashLine);
+            dash.setColor(color);
+            dash.setWidth(kCfaLineWidth);
+            dash.setCapStyle(Qt::FlatCap);
+            dash.setJoinStyle(Qt::MiterJoin);
+            painter.setPen(dash);
+            painter.drawLine(x0 - 8, ym, x0, ym);
+            QFont qf = painter.font();
+            qf.setBold(true);
+            painter.setFont(qf);
+            painter.setPen(color);
+            painter.drawText(x0 + 2, y + EditorTheme::ascent(), QStringLiteral("?"));
+        }
+    }
+
+    // Pass B: tracks from the scope+cull+track drawer list. paintEvent (and
+    // edgeAt) rebuild this list for the visible function + viewport window, so
+    // only live, on-screen, intra-function jumps are drawn - no overlap, no
+    // off-screen lines.
+    for (const CfaDrawItem& item : cfaDrawList_) {
+        const cfg::CfaEdge& e = *item.edge;
+        const bool sel = (item.edge == selectedEdge_);
+        // Routing: solid deep black; only the active selection stays a distinct
+        // color, so the highlighted jump pops against the black grid.
+        QColor color = sel ? QColor(0x00, 0xff, 0x9f) : Qt::black;
+        const int w = kCfaLineWidth + (sel ? kCfaSelBoost : 0);
+
+        // Strict orthogonal Ghidra-style route: horizontal exit from the source
+        // row out to the nesting column, vertical traversal, horizontal entry
+        // back into the target row. Corners meet with sharp miter joints.
+        const std::vector<QPoint> route = cfaRoute(e, item.lane, cellH, scrollY);
+        QPainterPath path(route[0]);
+        for (size_t i = 1; i < route.size(); ++i)
+            path.lineTo(route[i]);
+        const bool dashed = e.kind == cfg::EdgeKind::Conditional && !sel;
+        QPen pen(color, w, dashed ? Qt::DashLine : Qt::SolidLine, Qt::FlatCap,
+                 Qt::MiterJoin);
+        pen.setCosmetic(true);
+        painter.setPen(pen);
+        painter.setBrush(Qt::NoBrush);
+        if (dashed) {
+            // Conditional routing: only the horizontal exit + vertical
+            // traversal are dashed. The final horizontal entry approach is
+            // SOLID so the arrowhead always connects flush to the line - no
+            // detached, floating tip left behind by a dash gap.
+            QPainterPath trunk(route[0]);
+            trunk.lineTo(route[1]);
+            trunk.lineTo(route[2]);
+            painter.drawPath(trunk);
+            QPen solid(color, w, Qt::SolidLine, Qt::FlatCap, Qt::MiterJoin);
+            solid.setCosmetic(true);
+            painter.setPen(solid);
+        }
+        painter.drawPath(path);
+
+        // Sharp filled arrowhead: isosceles triangle whose apex sits exactly at
+        // the end of the horizontal entry segment (route.back()), base square
+        // behind it along the entry - clean, aligned, zero overlap with the
+        // line body it caps. All vertices are integer pixels (headW is even),
+        // so the polygon never renders sub-pixel or partially hidden.
+        const QPoint& tip = route.back();
+        QPolygon head;
+        head << QPoint(tip.x() - kCfaHeadLen, tip.y() - kCfaHeadW / 2)
+             << QPoint(tip.x() - kCfaHeadLen, tip.y() + kCfaHeadW / 2)
+             << QPoint(tip);
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(color);
+        painter.drawPolygon(head);
+    }
+}
+
+std::vector<QPoint> DisassemblyFieldView::cfaRoute(const cfg::CfaEdge& e, int lane,
+                                                   int cellH, int scrollY) const {
+    const int x0 = cfaMarginPx_; // text boundary
+    const int xT = laneX(lane); // nesting column: deeper nesting sits further left
+    // Integer pixel alignment: every coordinate is snapped to a clean integer
+    // (qRound) so lines land exactly on pixel centers - no sub-pixel blur, no
+    // 1px clipping artifacts.
+    const int yFrom = qRound(e.fromRow * cellH - scrollY + cellH / 2.0);
+    const int yTo = qRound(e.toRow * cellH - scrollY + cellH / 2.0);
+    // Strict 90-degree orthogonal routing: horizontal exit, vertical traversal,
+    // horizontal entry. Only horizontal and vertical segments - sharp miter
+    // joints at the corners, no chamfers, curves or smoothing.
+    return {{x0, yFrom}, {xT, yFrom}, {xT, yTo}, {x0, yTo}};
+}
+
+const cfg::CfaEdge* DisassemblyFieldView::edgeAt(const QPoint& pos) {
+    if (!cfgValid_ || pos.x() >= cfaMarginPx_) return nullptr;
+    const int cellH = EditorTheme::cellHeight();
+    const int scrollY = verticalScrollBar()->value();
+    const int first = scrollY / cellH;
+    const int last = std::min((scrollY + viewport()->height()) / cellH + 1,
+                              lineCount() - 1);
+    // Rebuild the drawer list for the current window so the hit-test only
+    // sees the same filtered, in-function, on-screen edges that are drawn.
+    ensureCfaDrawList(first, last);
+    // Wide-stroke tolerant hit test: a path stroked by ~8px wraps the drawn
+    // line, so users needn't click exactly on a hairline route. Tolerance is
+    // generous but still only reaches into the CFG margin.
+    const cfg::CfaEdge* best = nullptr;
+    double bestDist = std::numeric_limits<double>::max();
+    QPainterPathStroker stroker;
+    stroker.setWidth(8.0);
+    stroker.setJoinStyle(Qt::RoundJoin);
+    stroker.setCapStyle(Qt::RoundCap);
+    for (const CfaDrawItem& it : cfaDrawList_) {
+        const std::vector<QPoint> route = cfaRoute(*it.edge, it.lane, cellH, scrollY);
+        QPainterPath path(route[0]);
+        for (size_t i = 1; i < route.size(); ++i)
+            path.lineTo(route[i]);
+        if (!stroker.createStroke(path).contains(pos)) continue;
+        // Prefer whatever the stroker matched closest to the actual line.
+        double d = std::numeric_limits<double>::max();
+        for (size_t i = 1; i < route.size(); ++i)
+            d = std::min(d, pointSegDist(pos, route[i - 1], route[i]));
+        if (d < bestDist - 1e-9) {
+            bestDist = d;
+            best = it.edge;
+        }
+    }
+    return best;
+}
+
+void DisassemblyFieldView::selectEdge(const cfg::CfaEdge* e) {
+    if (selectedEdge_ == e) return;
+    selectedEdge_ = e;
+    viewport()->update();
+}
+
+void DisassemblyFieldView::animateScrollToRow(int row, uint64_t destAddr) {
+    if (!verticalScrollBar()) return;
+    const int cellH = EditorTheme::cellHeight();
+    const int vpH = viewport()->height();
+    const int current = verticalScrollBar()->value();
+    const int maxV = verticalScrollBar()->maximum();
+    const int target = std::clamp(row * cellH - (vpH - cellH) / 2, 0, maxV);
+    if (scrollAnim_) {
+        disconnect(scrollAnim_, nullptr, this, nullptr);
+        scrollAnim_->stop();
+        scrollAnim_->deleteLater();
+        scrollAnim_ = nullptr;
+    }
+    if (current == target) {
+        finishNavTo(row, destAddr);
+        return;
+    }
+    QPropertyAnimation* anim = new QPropertyAnimation(verticalScrollBar(), "value", this);
+    anim->setDuration(260);
+    anim->setStartValue(current);
+    anim->setEndValue(target);
+    anim->setEasingCurve(QEasingCurve::OutCubic);
+    scrollAnim_ = anim;
+    connect(anim, &QPropertyAnimation::finished, this,
+            [this, row, destAddr, anim]() {
+        if (scrollAnim_ != anim) return; // superseded by a newer slide
+        scrollAnim_ = nullptr;
+        finishNavTo(row, destAddr);
+    });
+    anim->start(QAbstractAnimation::DeleteWhenStopped);
+}
+
+void DisassemblyFieldView::finishNavTo(int row, uint64_t destAddr) {
+    currentRow_ = row;
+    if (destAddr != 0) currentAddr_ = destAddr;
+    viewport()->update();
+    emit cursorAddressChanged(destAddr);
+}
+
+void DisassemblyFieldView::jumpToAddress(uint64_t target) {
+    if (target == 0) return;
+    seek(target);
+    emit seekRequested(target);
+    SelectionState sel;
+    sel.valid = true;
+    sel.address = target;
+    sel.endAddress = target + 1;
+    sel.tokenText = QStringLiteral("0x%1").arg(target, 0, 16);
+    sel.tokenKind = TokenKind::Address;
+    sel.originView = this;
+    if (selectionMgr_)
+        selectionMgr_->select(sel, this);
+}
+
 void DisassemblyFieldView::resizeEvent(QResizeEvent* event) {
     QAbstractScrollArea::resizeEvent(event);
     updateScrollBars();
@@ -830,6 +1278,12 @@ void DisassemblyFieldView::mousePressEvent(QMouseEvent* event) {
         if (lineCount() == 0) return;
         viewport()->setFocus();
         resetCaretBlink();
+        if (event->pos().x() < cfaMarginPx_) {
+            // Single click in the gutter highlights the edge (neon) but does
+            // not navigate - smooth traversal is performed on double-click.
+            selectEdge(edgeAt(event->pos()));
+            return;
+        }
         auto hit = caretAtPos(event->pos());
         anchor_ = caret_ = {hit.row, hit.col};
         selecting_ = true;
@@ -857,6 +1311,20 @@ void DisassemblyFieldView::mouseMoveEvent(QMouseEvent* event) {
     }
     auto hit = caretAtPos(event->pos());
     const Token* tok = tokenAt(hit.row, hit.col);
+    if (event->pos().x() < cfaMarginPx_) {
+        if (const cfg::CfaEdge* e = edgeAt(event->pos())) {
+            viewport()->setCursor(Qt::PointingHandCursor);
+            const QString label = QStringLiteral("%1: 0x%2 -> 0x%3")
+                .arg(QLatin1String(cfg::edgeKindName(e->kind)))
+                .arg(e->fromAddr, 0, 16)
+                .arg(e->toAddr, 0, 16);
+            if (viewport()->toolTip() != label)
+                viewport()->setToolTip(label);
+            QAbstractScrollArea::mouseMoveEvent(event);
+            return;
+        }
+        viewport()->setToolTip(QString());
+    }
     bool clickable = tok && (tok->refTarget != 0 ||
         tok->kind == TokenKind::Function ||
         tok->kind == TokenKind::Label ||
@@ -905,6 +1373,26 @@ void DisassemblyFieldView::mouseReleaseEvent(QMouseEvent* event) {
 void DisassemblyFieldView::mouseDoubleClickEvent(QMouseEvent* event) {
     if (event->button() == Qt::LeftButton) {
         if (lineCount() == 0) return;
+        // Gutter: single highlight already set on press; double-click animates a
+        // smooth scroll that centers the destination (no instant re-seek).
+        if (event->pos().x() < cfaMarginPx_ && cfgValid_) {
+            const cfg::CfaEdge* e = edgeAt(event->pos());
+            selectEdge(e);
+            if (e && e->resolved() && e->toRow >= 0 && e->fromRow >= 0 && e->toAddr != 0) {
+                SelectionState sel;
+                sel.valid = true;
+                sel.address = e->toAddr;
+                sel.endAddress = e->toAddr + 1;
+                sel.tokenText = QStringLiteral("0x%1").arg(e->toAddr, 0, 16);
+                sel.tokenKind = TokenKind::Address;
+                sel.originView = this;
+                if (selectionMgr_)
+                    selectionMgr_->select(sel, this);
+                animateScrollToRow(e->toRow, e->toAddr);
+                return;
+            }
+            return;
+        }
         selecting_ = false;
         dragging_ = false;
         auto hit = caretAtPos(event->pos());
@@ -1302,9 +1790,18 @@ QString DisassemblyFieldView::formatBytes(const std::vector<uint8_t>& bytes) {
     return out;
 }
 
+bool DisassemblyFieldView::isCallMnemonic(const QString& mne) {
+    static const QStringList calls = {
+        QStringLiteral("CALL"), QStringLiteral("CALLF"),
+        QStringLiteral("CALLQ"), QStringLiteral("CALLW"), QStringLiteral("CALLD"),
+        QStringLiteral("CALLT")
+    };
+    return calls.contains(mne.toUpper());
+}
+
 bool DisassemblyFieldView::isBranchMnemonic(const QString& mne) {
     static const QStringList branch = {
-        QStringLiteral("CALL"), QStringLiteral("JMP"), QStringLiteral("JMPF"),
+        QStringLiteral("JMP"), QStringLiteral("JMPF"),
         QStringLiteral("JE"), QStringLiteral("JNE"), QStringLiteral("JZ"), QStringLiteral("JNZ"),
         QStringLiteral("JA"), QStringLiteral("JAE"), QStringLiteral("JB"), QStringLiteral("JBE"),
         QStringLiteral("JG"), QStringLiteral("JGE"), QStringLiteral("JL"), QStringLiteral("JLE"),

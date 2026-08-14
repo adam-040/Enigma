@@ -4,7 +4,7 @@
 #include <QString>
 
 enum class TokenKind {
-    Plain, Address, Bytes, Mnemonic, Branch, Register, Immediate,
+    Plain, Address, Bytes, Mnemonic, Branch, Call, Register, Immediate,
     Number, MemRef, Punctuation, Label, Function, Variable,
     Type, Keyword, String, Comment,
     BracesOuter,   // external {} () — yellow

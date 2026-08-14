@@ -111,12 +111,17 @@ Build a production-grade reverse engineering IDE with:
 - Tooltips on every entry
 - Filter box with clear button
 
-### Navigation Sync (`CutterSeekable`)
-- **`src/include/gui/CutterSeekable.h`**: pure virtual interface (`seek`, `currentAddress`, `setSyncState`, `syncState`)
-- **HexView**: implements `CutterSeekable`, single-click seeks + highlights current byte, emits `seekRequested`
-- **DisassemblyView**: implements `CutterSeekable`, parses address→line map from assembly text, seek scrolls + highlights with `ExtraSelection`, double-click emits `seekRequested`
-- **DecompilerView**: implements `CutterSeekable`, parses `// 0xADDR` annotations from Ghidra C output, seek scrolls + highlights
-- **MainWindow hub**: `seekAll()` iterates synced views and calls `seek()`; `onAddressSeeked()` handles history + forwards to `seekAll()`; `navigateTo()` and `onNavigateBack()` call `seekAll()` after updating view data
+### Navigation Sync (`NavigationCoordinator`)
+- **`src/gui/NavigationCoordinator.{h,cpp}`**: single mediator for cross-view navigation. `registerView(QWidget*, int skipBit, Applier)` / `unregisterView(QWidget*)` / `isRegistered(QWidget*)`; `navigate(const NavigationEvent&, int skipMask = 0)` broadcasts to every registered view except `originView` and any view whose `skipBit & skipMask`; stores `lastEvent()` and emits `navigated`. Registration is idempotent (re-registering replaces the applier).
+- **`src/gui/NavigationEvent.h`**: `TokenKind` enum + `NavigationEvent { address (exact byte), endAddress, tokenText, tokenKind, originView, valid }`.
+- **View contract** (FieldView, DisassemblyFieldView, HexView, DecompilerView via FieldView): the originating view sets its own local state first (e.g. in `mouseReleaseEvent`/`keyPressEvent`), then calls `navigateAll(endAddr?, tokenText?, kind)` to broadcast with `originView = this`. Each view implements `applyNavigationEvent(ev)` landing on the exact address it can represent:
+  - **HexView**: byte-exact — `lineForAddress(addr)` + `byteIndex = addr - line.addr` + 2-char selection at the exact byte column.
+  - **DisassemblyFieldView**: instruction-exact — `rowForAddress(addr)` (binary search on model, FunctionHeader walk) + token match via `rowTokens`.
+  - **DecompilerView**: statement-exact — decompiler `Line.addr = statementAddr`, token `.addr` from opAddresses; nearest-line landing, `currentAddr_ = ev.address`.
+- **MainWindow hub**: owns `navCoord_`, registers disasm (`NavSkip_Disasm`=1), decomp (`NavSkip_Decompile`=2), hex (`NavSkip_Hex`=4); `onNavigationEvent` updates the status/info labels only (no re-broadcast). `doNavigate()` STEP8 does the single `navCoord_->navigate(ev, navSkipFlags_)` broadcast. `NAV_SKIP` env still honored via `navSkipFlags_`.
+- **Removed**: `CutterSeekable` (interface + setSyncState/syncState), `SelectionManager`, `SelectionState`, `cursorAddressChanged` signal, `cursorSyncTimer_`/pending-sync coalescing, `seekToAddress` (use `seek`), direct `disasmView_->seek()`/`hexView_->seek()` calls from MainWindow (now coordinator events). Local `seek()` remains a non-broadcasting local scroll (HexSearchBar, bookmarks).
+- **All navigation entry points are on the same sync wave**: view clicks/double-clicks/keyboard, minimap (`navigateRequested`), string table, patch list, function explorer (`functionSelected` → `navigateTo`), hex search matches (`HexSearchBar::navigateRequested`), bookmarks (`seekRequested` → `navigateTo`), patch/undo/redo/assemble rebuilds, `navigateTo`/back/forward. `HexSearchBar` keeps its local `hexView_->seek(addr)` for immediate hex caret positioning, then emits `navigateRequested` so the whole wave follows.
+- **Adding a new view** (future work): subclass `FieldView` (or implement `applyNavigationEvent` for a non-QWidget seat) and call `setNavigationCoordinator(nav, skipBit)` once — it is automatically on the same sync wave via the mediator. Never wire per-view `seek()` chains in MainWindow; broadcast through the coordinator instead.
 
 ### Other ADS Source Changes (build tree)
 - `DockOverlay.cpp:880` — `CDockOverlayCross::cursorLocation()` → full-window proportional drop zones
@@ -151,11 +156,13 @@ Build a production-grade reverse engineering IDE with:
 
 | Path | Purpose |
 |---|---|
-| `src/include/gui/CutterSeekable.h` | Navigation sync interface |
-| `src/gui/MainWindow.h/.cpp` | Main window, menu, seek hub, dock layout |
-| `src/gui/HexView.h/.cpp` | Hex view with seek/click support |
-| `src/gui/DisassemblyView.h/.cpp` | Disassembly view with seek/highlight |
-| `src/gui/DecompilerView.h/.cpp` | Decompiler view with seek/highlight |
+| `src/gui/NavigationCoordinator.h/.cpp` | Navigation mediator (register/navigate/skip-mask) |
+| `src/gui/NavigationEvent.h` | `TokenKind` + exact-address `NavigationEvent` |
+| `src/gui/MainWindow.h/.cpp` | Main window, menu, coordinator hub, dock layout |
+| `src/gui/HexView.h/.cpp` | Hex view with byte-exact navigation |
+| `src/gui/DisassemblyFieldView.h/.cpp` | Disassembly view with instruction-exact navigation |
+| `src/gui/FieldView.h/.cpp` | Base view (shared landing, DecompilerView inherits) |
+| `src/gui/DecompilerView.h/.cpp` | Decompiler view with statement-exact navigation |
 | `src/gui/FunctionExplorer.h/.cpp` | Explorer tree view |
 | `src/gui/ConsoleWidget.h/.cpp` | Console widget |
 | `src/include/ghidra/CutterSeekable.h` | *(same as gui/...)* |

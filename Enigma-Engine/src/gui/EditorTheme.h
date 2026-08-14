@@ -3,6 +3,7 @@
 #include <QFont>
 #include <QColor>
 #include "FieldView.h"
+#include <cfg/DisassemblyCFG.h>
 
 class EditorTheme {
 public:
@@ -25,6 +26,11 @@ public:
     static QColor occurrenceColor();
     static QColor colorFor(TokenKind kind);
     static bool isEmphasis(TokenKind kind);
+
+    // Control-flow arrow and basic-block rendering colors.
+    static QColor cfaColor(cfg::EdgeKind kind);
+    static QColor blockTint(int parity);
+    static QColor blockSeparatorColor();
 
     // Fast lookup arrays indexed by TokenKind (avoids per-token switch/virtual calls)
     static const QColor* colorTable();
