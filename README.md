@@ -3,13 +3,13 @@
 
 
 
-# Enigma Engine
+# ● Enigma Engine
 
 A ground-up C++ inspired by Ghidra's analytical core, built to eliminate the JVM dependency and enable deep AI integration.
 
 ---
 
-## What is this?
+## ● What is this?
 
 Ghidra is a reverse engineering framework built by the NSA in Java. Enigma is a native C++ rewrite of its analysis pipeline — same capabilities, no JVM, no Gradle, no Java runtime required.
 
@@ -17,7 +17,7 @@ The goal is a self-contained binary analysis engine that can be embedded, extend
 
 ---
 
-## Current State
+## ● Current State
 
 The project is in active development. The core analysis pipeline is functional:
 
@@ -33,7 +33,7 @@ The project is in active development. The core analysis pipeline is functional:
 
 ---
 
-## Architecture
+## ● Architecture
 
 ```
 Binary (PE/ELF)
@@ -53,7 +53,7 @@ Storage               — FlatBuffers snapshots + LMDB index + git-like commits
 Qt GUI                — Disassembly / Decompiler / Hex / Explorer
 ```
 
-### What is original vs what is taken from Ghidra
+### ● What is original vs what is taken from Ghidra
 
 | Component | Source |
 |---|---|
@@ -67,7 +67,7 @@ Qt GUI                — Disassembly / Decompiler / Hex / Explorer
 
 ---
 
-## Building
+## ✦ Building
 
 **Requirements:**
 - C++17 compiler (GCC 11+ or Clang 13+)
@@ -84,7 +84,7 @@ cmake --build build-cmake
 
 ---
 
-## Function Detection — Benchmark vs Ghidra
+## ●  Function Detection — Benchmark vs Ghidra
 
 Tested on real Windows binaries:
 
@@ -96,7 +96,7 @@ Tested on real Windows binaries:
 
 ---
 
-## Roadmap
+## ✦ Roadmap
 
 ## Analysis
  - Improved type inference
@@ -127,6 +127,6 @@ Tested on real Windows binaries:
 
 ---
 
-## License
+## ● License
 
-This project is licensed under **Apache License 2.0**.
+✦ This project is licensed under **the Apache License 2.0**. Third-party components used by Enigma remain subject to **their respective licenses**.
