@@ -387,25 +387,24 @@ void MainWindow::createDockWidgets() {
     explorerToggleAction_ = new QAction(tr("Toggle Explorer"), this);
     explorerToggleAction_->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_1));
 
-    auto loadSvgIcon = [](const QString& fileName, int size) -> QIcon {
+    auto loadSvgIcon = [this](const QString& fileName, int size) -> QIcon {
         // Icons are embedded in the exe (resources.qrc) so they work from any
         // working directory; fall back to a sibling file on disk if missing.
         QSvgRenderer renderer(":/icons/" + fileName);
         if (!renderer.isValid())
             renderer.load(QCoreApplication::applicationDirPath() + "/" + fileName);
         if (!renderer.isValid()) return QIcon();
-        // Supersample at 2x and smooth-downscale so the icon stays crisp at
-        // small button sizes without any blur or clipping.
-        const int hi = size * 2;
-        QPixmap pm(hi, hi);
+        // Render the vector directly at device-pixel resolution: the pixmap is
+        // sized size*dpr physical pixels but tagged with the screen DPR, so Qt
+        // blits it 1:1 at native resolution with no up/downscaling artifacts.
+        const qreal dpr = devicePixelRatioF();
+        QPixmap pm(qRound(size * dpr), qRound(size * dpr));
+        pm.setDevicePixelRatio(dpr);
         pm.fill(Qt::transparent);
         QPainter p(&pm);
         p.setRenderHint(QPainter::Antialiasing, true);
-        p.setRenderHint(QPainter::SmoothPixmapTransform, true);
-        renderer.render(&p, QRectF(0, 0, hi, hi));
+        renderer.render(&p, QRectF(0, 0, size, size));
         p.end();
-        if (hi != size)
-            pm = pm.scaled(size, size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
         return QIcon(pm);
     };
 
