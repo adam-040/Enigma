@@ -113,8 +113,8 @@ Tested on real Windows binaries:
 - [ ] Comments and bookmarks
 
 ### Knowledge and AI
-- [ ] Function Knowledge System (FKS)
-- [ ] Function fingerprint extraction
+- [x] Function Knowledge System (FKS)
+- [x] Function fingerprint extraction
 - [ ] Repository-based knowledge sharing
 - [ ] AI-assisted function naming
 - [ ] AI-assisted type inference
