@@ -380,11 +380,49 @@ non-blocking).
   **GP-6613 MATCH** (maximumInstructionLength ships in the precompiled .sla).
   **GP-5924 skipped** (debuginfod = network feature).
 
-### P6 - native pipeline (pending)
-- x86: GP-5780/6061/6675/6767/6818/6937/7015-7019 + RAO/CMPccXADD;
-  AARCH64: GP-7023/6620/7040 (blocked: no AARCH64 handler table in
-  PcodeCapstoneMapper; arm64 falls into ARM table); ARM: GP-4651/5206/6333/
-  6750/6931/7065; MIPS: GP-6697/6766/7133; PPC: GP-6914/5508.
+### P6 - native pipeline (verified 2026-08-20; all spec-level, no code delta)
+Engine pipeline facts: decompiler p-code = Capstone disassembly +
+`PcodeCapstoneMapper` (src/pcode/Sleigh.cpp oneInstruction; mapper tables
+x86/ARM/MIPS/PPC = 685 handlers, mapDefault fallback). `.sinc`/`.ldefs` for
+x86/ARM/AARCH64/MIPS/PPC verified byte-identical to the 12.1.3 distro
+(exception: x86.ldefs has intentional engine customization - a `default`
+compiler entry mapping x86-64-gcc.cspec first so native raw loads default to
+GCC conventions; all distro compiler ids retained). `.sla` = 12.1.3
+precompiled (P1-P2). So every 12.1.x processor entry is spec-level MATCH.
+
+- **x86**: GP-5780 MATCH (engine .sinc/.sla 12.1.3; Capstone decodes all
+  encodings; mapper handlers or mapDefault). GP-6061 PARTIAL documented
+  (AVX semantics are .sinc-level - synced; mapper AVX = COPY placeholders by
+  design). GP-6675 MATCH (semantics fixes live in .sinc = 12.1.3).
+  GP-6767 N/A by design (mapper models no flags; OF fix covered by .sla).
+  GP-6818 MATCH (mapper HAS gf2p8affineqb/affineinvqb/mulb handlers).
+  GP-6937 MATCH (encoding-level; Capstone decode). GP-7015 N/A documented
+  (Sleigh renders `nop` for rex xchg eax,eax; Capstone renders `xchg rax,rax`
+  - semantically equivalent, cosmetic). GP-7016 MATCH (Capstone VEX.W).
+  GP-7017 PARTIAL documented (imm masking is .sinc semantics - synced;
+  mapper PINSRW/VPEXTRB/VPEXTRD = COPY). GP-7018 MATCH (Capstone + mapCopyMov).
+  GP-7019 PARTIAL documented (pslld shift-count fix in .sinc - synced;
+  mapper pslld = COPY).
+- **RAO-INT/CMPccXADD**: NOT in the 12.1.x ChangeHistory (pre-12.0.4; out of
+  the diff window). .sinc carry them (rao.sinc/cmpccxadd.sinc present);
+  mapper has no dedicated handlers -> mapDefault (COPY/LOAD/STORE dataflow)
+  - documented.
+- **AARCH64**: GP-6620/GP-7040 MATCH spec-level (.sinc 12.1.3 identical).
+  Native-pipeline gap (pre-existing, deferred): engine Capstone path has no
+  AARCH64 support - Sleigh::initialize has no arm64 branch (archLower
+  "aarch64" does not match "arm", falls to stub mode) and DisassemblyAnalyzer
+  maps AARCH64 language IDs to "x86". GP-7023 MATCH (decompiler-side switch
+  recovery with csel - jumptable.cc merged to 12.1.3 in P1-P2).
+- **ARM**: GP-4651/5206/6333/6750/6931/7065 all spec-level MATCH (.sinc
+  12.1.3 identical; Capstone decodes encodings; mapper ldrsh/ldrsb -> LOAD
+  etc., sev/mrs/vmov variants -> mapDefault COPY - documented).
+- **MIPS**: GP-6697 MATCH spec-level (signed-offset fix in .sinc - synced).
+  GP-6766 N/A (MIPS16e movn/movz - engine native pipeline has no MIPS16e
+  mode; Capstone MIPS16 not enabled). GP-7133 MATCH (MIPS.ldefs verified
+  byte-identical to 12.1.3; variant tags default/16e/R6 present).
+- **PPC**: GP-5508 MATCH spec-level (.sinc synced; lq semantics in .sla).
+  GP-6914 MATCH spec-level (v3.0B/v3.0C instructions in .sinc - synced;
+  Capstone PPC decodes; new mnemonics -> mapDefault - documented).
 
 ### P7 - verification + docs (pending)
 - Per-fix tests (P3-P4 done), Track-1 guard (fidelity 43/43, import 87/87,
