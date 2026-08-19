@@ -222,6 +222,40 @@ public:
         }
         program->setCompilerSpecID(CompilerSpecID(guessCompilerSpecFromArch(arch_, bitness_)));
 
+        // GP-3960: Recognize Swift and golang ELF binaries from section names
+        // (mirrors ElfLoader.detectCompilerName: SwiftUtils.isSwift, GoRttiMapper.hasGolangSections)
+        if (formatName_ == "ELF") {
+            auto hasSwiftSections = [&]() {
+                for (const auto& section : sections_) {
+                    if (section.name.rfind("__swift", 0) == 0 || section.name.rfind("swift", 0) == 0 ||
+                        section.name.rfind(".sw5", 0) == 0) {
+                        return true;
+                    }
+                }
+                return false;
+            };
+            auto hasGolangSections = [&]() {
+                for (const auto& section : sections_) {
+                    if (section.name.find("gopclntab") != std::string::npos ||
+                        section.name.find("go.buildinfo") != std::string::npos ||
+                        section.name.find("go_buildinfo") != std::string::npos) {
+                        return true;
+                    }
+                }
+                return false;
+            };
+            std::string compilerName;
+            if (hasSwiftSections()) {
+                compilerName = "swift";
+            } else if (hasGolangSections()) {
+                compilerName = "golang";
+            }
+            if (!compilerName.empty()) {
+                program->setCompiler(compilerName);
+                program->setCompilerSpecID(CompilerSpecID(compilerName));
+            }
+        }
+
         AddressSpace* ramSpace = nullptr;
         for (const auto* space : addrFactory->getAddressSpaces()) {
             if (space->isMemorySpace()) {
@@ -924,6 +958,7 @@ private:
                 uint8_t info = rawData_[symOff + 12];
                 uint8_t bind = info >> 4;
                 uint8_t stype = info & 0xF;
+                uint16_t shndx = *reinterpret_cast<uint16_t*>(rawData_.data() + symOff + 14);
 
                 if (nameIdx == 0 || value == 0) continue;
 
@@ -938,7 +973,9 @@ private:
                 sym.address = value;
                 sym.size = size;
                 sym.isFunction = (stype == 2);
-                sym.isExternal = (bind == 1);
+                // GP-7057: external iff GLOBAL or WEAK binding and SHN_UNDEF section index
+                // (ElfSymbol.isExternal disregards symbol type, value and size)
+                sym.isExternal = (bind == 1 || bind == 2) && shndx == 0;
                 symbols_.push_back(sym);
             }
         }
@@ -958,7 +995,7 @@ private:
 
             uint64_t symOffset = *reinterpret_cast<uint64_t*>(rawData_.data() + secOffset + 24);
             uint64_t symSize = *reinterpret_cast<uint64_t*>(rawData_.data() + secOffset + 32);
-            uint32_t linkIdx = *reinterpret_cast<uint32_t*>(rawData_.data() + secOffset + 24);
+            uint32_t linkIdx = *reinterpret_cast<uint32_t*>(rawData_.data() + secOffset + 40);
             uint64_t entSize = *reinterpret_cast<uint64_t*>(rawData_.data() + secOffset + 56);
             if (entSize == 0) entSize = 24;
 
@@ -977,6 +1014,7 @@ private:
                 uint8_t info = rawData_[symOff + 4];
                 uint8_t bind = info >> 4;
                 uint8_t stype = info & 0xF;
+                uint16_t shndx = *reinterpret_cast<uint16_t*>(rawData_.data() + symOff + 6);
                 uint64_t value = *reinterpret_cast<uint64_t*>(rawData_.data() + symOff + 8);
                 uint64_t size = *reinterpret_cast<uint64_t*>(rawData_.data() + symOff + 16);
 
@@ -993,7 +1031,9 @@ private:
                 sym.address = value;
                 sym.size = size;
                 sym.isFunction = (stype == 2);
-                sym.isExternal = (bind == 1);
+                // GP-7057: external iff GLOBAL or WEAK binding and SHN_UNDEF section index
+                // (ElfSymbol.isExternal disregards symbol type, value and size)
+                sym.isExternal = (bind == 1 || bind == 2) && shndx == 0;
                 symbols_.push_back(sym);
             }
         }
