@@ -1,4 +1,6 @@
-<img width="1920" height="1015" alt="image" src="https://github.com/user-attachments/assets/91501029-1186-44d9-9d0a-151eb3c207eb" />
+<img width="1920" height="1016" alt="image" src="https://github.com/user-attachments/assets/37b4675f-adbf-4fb0-aeaf-f57baecb910f" />
+<img width="1920" height="1015" alt="image" src="https://github.com/user-attachments/assets/bd59ddd8-6ff2-4241-b960-f97984a1d529" />
+
 
 # Enigma Engine
 
@@ -25,7 +27,8 @@ The project is in active development. The core analysis pipeline is functional:
 - C decompiled output from real binaries
 - Type recovery with Windows API signature seeding (1400+ prototypes)
 - Custom repository-based project persistence (FlatBuffers snapshots, LMDB index, git-like commits and branches)
-- Qt-based GUI with Disassembly, Decompiler, and Hex views
+- Qt-based GUI: Disassembly, Decompiler, Hex, and inline CFG graph side-by-side with assembly
+- Centralized cross-view synchronization — navigating in any view precisely syncs Disassembly, Decompiler, and Hex to the exact matching position
 
 ---
 
@@ -46,7 +49,7 @@ Program Model         — functions, symbols, types, memory (387 headers, 119 .c
     ↓
 Storage               — FlatBuffers snapshots + LMDB index + git-like commits
     ↓
-Qt GUI                — Disassembly / Decompiler / Hex / Explorer
+Qt GUI                — Disassembly / CFG / Decompiler / Hex / Explorer
 ```
 
 ### What is original vs what is taken from Ghidra
@@ -63,13 +66,13 @@ Qt GUI                — Disassembly / Decompiler / Hex / Explorer
 
 ---
 
-## Building
+##  Building
 
 **Requirements:**
 - C++17 compiler (GCC 11+ or Clang 13+)
 - CMake 3.20+
 - Qt 6.x
-- Capstone, SQLite3, LMDB (via MSYS2/vcpkg)
+- Capstone, LMDB (via MSYS2/vcpkg)
 
 ```bash
 git clone https://github.com/adam-040/Enigma.git
@@ -94,13 +97,32 @@ Tested on real Windows binaries:
 
 ## Roadmap
 
-- [ ] LIEF integration for full PE/ELF/Mach-O parsing
-- [ ] Improve decompiler output quality (struct recovery, better type inference)
-- [ ] GUI stability and navigation
-- [ ] AI integration — function naming, type inference, pattern recognition
+### GUI
+- [x] Interactive Disassembly
+- [x] Hex view
+- [x] Decompiled C view
+- [x] Cross-view navigation
+- [x] Basic block visualization
+- [x] Control-flow arrows
+- [x] Cross-reference navigation
+- [x] Rename symbols/functions
+- [x] Binary patching
+- [ ] Function Graph
+- [x] Call Graph
+- [ ] Advanced cross-reference browser
+- [ ] Comments and bookmarks
+
+### Knowledge and AI
+- [x] Function Knowledge System (FKS)
+- [x] Function fingerprint extraction
+- [ ] Repository-based knowledge sharing
+- [ ] AI-assisted function naming
+- [ ] AI-assisted type inference
+- [ ] Pattern recognition
 
 ---
 
+
 ## License
 
-This project is separate from [Ghidra](https://github.com/NationalSecurityAgency/ghidra), licensed under **Apache License 2.0**.
+✦ This project is licensed under **the Apache License 2.0**. Third-party components used by Enigma remain subject to **their respective licenses**.
