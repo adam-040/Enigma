@@ -18,9 +18,16 @@ RegisterValue::RegisterValue() : reg_(nullptr) {}
 RegisterValue::RegisterValue(Register* reg, const std::vector<uint8_t>& value)
     : reg_(reg), value_(value) {}
 
+RegisterValue::RegisterValue(Register* reg, const std::vector<uint8_t>& value,
+                             const std::vector<uint8_t>& mask)
+    : reg_(reg), value_(value), mask_(mask) {}
+
 RegisterValue::RegisterValue(Register* reg, uint64_t value, int size)
     : reg_(reg) {
     value_.resize(size);
+    // A set value implies every byte is known-valid (Ghidra semantics);
+    // round-trips through storage keep the full mask.
+    mask_.assign(static_cast<size_t>(size), 0xFF);
     for (int i = 0; i < size; ++i) {
         value_[i] = static_cast<uint8_t>((value >> (i * 8)) & 0xFF);
     }

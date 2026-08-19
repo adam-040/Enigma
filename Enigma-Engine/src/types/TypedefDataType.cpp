@@ -15,8 +15,12 @@ TypedefDataType::TypedefDataType(const std::string& name, DataType* dt)
     : TypedefDataType(CategoryPath::ROOT(), name, dt, dt ? dt->getDataTypeManager() : nullptr) {}
 
 TypedefDataType::TypedefDataType(const CategoryPath& path, const std::string& name, DataType* dt, DataTypeManager* dtm)
+    : TypedefDataType(path, name, dt, dtm, dt && dt->getDataTypeManager() != dtm) {}
+
+TypedefDataType::TypedefDataType(const CategoryPath& path, const std::string& name, DataType* dt,
+                                 DataTypeManager* dtm, bool ownsDataType)
     : GenericDataType(path, name, dtm),
-      dataType_(dt ? dt->clone(dtm) : nullptr),
+      dataType_(dt && (ownsDataType || dt->getDataTypeManager() != dtm) ? dt->clone(dtm) : dt),
       ownsDataType_(dt && dataType_ != dt),
       isAutoNamed_(false),
       deleted_(false) {

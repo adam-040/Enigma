@@ -43,6 +43,10 @@ public:
     std::vector<Relocation> getRelocations(Address addr) override;
     int getRelocationCount() override;
     Relocation* addRelocation(Address addr, long type, const std::string& symbolName);
+    Relocation* addRelocation(Address addr, Relocation::Status status, int type,
+                              const std::vector<int64_t>& values,
+                              const std::vector<uint8_t>& bytes,
+                              const std::string& symbolName);
 
 private:
     Program* program_ = nullptr;

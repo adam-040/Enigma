@@ -64,6 +64,40 @@ Symbol* SymbolTable::createLabel(Address addr, const std::string& name, Namespac
     return raw;
 }
 
+Symbol* SymbolTable::createExternalSymbol(long id, const std::string& name, Address addr,
+                                           Namespace* ns, SourceType source, bool isFunction) {
+    if (name.empty()) {
+        throw std::invalid_argument("Symbol name cannot be empty");
+    }
+    for (char c : name) {
+        if (std::isspace(static_cast<unsigned char>(c))) {
+            throw std::invalid_argument("Symbol name cannot contain whitespace: " + name);
+        }
+    }
+    if (symbols_.count(id) > 0) {
+        Symbol* existing = symbols_[id].get();
+        if (existing->isExternal()) {
+            return existing;
+        }
+        // The requested id belongs to a non-external symbol (label ids are
+        // auto-allocated from 0 and can overlap corpus external ids): rebase
+        // instead of silently returning the unrelated symbol.
+        id = nextID_++;
+    }
+    auto sym = std::make_unique<Symbol>(name, addr, ns ? ns : globalNamespace_.get(), source,
+                                        isFunction ? SymbolType::FUNCTION : SymbolType::LABEL, id);
+    sym->setExternal(true);
+    sym->setPrimary(symbolsAtAddr_[addr.toString()].empty());
+    Symbol* raw = sym.get();
+    symbols_[id] = std::move(sym);
+    symbolsAtAddr_[addr.toString()].push_back(raw);
+    symbolsByName_[name].push_back(raw);
+    if (id >= nextID_) {
+        nextID_ = id + 1;
+    }
+    return raw;
+}
+
 bool SymbolTable::removeSymbolSpecial(Symbol* sym) {
     if (!sym) return false;
     long id = sym->getID();

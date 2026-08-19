@@ -74,9 +74,16 @@ Address Address::addNoWrap(int64_t displacement) const {
     if (displacement == 0 || !space_) return *this;
     int64_t result = offset_ + displacement;
     bool overflow = false;
+    // The max-offset bound compares as unsigned: a 64-bit space stores its
+    // max offset as -1LL (all bits set), which as a signed value would make
+    // every positive displacement look out of range.  The min bound stays
+    // signed (mins are small, often zero).
     if (displacement > 0) {
         if (result < offset_) overflow = true;
-        else if (result > space_->getMaxOffset()) overflow = true;
+        else if (static_cast<uint64_t>(result) >
+                 static_cast<uint64_t>(space_->getMaxOffset())) {
+            overflow = true;
+        }
     } else {
         if (result > offset_) overflow = true;
         else if (result < space_->getMinOffset()) overflow = true;

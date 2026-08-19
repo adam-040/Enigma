@@ -23,6 +23,7 @@
 #include <ghidra/storage/EventLog.h>
 #include <ghidra/storage/FksIndexManager.h>
 #include <ghidra/storage/FksRepository.h>
+#include <ghidra/import/GzfProgramImporter.h>
 
 class SelectionManager;
 
@@ -72,6 +73,8 @@ public slots:
     void onOpenBinary();
     void onSaveProject();
     void onOpenProject();
+    void onImportGhidraProject();
+    void onImportFinished();
     void onFunctionSelected(uint64_t addr, const QString& name);
     void onNavigateBack();
     void onNavigateForward();
@@ -156,6 +159,12 @@ private:
     void evictDecompCache();
 
     QFutureWatcher<void> analysisWatcher_;
+    QFutureWatcher<void> importWatcher_;
+    std::unique_ptr<ghidra::ProgramDB> importResult_;
+    std::string importError_;
+    std::vector<std::string> importWarnings_;
+    ghidra::GzfProgramImporter::Stats importStats_;
+    std::vector<uint8_t> importFileBytes_;
     QReadWriteLock programLock_;
     bool navBusy_ = false;        // blocking re-entrancy guard for navigateTo
     QString lastConsoleMsg_;

@@ -193,4 +193,13 @@ std::vector<Data*> Listing::getData(const AddressSetView& set) const {
     return result;
 }
 
+std::vector<Data*> Listing::getAllData() const {
+    std::vector<Data*> result;
+    result.reserve(data_.size());
+    for (const auto& pair : data_) {
+        if (pair.second) result.push_back(pair.second);
+    }
+    return result;
+}
+
 } // namespace ghidra

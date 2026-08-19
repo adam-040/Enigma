@@ -568,7 +568,7 @@ public:
     }
     const std::string& getName() const override { static std::string n = "test"; return n; }
     ghidra::DataType* getDataType(const ghidra::CategoryPath&, const std::string&) override { return nullptr; }
-    ghidra::DataType* getDataType(long) override { return nullptr; }
+    ghidra::DataType* getDataType(int64_t) override { return nullptr; }
     std::vector<ghidra::DataType*> getDataTypes() override { return {}; }
     std::vector<std::string> getDefinedCallingConventionNames() const override { return {}; }
     std::vector<std::string> getKnownCallingConventionNames() const override { return {}; }
@@ -7161,7 +7161,7 @@ int main() {
                 std::string name_ = "TestDTM";
                 const std::string& getName() const override { return name_; }
                 ghidra::DataType* getDataType(const ghidra::CategoryPath& cp, const std::string& n) override { return nullptr; }
-                ghidra::DataType* getDataType(long id) override { return nullptr; }
+                ghidra::DataType* getDataType(int64_t id) override { return nullptr; }
                 std::vector<ghidra::DataType*> getDataTypes() override { return {}; }
                 std::vector<std::string> getDefinedCallingConventionNames() const override { return {}; }
                 std::vector<std::string> getKnownCallingConventionNames() const override { return {}; }

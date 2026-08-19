@@ -55,6 +55,7 @@ public:
     std::vector<Instruction*> getInstructions(const AddressSetView& set) const;
     std::vector<Instruction*> getAllInstructions() const;
     std::vector<Data*> getData(const AddressSetView& set) const;
+    std::vector<Data*> getAllData() const;
 
     // Performance counters (reset before each analyzer)
     struct PerformanceCounters {

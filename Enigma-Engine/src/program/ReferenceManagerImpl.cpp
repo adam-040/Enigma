@@ -14,6 +14,8 @@
 #include <ghidra/ReferenceManagerImpl.h>
 #include <ghidra/MemReferenceImpl.h>
 #include <ghidra/StackReferenceImpl.h>
+#include <ghidra/ExternalManager.h>
+#include <ghidra/Program.h>
 #include <ghidra/RefType.h>
 #include <ghidra/Register.h>
 #include <ghidra/Symbol.h>
@@ -139,23 +141,57 @@ Reference* ReferenceManagerImpl::addExternalReference(Address fromAddr,
                                                        const std::string& extLabel,
                                                        Address extAddr, SourceType source,
                                                        int opIndex, const RefType* type) {
-    // Stub: external reference not yet fully implemented
-    return addMemoryReference(fromAddr, extAddr.isValid() ? extAddr : fromAddr,
-                              type ? type : &RefTypes::DATA, source, opIndex);
+    // Resolve (library, label) against the program's external manager,
+    // creating the location when the caller supplies an external address.
+    ExternalLocation* location = nullptr;
+    if (program_) {
+        if (ExternalManager* em = program_->getExternalManager()) {
+            location = em->getExternalLocation(libraryName, extLabel);
+            if (!location && extAddr.isValid()) {
+                location = em->addExternalLocation(libraryName, extLabel, extAddr);
+            }
+        }
+    }
+    if (!location) {
+        return addMemoryReference(fromAddr, extAddr.isValid() ? extAddr : fromAddr,
+                                  type ? type : &RefTypes::DATA, source, opIndex);
+    }
+    return addExternalReference(fromAddr, opIndex, location, source,
+                                type ? type : &RefTypes::DATA);
 }
 
 Reference* ReferenceManagerImpl::addExternalReference(Address fromAddr, Namespace* extNamespace,
                                                        const std::string& extLabel,
                                                        Address extAddr, SourceType source,
                                                        int opIndex, const RefType* type) {
-    return addExternalReference(fromAddr, "", extLabel, extAddr, source, opIndex, type);
+    return addExternalReference(fromAddr, extNamespace ? extNamespace->getName() : "",
+                                extLabel, extAddr, source, opIndex, type);
 }
 
 Reference* ReferenceManagerImpl::addExternalReference(Address fromAddr, int opIndex,
                                                        ExternalLocation* location,
                                                        SourceType source, const RefType* type) {
-    // Stub
-    return addMemoryReference(fromAddr, fromAddr, type ? type : &RefTypes::DATA, source, opIndex);
+    if (!location || !location->getAddress().isValid()) {
+        return nullptr;
+    }
+    Address toAddr = location->getAddress();
+    if (hasDuplicate(fromAddr, toAddr, opIndex)) {
+        ++duplicateCount_;
+        return nullptr;
+    }
+    long id = nextID_++;
+    auto ref = std::make_unique<MemReferenceImpl>(fromAddr, toAddr,
+                                                  type ? type : &RefTypes::DATA, source,
+                                                  opIndex, true, id);
+    ref->setExternal(true);
+    if (location->getSymbolID() >= 0) {
+        ref->setSymbolID(location->getSymbolID());
+    }
+    Reference* raw = ref.get();
+    references_[id] = std::move(ref);
+    refsFrom_[fromAddr.toString()].push_back(raw);
+    refsTo_[toAddr.toString()].push_back(raw);
+    return raw;
 }
 
 void ReferenceManagerImpl::removeAllReferencesFrom(Address beginAddr, Address endAddr) {
@@ -241,7 +277,7 @@ Variable* ReferenceManagerImpl::getReferencedVariable(Reference* reference) {
 
 void ReferenceManagerImpl::setPrimary(Reference* ref, bool isPrimary) {
     if (auto* memRef = dynamic_cast<MemReferenceImpl*>(ref)) {
-        // Primary flag not stored on MemReferenceImpl yet; no-op for now
+        memRef->setPrimary(isPrimary);
     }
 }
 

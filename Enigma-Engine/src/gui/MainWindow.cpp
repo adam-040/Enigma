@@ -58,6 +58,7 @@
 #include <functional>
 #include <QDialogButtonBox>
 #include <QDir>
+#include <QFile>
 #include <ghidra/Assembler.h>
 #include <ghidra/storage/Repository.h>
 #include <ghidra/patch/PatchManager.h>
@@ -71,6 +72,10 @@
 #include <ghidra/storage/BranchManager.h>
 #include <ghidra/storage/CommitManager.h>
 #include <ghidra/storage/IndexManager.h>
+#include <ghidra/import/GbfReader.h>
+#include <ghidra/import/RepProject.h>
+#include <ghidra/import/GzfProgramImporter.h>
+#include <fstream>
 
 // Try to find a writable FKS directory.  Checks ENIGMA_FKS_DIR env var first,
 // then looks for a writable `fid/index/lmdb/data.mdb` relative to the exe.
@@ -386,6 +391,10 @@ void MainWindow::createMenuBar() {
 
     auto* revertAllAct = patchMenu->addAction(tr("&Revert All Patches"));
     connect(revertAllAct, &QAction::triggered, this, &MainWindow::onRevertAllPatches);
+
+    auto* importMenu = menuBar()->addMenu(tr("&Import"));
+    auto* importGhz = importMenu->addAction(tr("&Import from Ghidra..."));
+    connect(importGhz, &QAction::triggered, this, &MainWindow::onImportGhidraProject);
 
     menuBar()->addMenu(tr("&Help"));
 }
@@ -1184,6 +1193,202 @@ void MainWindow::onOpenProject() {
         .arg(QString::fromStdString(program_->getName()))
         .arg(dir));
     console_->log("Project loaded from: " + dir);
+}
+
+void MainWindow::onImportGhidraProject() {
+    if (importWatcher_.isRunning()) {
+        console_->log("Ghidra import already in progress.");
+        return;
+    }
+    const QStringList kinds = {tr("Exploded .rep directory"),
+                               tr(".gzf archive / .gbf database")};
+    bool ok = false;
+    const QString kind = QInputDialog::getItem(this, tr("Import Ghidra Project"),
+                                               tr("Source type:"), kinds, 0, false, &ok);
+    if (!ok) return;
+
+    QString path;
+    if (kind == kinds[0]) {
+        path = QFileDialog::getExistingDirectory(this, tr("Select Ghidra Project Directory"));
+    } else {
+        path = QFileDialog::getOpenFileName(this, tr("Import Ghidra Project"),
+            QString(), tr("Ghidra Project (*.gzf *.gbf);;All Files (*)"));
+    }
+    if (path.isEmpty()) return;
+
+    std::string programName;
+    std::vector<uint8_t> dbBytes;
+    try {
+        const std::string src = path.toStdString();
+        if (path.endsWith(".gbf", Qt::CaseInsensitive)) {
+            std::ifstream f(src, std::ios::binary);
+            if (!f) {
+                QMessageBox::warning(this, tr("Error"), tr("Failed to open:\n") + path);
+                return;
+            }
+            dbBytes.assign(std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>());
+            programName = QFileInfo(path).baseName().toStdString();
+        } else {
+            ghidra::RepProject proj(src);
+            const auto& progs = proj.programs();
+            if (progs.empty()) {
+                QMessageBox::warning(this, tr("Error"),
+                    tr("No programs found in:\n") + path);
+                return;
+            }
+            size_t index = 0;
+            if (progs.size() > 1) {
+                QStringList names;
+                for (const auto& p : progs) names << QString::fromStdString(p.name);
+                bool chosen = false;
+                const QString name = QInputDialog::getItem(this, tr("Select Program"),
+                    tr("Project contains %1 programs:").arg(progs.size()),
+                    names, 0, false, &chosen);
+                if (!chosen) return;
+                index = static_cast<size_t>(names.indexOf(name));
+            }
+            programName = progs[index].name;
+            dbBytes = proj.getDatabaseBytes(progs[index]);
+        }
+    } catch (const std::exception& e) {
+        QMessageBox::warning(this, tr("Error"),
+            tr("Failed to open Ghidra project:\n%1").arg(QString::fromStdString(e.what())));
+        return;
+    }
+    if (dbBytes.empty()) {
+        QMessageBox::warning(this, tr("Error"),
+            tr("The selected project contains no readable database."));
+        return;
+    }
+
+    console_->log("> Importing Ghidra project: " + QString::fromStdString(programName) + " ...");
+    QApplication::processEvents();
+
+    importResult_.reset();
+    importError_.clear();
+    importWarnings_.clear();
+    importFileBytes_.clear();
+    auto future = QtConcurrent::run(
+        [this, bytes = std::move(dbBytes), name = std::move(programName)]() {
+            try {
+                auto reader = ghidra::GbfReader::fromMemory(std::move(bytes));
+                if (!reader) {
+                    importError_ = "failed to parse the .gbf database";
+                    return;
+                }
+                ghidra::GzfProgramImporter importer(*reader);
+                auto prog = importer.import(name);
+                importStats_ = importer.getStats();
+                importWarnings_ = importer.getWarnings();
+                importFileBytes_ = importer.getOriginalFileBytes();
+                importResult_ = std::move(prog);
+            } catch (const std::exception& e) {
+                importError_ = e.what();
+            } catch (...) {
+                importError_ = "unknown error during import";
+            }
+        });
+    importWatcher_.setFuture(future);
+    disconnect(&importWatcher_, &QFutureWatcher<void>::finished,
+               this, &MainWindow::onImportFinished);
+    connect(&importWatcher_, &QFutureWatcher<void>::finished,
+            this, &MainWindow::onImportFinished);
+}
+
+void MainWindow::onImportFinished() {
+    if (!importResult_) {
+        console_->log(QString("Ghidra import failed: %1")
+                          .arg(QString::fromStdString(importError_)));
+        QMessageBox::warning(this, tr("Error"),
+            tr("Ghidra import failed:\n%1").arg(QString::fromStdString(importError_)));
+        return;
+    }
+
+    if (analysisWatcher_.isRunning()) analysisWatcher_.waitForFinished();
+    analysisMgr_.reset();
+    decompCache_.clear();
+    backStack_.clear();
+    forwardStack_.clear();
+    currentFunction_ = nullptr;
+    currentAddr_ = 0;
+    eventLog_.clear();
+    ++programVersion_;
+
+    // Release PatchMemory ownership from PatchManager before destroying the
+    // old program (same ordering as loadBinary; avoids a double-free).
+    patchManager_->releasePatchMemory();
+    binaryLoader_.reset();
+    program_.reset(importResult_.release());
+    patchManager_->setProgram(program_.get());
+
+    // Rebuild an export-capable loader from the original file bytes stored
+    // in the Ghidra project ("File Bytes" table), so "Export Patched
+    // Binary..." works on imported programs.  Formats the engine loader does
+    // not support (non-PE) simply keep export disabled.
+    if (!importFileBytes_.empty()) {
+        QFile tmp(QDir::temp().filePath("enigma_import_original.bin"));
+        if (tmp.open(QIODevice::WriteOnly)) {
+            tmp.write(reinterpret_cast<const char*>(importFileBytes_.data()),
+                      static_cast<qint64>(importFileBytes_.size()));
+            tmp.close();
+            auto loader = ghidra::createLoader();
+            if (loader->load(tmp.fileName().toStdString())) {
+                binaryLoader_ = std::move(loader);
+            }
+        }
+    }
+    importFileBytes_.clear();
+    patchManager_->setBinaryLoader(binaryLoader_.get());
+    patchManager_->installPatchMemory(program_.get());
+    patchManager_->patchMemory()->setOnBytesChanged(
+        [this](uint64_t, uint64_t) {
+            if (hexView_ && hexView_->isVisible())
+                hexView_->viewport()->update();
+        });
+    hexView_->setPatchMemory(patchManager_->patchMemory());
+
+    decompInterface_->closeProgram();
+    disasmView_->setProgram(program_.get());
+    disasmView_->setDecompInterface(decompInterface_.get());
+    if (!decompInterface_->openProgram(program_.get())) {
+        QMessageBox::warning(this, tr("Error"),
+            tr("Failed to open imported program in decompiler."));
+        program_.reset();
+        return;
+    }
+
+    currentBinaryPath_.clear();
+    repoPath_.clear();
+    binaryLanguageId_ = program_->getLanguageID().toString();
+    binaryCompilerSpecId_ = program_->getCompilerSpecID().toString();
+    binaryImageBase_ = static_cast<uint64_t>(program_->getImageBase().getOffset());
+
+    try {
+        populateExplorer();
+    } catch (...) {
+        console_->log("populateExplorer error during import");
+    }
+    hexView_->buildFullHex(program_.get(), currentBinaryPath_);
+    runAnalysisAsync();
+    if (addressMinimap_) {
+        addressMinimap_->setData(program_->getMemory(), program_->getFunctionManager(),
+                                 patchManager_.get());
+        updateMinimapViewport();
+    }
+
+    setWindowTitle(tr("Enigma Engine \u2014 %1 [Ghidra import]")
+        .arg(QString::fromStdString(program_->getName())));
+
+    console_->log(QString("Ghidra project imported: %1 \u2014 %2 instructions, %3 functions")
+        .arg(QString::fromStdString(program_->getName()))
+        .arg(importStats_.instructions)
+        .arg(importStats_.functions));
+    if (!importWarnings_.empty()) {
+        console_->log(QString("Import warnings (%1):").arg(importWarnings_.size()));
+        for (const auto& w : importWarnings_) {
+            console_->log("  " + QString::fromStdString(w));
+        }
+    }
 }
 
 void MainWindow::loadBinary(const QString& path) {
@@ -2854,7 +3059,20 @@ void MainWindow::onExportPatchedBinary() {
     if (patchManager_->exportPatchedBinary(path.toStdString())) {
         console_->log("Patched binary exported to: " + path);
     } else {
-        console_->log("Failed to export patched binary.");
+        const auto& skipped = patchManager_->lastSkippedPatchAddresses();
+        if (!skipped.empty()) {
+            QString msg = "Export failed: patch address(es) outside the loaded binary:";
+            for (uint64_t a : skipped) {
+                msg += QString(" 0x%1").arg(a, 0, 16);
+            }
+            console_->log(msg);
+            QMessageBox::warning(this, tr("Export Failed"),
+                                 tr("The following patch address(es) do not map into the "
+                                    "binary being exported, so no file was written:\n%1")
+                                     .arg(msg));
+        } else {
+            console_->log("Failed to export patched binary.");
+        }
     }
 }
 

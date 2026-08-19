@@ -42,6 +42,9 @@ PointerType PointerTypeSettingsDefinition::getType(const Settings* settings) con
 }
 
 void PointerTypeSettingsDefinition::setType(Settings* settings, PointerType type) {
+    if (settings == nullptr) {
+        return;  // no settings container to store the choice in
+    }
     if (type == PointerType::DEFAULT) {
         settings->clearSetting(ptrTypeStorageKey);
     } else {

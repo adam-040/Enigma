@@ -47,6 +47,13 @@ public:
 
     void clearAll();
 
+    /** Takes ownership of a register referenced by stored context values. */
+    Register* addOwnedRegister(std::unique_ptr<Register> reg) {
+        Register* raw = reg.get();
+        ownedRegisters_.push_back(std::move(reg));
+        return raw;
+    }
+
     struct RangeKey {
         Register* reg;
         Address start;
@@ -77,6 +84,7 @@ private:
     std::unordered_map<RangeKey, RegisterValue*, RangeKeyHash> regValues_;
     std::unordered_map<RangeKey, RegisterValue*, RangeKeyHash> defaultValues_;
     std::vector<std::unique_ptr<RegisterValue>> ownedRegisterValues_;
+    std::vector<std::unique_ptr<Register>> ownedRegisters_;
 };
 
 } // namespace ghidra

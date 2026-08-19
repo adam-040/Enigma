@@ -21,10 +21,16 @@ class RegisterValue {
 public:
     RegisterValue();
     RegisterValue(Register* reg, const std::vector<uint8_t>& value);
+    RegisterValue(Register* reg, const std::vector<uint8_t>& value,
+                  const std::vector<uint8_t>& mask);
     RegisterValue(Register* reg, uint64_t value, int size);
 
     Register* getRegister() const { return reg_; }
     const std::vector<uint8_t>& getValue() const { return value_; }
+
+    /** Bit validity mask (same byte order as the value); empty when unset. */
+    const std::vector<uint8_t>& getMask() const { return mask_; }
+
     uint64_t getUnsignedOffset() const;
     int64_t getSignedOffset() const;
     bool isBigEndian() const { return bigEndian_; }
@@ -33,6 +39,7 @@ public:
 private:
     Register* reg_ = nullptr;
     std::vector<uint8_t> value_;
+    std::vector<uint8_t> mask_;
     bool bigEndian_ = false;
 };
 

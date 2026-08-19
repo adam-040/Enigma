@@ -34,7 +34,7 @@ public:
     void setName(const std::string& name) override;
 
     DataType* getDataType(const CategoryPath& categoryPath, const std::string& name) override;
-    DataType* getDataType(long id) override;
+    DataType* getDataType(int64_t id) override;
     DataType* getDataType(const std::string& dataTypePath) override;
 
     std::vector<DataType*> getDataTypes() override;

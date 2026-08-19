@@ -52,4 +52,13 @@ Relocation* RelocationTableImpl::addRelocation(Address addr, long type, const st
     return &added;
 }
 
+Relocation* RelocationTableImpl::addRelocation(Address addr, Relocation::Status status, int type,
+    const std::vector<int64_t>& values, const std::vector<uint8_t>& bytes,
+    const std::string& symbolName) {
+    relocations_.emplace_back(addr, status, type, values, bytes, symbolName);
+    auto& added = relocations_.back();
+    relocationsByAddr_[addr.toString()].push_back(&added);
+    return &added;
+}
+
 } // namespace ghidra

@@ -44,9 +44,14 @@ public:
     ExternalLocation* addExternalLocation(const std::string& libraryName,
                                            const std::string& label, Address addr) override;
 
-    ExternalLocation* getExternalLocation(const std::string& libraryName,
-                                           const std::string& label) override;
+    ExternalLocation* addExternalLocation(const std::string& libraryName,
+                                           const std::string& label, Address addr,
+                                           long symbolID, const std::string& originalImportName,
+                                           bool isFunction) override;
 
+ExternalLocation* getExternalLocation(const std::string& libraryName,
+                                          const std::string& label) override;
+    ExternalLocation* getExternalLocation(const Address& addr) override;
     ExternalLocation* getExternalLocation(Symbol* s) override;
 
     std::vector<ExternalLocation*> getExternalLocations() override;
@@ -55,6 +60,8 @@ public:
 
     int getExternalLocationCount() override { return static_cast<int>(locations_.size()); }
 
+    Library* addExternalLibrary(const std::string& name,
+                                const std::string& associatedPath) override;
     Library* getExternalLibrary(const std::string& name) override;
     std::vector<Library*> getLibraries() override;
 

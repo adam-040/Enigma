@@ -25,6 +25,7 @@
 #include <ghidra/Register.h>
 #include <ghidra/SymbolTable.h>
 #include <ghidra/UniversalID.h>
+#include <map>
 #include <string>
 #include <vector>
 #include <memory>
@@ -124,6 +125,10 @@ public:
 
     virtual TreeManager* getTreeManager() const { return nullptr; }
 
+    // Program metadata key/value pairs (ghidra ProgramMetadataManager).
+    virtual const std::map<std::string, std::string>& getMetadata() const { return metadata_; }
+    void setMetadata(const std::string& key, const std::string& value) { metadata_[key] = value; }
+
     virtual Namespace* getGlobalNamespace() const { return globalNamespace_.get(); }
 
     int getDefaultPointerSize() const;
@@ -196,6 +201,7 @@ private:
     std::unique_ptr<Namespace> globalNamespace_;
     std::string compiler_;
     CategoryPath preferredRootCategory_;
+    std::map<std::string, std::string> metadata_;
     std::string executablePath_;
     std::string executableFormat_;
     std::string executableMD5_;

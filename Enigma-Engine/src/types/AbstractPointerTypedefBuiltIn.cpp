@@ -23,14 +23,16 @@ AbstractPointerTypedefBuiltIn::AbstractPointerTypedefBuiltIn(const std::string& 
     : BuiltIn(referencedDataType ? referencedDataType->getCategoryPath() : CategoryPath::ROOT(),
               tempNameIfNeeded(name), dtm) {
     setTypedefName(name);
-    modelTypedef_ = new TypedefDataType("TEMP", new PointerDataType(referencedDataType, pointerSize, dtm));
+    modelTypedef_ = new TypedefDataType(CategoryPath::ROOT(), "TEMP",
+        new PointerDataType(referencedDataType, pointerSize, dtm), dtm, true);
 }
 
 AbstractPointerTypedefBuiltIn::AbstractPointerTypedefBuiltIn(const std::string& name,
         Pointer* pointerDataType, DataTypeManager* dtm)
     : BuiltIn(pointerDataType->getCategoryPath(), tempNameIfNeeded(name), dtm) {
     setTypedefName(name);
-    modelTypedef_ = new TypedefDataType("TEMP", pointerDataType->clone(dtm));
+    modelTypedef_ = new TypedefDataType(CategoryPath::ROOT(), "TEMP",
+        pointerDataType->clone(dtm), dtm, true);
 }
 
 AbstractPointerTypedefBuiltIn::~AbstractPointerTypedefBuiltIn() {

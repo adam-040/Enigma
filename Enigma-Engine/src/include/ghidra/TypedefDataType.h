@@ -28,6 +28,12 @@ public:
 
     TypedefDataType(const CategoryPath& path, const std::string& name, DataType* dt, DataTypeManager* dtm = nullptr);
 
+    /// Constructor with explicit base ownership.  Used by builtin typedef
+    /// models (PointerTypedef, AbstractPointerTypedefBuiltIn) that hand a
+    /// freshly created internal base to the typedef.
+    TypedefDataType(const CategoryPath& path, const std::string& name, DataType* dt,
+                    DataTypeManager* dtm, bool ownsDataType);
+
     ~TypedefDataType() override;
 
     void enableAutoNaming() override;

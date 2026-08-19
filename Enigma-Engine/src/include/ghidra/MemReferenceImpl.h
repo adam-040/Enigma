@@ -39,9 +39,9 @@ public:
     bool isMnemonicReference() const override { return !isOperandReference(); }
     bool isOperandReference() const override { return operandIndex_ >= 0; }
     bool isStackReference() const override { return false; }
-    bool isExternalReference() const override { return false; }
+    bool isExternalReference() const override { return isExternal_; }
     bool isEntryPointReference() const override { return false; }
-    bool isMemoryReference() const override { return true; }
+    bool isMemoryReference() const override { return !isExternal_; }
     bool isRegisterReference() const override { return false; }
     bool isOffsetReference() const override { return false; }
     bool isShiftedReference() const override { return false; }
@@ -56,6 +56,9 @@ public:
     bool operator!=(const Reference& other) const override;
 
     void setSource(SourceType source) { source_ = source; }
+    void setPrimary(bool isPrimary) { isPrimary_ = isPrimary; }
+    void setSymbolID(long symbolID) { symbolID_ = symbolID; }
+    void setExternal(bool isExternal) { isExternal_ = isExternal; }
 
 private:
     Address fromAddr_;
@@ -65,6 +68,7 @@ private:
     SourceType source_ = SourceType::DEFAULT;
     long symbolID_ = -1;
     bool isPrimary_ = true;
+    bool isExternal_ = false;
     long id_ = -1;
 };
 

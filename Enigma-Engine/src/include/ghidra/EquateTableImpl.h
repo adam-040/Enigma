@@ -54,6 +54,9 @@ public:
 
     int getEquateCount() override { return static_cast<int>(equates_.size()); }
 
+    bool addReference(Equate* equate, const Address& addr, int opndPosition) override;
+    std::vector<Binding> getAllBindings() override;
+
     Equate* getEquate(const Address& addr, int opndPosition, int64_t value) override;
     std::vector<Equate*> getEquates(const Address& addr, int opndPosition) override;
     std::vector<Equate*> getEquates(const Address& addr) override;

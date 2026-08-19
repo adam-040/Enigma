@@ -45,6 +45,11 @@ public:
 
     Symbol* createLabel(Address addr, const std::string& name, SourceType source);
     Symbol* createLabel(Address addr, const std::string& name, Namespace* ns, SourceType source);
+    /// Creates an external symbol (address in the external address space,
+    /// parent namespace is a library).  Uses the given symbol id so original
+    /// database ids are preserved.
+    Symbol* createExternalSymbol(long id, const std::string& name, Address addr, Namespace* ns,
+                                 SourceType source, bool isFunction);
     bool removeSymbolSpecial(Symbol* sym);
 
     Symbol* getSymbol(long symbolID) const;

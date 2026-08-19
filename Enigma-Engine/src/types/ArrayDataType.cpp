@@ -73,6 +73,13 @@ int ArrayDataType::getAlignedLength() const {
     return getLength();
 }
 
+void ArrayDataType::setElementLength(int elementLength) {
+    if (elementLength <= 0) {
+        return;
+    }
+    elementLength_ = elementLength;
+}
+
 std::string ArrayDataType::getDescription() const {
     return "Array of " + dataType_->getDisplayName();
 }

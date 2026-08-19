@@ -54,7 +54,10 @@ public:
 
     virtual const std::string& getName() const = 0;
     virtual DataType* getDataType(const CategoryPath& categoryPath, const std::string& name) = 0;
-    virtual DataType* getDataType(long id) = 0;
+    // Datatype ids are 64-bit: composite/typedef/pointer/array/enum/function
+    // ids carry a 2^56 type tag plus an ordinal (Ghidra DataTypeDB ids), which
+    // does not fit in a 32-bit long.
+    virtual DataType* getDataType(int64_t id) = 0;
     virtual std::vector<DataType*> getDataTypes() = 0;
     virtual std::vector<std::string> getDefinedCallingConventionNames() const = 0;
     virtual std::vector<std::string> getKnownCallingConventionNames() const = 0;

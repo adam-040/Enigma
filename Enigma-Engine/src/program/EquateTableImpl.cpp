@@ -116,6 +116,28 @@ Equate* EquateTableImpl::createEquate(const std::string& name, int64_t value,
     return e;
 }
 
+bool EquateTableImpl::addReference(Equate* equate, const Address& addr, int opndPosition) {
+    if (equate == nullptr) return false;
+    auto& refs = opndRefs_[makeKey(addr, opndPosition)];
+    for (Equate* e : refs) {
+        if (e == equate) return true;
+    }
+    refs.push_back(equate);
+    return true;
+}
+
+std::vector<EquateTable::Binding> EquateTableImpl::getAllBindings() {
+    std::vector<Binding> out;
+    for (const auto& kv : opndRefs_) {
+        const uint64_t off = kv.first >> 8;
+        const int16_t opnd = static_cast<int16_t>(kv.first & 0xff);
+        for (Equate* e : kv.second) {
+            out.push_back(Binding{e, off, opnd});
+        }
+    }
+    return out;
+}
+
 EquateTableImpl::OpndKey EquateTableImpl::makeKey(const Address& addr, int opnd) {
     uint64_t off = static_cast<uint64_t>(addr.getOffset());
     return (off << 8) | (static_cast<uint64_t>(opnd) & 0xff);

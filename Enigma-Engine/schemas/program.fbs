@@ -25,6 +25,10 @@ table CodeUnit {
     unit_type: string;
     data_type_name: string;
     flow_override: string;
+    // --- appended (schema v1 additions; all optional) ---
+    mnemonic: string;
+    data_type_id: ulong = 0;
+    data_length: int = 0;
 }
 
 table FunctionRecord {
@@ -42,6 +46,10 @@ table FunctionRecord {
     signature_source: ubyte = 0;
     comment: string;
     params: [ParamRecord];
+    // --- appended ---
+    thunk: bool = false;
+    thunked_function: ulong = 0;
+    locals: [LocalVarRecord];
 }
 
 table ParamRecord {
@@ -49,6 +57,17 @@ table ParamRecord {
     data_type_name: string;
     data_type_id: ulong = 0;
     ordinal: int = -1;
+    // --- appended ---
+    // Compact storage form: "u" | "reg:<offset>:<size>" |
+    // "stack:<signedOffset>:<size>" | "mem:<offset>:<size>".
+    storage: string;
+}
+
+table LocalVarRecord {
+    name: string;
+    data_type_id: ulong = 0;
+    first_use_offset: int = 0;
+    storage: string;
 }
 
 table SymbolRecord {
@@ -57,6 +76,7 @@ table SymbolRecord {
     address: ulong;
     symbol_type: string;
     is_primary: bool = false;
+    symbol_source: int = 0;
 }
 
 table CommentRecord {
@@ -70,17 +90,35 @@ table ReferenceRecord {
     to_address: ulong;
     ref_type: string;
     is_primary: bool = false;
+    // --- appended ---
+    op_index: int = -1;
+    ref_type_code: byte = 0;
+    source: byte = 0;
+    kind: byte = 0;             // 0=memory 1=stack 2=register 3=external
+    to_space: string;           // register / EXTERNAL
+    stack_offset: int = 0;
+    external_library: string;
+    external_label: string;
 }
 
 table StructField {
     name: string;
     offset: int;
     data_type_id: ulong;
+    // --- appended ---
+    size: int = 0;
+    comment: string;
+    bit_offset: int = -1;
+    bit_size: int = -1;
+    bit_base_id: ulong = 0;
+    byte_width: int = 0;
 }
 
 table EnumValue {
     name: string;
     value: long;
+    // --- appended ---
+    comment: string;
 }
 
 table DataTypeRecord {
@@ -100,6 +138,15 @@ table DataTypeRecord {
     array_element_count: int = 0;
     // Typedef base type ID
     typedef_base_id: ulong = 0;
+    // --- appended ---
+    pack: int = -1;
+    min_alignment: int = 0;
+    // True for unregistered helper types the writer materialized inline
+    // (e.g. a typedef's internal pointer base).  The reader rebuilds them
+    // for reference resolution but must not list them as program types.
+    inline_materialized: bool = false;
+    // Function definitions: trailing varargs ("...") marker.
+    funcdef_varargs: bool = false;
 }
 
 table BookmarkRecord {
@@ -128,6 +175,10 @@ table RelocationRecord {
     type: string;
     value: long;
     bytes: [ubyte];
+    // --- appended ---
+    status: byte = 0;
+    values: [long];
+    symbol_name: string;
 }
 
 table SourceMapEntryRecord {
@@ -152,6 +203,64 @@ table ProgramContextRecord {
     register_name: string;
     address: ulong;
     value: string;
+    // --- appended ---
+    end_address: ulong = 0;
+    mask: [ubyte];
+    is_default: bool = false;
+}
+
+table MetadataRecord {
+    key: string;
+    value: string;
+}
+
+table TreeRecord {
+    name: string;
+    modification_number: ulong;
+}
+
+table TreeModuleRecord {
+    tree_name: string;
+    id: long;
+    name: string;
+    comment: string;
+}
+
+table TreeFragmentRecord {
+    tree_name: string;
+    id: long;
+    name: string;
+    comment: string;
+}
+
+table TreeRelationshipRecord {
+    tree_name: string;
+    parent_id: long;
+    child_id: long;
+    child_index: int;
+}
+
+table TreeFragmentRangeRecord {
+    tree_name: string;
+    fragment_id: long;
+    start: ulong;
+    end: ulong;
+}
+
+table CallingConventionRecord {
+    name: string;
+}
+
+table SizeAlignmentEntry {
+    size: int;
+    alignment: int;
+}
+
+table DataOrgRecord {
+    pointer_size: int = 8;
+    machine_alignment: int = 8;
+    use_ms_convention: bool = false;
+    size_alignments: [SizeAlignmentEntry];
 }
 
 table ProgramSnapshot {
@@ -169,6 +278,7 @@ table ProgramSnapshot {
     memory_blocks: [MemoryBlock];
     code_units: [CodeUnit];
     functions: [FunctionRecord];
+    calling_conventions: [CallingConventionRecord];
     symbols: [SymbolRecord];
     comments: [CommentRecord];
     references: [ReferenceRecord];
@@ -181,6 +291,20 @@ table ProgramSnapshot {
     function_tags: [FunctionTagRecord];
     user_properties: [PropertyRecord];
     program_context: [ProgramContextRecord];
+    // --- appended ---
+    metadata: [MetadataRecord];
+    trees: [TreeRecord];
+    tree_modules: [TreeModuleRecord];
+    tree_fragments: [TreeFragmentRecord];
+    tree_relationships: [TreeRelationshipRecord];
+    tree_fragment_ranges: [TreeFragmentRangeRecord];
+    // --- appended (P3j) ---
+    entry_points: [ulong];
+    // All registered source files (files with no map entries included).
+    source_files: [string];
+    // Data organization settings (pointer size, machine alignment, MS
+    // bitfield convention, size-alignment table).
+    data_org: DataOrgRecord;
 }
 
 root_type ProgramSnapshot;

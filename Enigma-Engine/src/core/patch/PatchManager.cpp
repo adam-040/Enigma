@@ -532,6 +532,7 @@ void PatchManager::disableGroup(const std::string& gid) {
 bool PatchManager::exportPatchedBinary(const std::string& outputPath) {
     if (!loader_ || !program_) return false;
 
+    lastSkippedPatchAddresses_.clear();
     std::vector<uint8_t> output = loader_->getRawDataCopy();
     bool anySkipped = false;
 
@@ -546,6 +547,7 @@ bool PatchManager::exportPatchedBinary(const std::string& outputPath) {
         uint64_t fileOffset = loader_->virtualAddressToFileOffset(addr);
         if (fileOffset == UINT64_MAX || fileOffset + bytes.size() > output.size()) {
             anySkipped = true;
+            lastSkippedPatchAddresses_.push_back(addr);
             return;
         }
         std::copy(bytes.begin(), bytes.end(), output.begin() + static_cast<ptrdiff_t>(fileOffset));
@@ -557,6 +559,7 @@ bool PatchManager::exportPatchedBinary(const std::string& outputPath) {
             uint64_t caveOff = loader_->virtualAddressToFileOffset(caveAddr);
             if (caveOff == UINT64_MAX || caveOff + caveBytes.size() > output.size()) {
                 anySkipped = true;
+                lastSkippedPatchAddresses_.push_back(caveAddr);
                 continue;
             }
             std::copy(caveBytes.begin(), caveBytes.end(),
@@ -566,6 +569,12 @@ bool PatchManager::exportPatchedBinary(const std::string& outputPath) {
 
     for (const auto* patch : bytePatches) writePatch(patch);
     for (const auto* patch : instrPatches) writePatch(patch);
+
+    // Never export a partially-patched file: if any patch (or trampoline
+    // cave write) could not be mapped into the output binary, fail without
+    // writing anything so the skip is visible (see lastSkippedPatchAddresses)
+    // instead of silently producing a stale binary.
+    if (anySkipped) return false;
 
     // Collect relocation entries from all active patches (absolute address references)
     std::vector<std::pair<uint64_t, uint64_t>> allRelocEntries;
@@ -590,7 +599,7 @@ bool PatchManager::exportPatchedBinary(const std::string& outputPath) {
     if (!out.is_open()) return false;
     out.write(reinterpret_cast<const char*>(output.data()),
               static_cast<std::streamsize>(output.size()));
-    return bool(out) && !anySkipped;
+    return bool(out);
 }
 
 std::vector<ConflictInfo> PatchManager::findConflicts(const Patch& candidate) const {

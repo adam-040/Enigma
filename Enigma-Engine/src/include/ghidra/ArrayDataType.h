@@ -44,6 +44,8 @@ public:
 
     int getAlignedLength() const override;
 
+    void setElementLength(int elementLength);
+
     std::string getDescription() const override;
 
     DataType* getDataType() const override;

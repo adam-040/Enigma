@@ -58,6 +58,9 @@ public:
     const std::string& getPostComment() const { return postComment_; }
     void setPostComment(const std::string& c) { postComment_ = c; }
 
+    const std::string& getRepeatableComment() const { return repeatableComment_; }
+    void setRepeatableComment(const std::string& c) { repeatableComment_ = c; }
+
     const std::vector<Reference*>& getReferencesFrom() const { return referencesFrom_; }
     void addReferenceFrom(Reference* ref) { referencesFrom_.push_back(ref); }
 
@@ -76,6 +79,7 @@ protected:
     std::string plateComment_;
     std::string preComment_;
     std::string postComment_;
+    std::string repeatableComment_;
     std::vector<Reference*> referencesFrom_;
     std::vector<Reference*> referencesTo_;
 };

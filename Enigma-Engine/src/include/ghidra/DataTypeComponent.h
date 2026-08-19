@@ -15,6 +15,8 @@
 #include <sstream>
 #include <iomanip>
 #include "DataType.h"
+#include "ArrayDataType.h"
+#include "TypedefDataType.h"
 
 namespace ghidra {
 
@@ -74,9 +76,14 @@ public:
 
     static bool usesZeroLengthComponent(DataType* dataType) {
         if (!dataType) return false;
-        if (dataType->isZeroLength()) {
-            // Simplified for now, since we don't have TypeDef or Array yet
-            return !dataType->isNotYetDefined();
+        // Only zero-length arrays (flexible-array members) and typedefs of
+        // them are zero-length components; empty composites keep their
+        // recorded member length (Ghidra semantics).
+        if (auto* arr = dynamic_cast<ArrayDataType*>(dataType)) {
+            return arr->isZeroLength();
+        }
+        if (auto* td = dynamic_cast<TypedefDataType*>(dataType)) {
+            return usesZeroLengthComponent(td->getBaseDataType());
         }
         return false;
     }

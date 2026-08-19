@@ -29,9 +29,9 @@ void ModuleDB::setName(const std::string& name) {
     moduleMgr_->unregisterName(name_);
     name_ = name;
     moduleMgr_->registerName(name_);
-    if (key_ == 0) {
-        moduleMgr_->setTreeName(name);
-    }
+    // The tree name is independent of the root module name (Ghidra keeps the
+    // tree "Program Tree" while the root module carries the program name);
+    // renaming the root must not rename the whole tree.
     moduleMgr_->incrementModificationNumber();
 }
 

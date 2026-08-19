@@ -25,7 +25,8 @@ static std::string tempNameIfNeeded(const std::string& baseName) {
 
 void PointerTypedef::init(const std::string& typeDefName, DataType* baseType) {
     isAutoNamed_ = typeDefName.empty();
-    modelTypedef_ = new TypedefDataType("TEMP", baseType);
+    modelTypedef_ = new TypedefDataType(CategoryPath::ROOT(), "TEMP", baseType,
+                                        baseType->getDataTypeManager(), true);
 }
 
 PointerTypedef::PointerTypedef(const std::string& typeDefName, DataType* referencedDataType,

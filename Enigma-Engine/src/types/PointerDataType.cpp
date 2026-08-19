@@ -44,8 +44,7 @@ PointerDataType::PointerDataType(DataType* referencedDataType, int length, DataT
       referencedDataType_(referencedDataType),
       length_(length <= 0 ? -1 : length),
       ownsReferencedDataType_(ownsReferencedDataType),
-      deleted_(false) {
-}
+      deleted_(false) {}
 
 PointerDataType::~PointerDataType() {
     if (ownsReferencedDataType_) {

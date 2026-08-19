@@ -64,6 +64,12 @@ public:
     // Export
     bool exportPatchedBinary(const std::string& outputPath);
 
+    /// Patch addresses that could not be mapped to the output file during
+    /// the last export attempt (export returns false when non-empty).
+    const std::vector<uint64_t>& lastSkippedPatchAddresses() const {
+        return lastSkippedPatchAddresses_;
+    }
+
     // JSON persistence (byte-level patches: BytePatch/NopFillPatch/InstructionPatch)
     bool saveToJson(const std::string& path) const;
     bool loadFromJson(const std::string& path);
@@ -115,6 +121,9 @@ private:
     std::vector<std::string> redoStack_;
     void pushUndo(const std::string& id);
     void clearRedo();
+
+    /// Addresses skipped by the last export (see lastSkippedPatchAddresses).
+    std::vector<uint64_t> lastSkippedPatchAddresses_;
 
     bool doApplyPatch(Patch& patch);
     bool doRevertPatch(Patch& patch);

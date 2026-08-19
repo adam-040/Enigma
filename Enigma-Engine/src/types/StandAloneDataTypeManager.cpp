@@ -243,7 +243,7 @@ DataType* StandAloneDataTypeManager::getDataType(const CategoryPath& categoryPat
     return findDataType(categoryPath, name);
 }
 
-DataType* StandAloneDataTypeManager::getDataType(long id) {
+DataType* StandAloneDataTypeManager::getDataType(int64_t id) {
     auto it = dataTypeById_.find(id);
     return it != dataTypeById_.end() ? it->second : nullptr;
 }

@@ -43,11 +43,24 @@ class EquateTable {
 public:
     virtual ~EquateTable() = default;
 
+    /// One operand reference binding of an equate to (address, operand).
+    struct Binding {
+        Equate* equate = nullptr;
+        uint64_t addressOffset = 0;
+        int16_t opIndex = 0;
+    };
+
     virtual Equate* createEquate(const std::string& name, int64_t value) = 0;
     virtual Equate* getEquate(const std::string& name) = 0;
     virtual Equate* getEquate(int64_t value) = 0;
     virtual std::vector<Equate*> getEquates() = 0;
     virtual int getEquateCount() = 0;
+
+    /// Binds an existing equate to an operand reference. Returns false when
+    /// the equate is null.
+    virtual bool addReference(Equate* equate, const Address& addr, int opndPosition) = 0;
+    /// All (equate, address, operand) bindings, one entry per reference.
+    virtual std::vector<Binding> getAllBindings() = 0;
 
     virtual Equate* getEquate(const Address& addr, int opndPosition, int64_t value) = 0;
     virtual std::vector<Equate*> getEquates(const Address& addr, int opndPosition) = 0;
