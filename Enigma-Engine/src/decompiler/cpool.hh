@@ -79,6 +79,7 @@ private:
   Datatype *type;	///< Data-type associated with the object
   uint1 *byteData;	///< For string literals, the raw byte data of the string
   int4 byteDataLen;	///< The number of bytes in the data for a string literal
+  static constexpr int8 MAX_STRING_SIZE = 0x100000;	///< Maximum allowed bytes of string in pool
 public:
   CPoolRecord(void) { type = (Datatype *)0; byteData = (uint1 *)0; }		///< Construct an empty record
   ~CPoolRecord(void) { if (byteData != (uint1 *)0) delete [] byteData; }	///< Destructor

@@ -145,8 +145,10 @@ void IfaceStatus::pushScript(const string &filename,const string &newprompt)
 
 {
   ifstream *s = new ifstream(filename.c_str());
-  if (!*s)
+  if (!*s) {
+    delete s;
     throw IfaceParseError("Unable to open script file: "+filename);
+  }
   pushScript(s,newprompt);
 }
 
@@ -159,6 +161,10 @@ void IfaceStatus::pushScript(const string &filename,const string &newprompt)
 void IfaceStatus::pushScript(istream *iptr,const string &newprompt)
 
 {
+  if (iptr != (istream *)0) {
+    delete iptr;
+    throw IfaceExecutionError("Unable to read script from stream on this interface");
+  }
   promptstack.push_back(prompt);
   uint4 flags = 0;
   if (errorisdone)
