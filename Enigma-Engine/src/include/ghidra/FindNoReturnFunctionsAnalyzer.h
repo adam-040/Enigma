@@ -18,6 +18,7 @@ private:
     void setFunctionNonReturning(Program* program, const Address& entry, MessageLog& log);
     void setNoFallThru(Program* program, const Address& entry);
     void fixCallingFunctionBody(Program* program, const Address& entry);
+    bool hasCallFixupWithFallThrough(Program* program, const Address& target) const;
 
     int evidenceThresholdFunctions_ = 3;
     bool repairDamageEnabled_ = true;

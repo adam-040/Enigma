@@ -231,6 +231,53 @@ public:
         }
         if (!ramSpace) return false;
 
+        // Map ELF header + program/section header tables at file offsets (address 0)
+        // so format analyzers can read and mark up the header structures.
+        if (formatName_ == "ELF" && rawData_.size() >= 64) {
+            bool is64 = (rawData_[4] == 2);
+            auto rdU16 = [&](size_t off) -> uint16_t {
+                return static_cast<uint16_t>(rawData_[off]) |
+                       (static_cast<uint16_t>(rawData_[off + 1]) << 8);
+            };
+            auto rdU32 = [&](size_t off) -> uint32_t {
+                uint32_t v = 0;
+                for (int i = 0; i < 4; ++i) v |= static_cast<uint32_t>(rawData_[off + i]) << (8 * i);
+                return v;
+            };
+            auto rdU64 = [&](size_t off) -> uint64_t {
+                uint64_t v = 0;
+                for (int i = 0; i < 8; ++i) v |= static_cast<uint64_t>(rawData_[off + i]) << (8 * i);
+                return v;
+            };
+            uint64_t e_phoff = is64 ? rdU64(32) : rdU32(28);
+            uint16_t e_phentsize = rdU16(is64 ? 54 : 42);
+            uint16_t e_phnum = rdU16(is64 ? 56 : 44);
+            uint64_t e_shoff = is64 ? rdU64(40) : rdU32(32);
+            uint16_t e_shentsize = rdU16(is64 ? 58 : 46);
+            uint16_t e_shnum = rdU16(is64 ? 60 : 48);
+            uint64_t hdrEnd = 64;
+            if (e_phoff > 0 && e_phnum > 0 && e_phentsize > 0) {
+                hdrEnd = std::max(hdrEnd, e_phoff + static_cast<uint64_t>(e_phnum) * e_phentsize);
+            }
+            if (e_shoff > 0 && e_shnum > 0 && e_shentsize > 0) {
+                hdrEnd = std::max(hdrEnd, e_shoff + static_cast<uint64_t>(e_shnum) * e_shentsize);
+            }
+            if (hdrEnd > rawData_.size()) hdrEnd = rawData_.size();
+            if (hdrEnd > 64) {
+                std::vector<uint8_t> hdrBytes(rawData_.begin(),
+                                              rawData_.begin() + static_cast<std::ptrdiff_t>(hdrEnd));
+                Address hdrAddr(ramSpace, 0);
+                auto* hdrBlock = mem->createInitializedBlock(
+                    "ELF_HEADER", hdrAddr, static_cast<long long>(hdrBytes.size()), false);
+                if (hdrBlock) {
+                    mem->setBytes(hdrAddr, hdrBytes.data(), static_cast<int>(hdrBytes.size()));
+                    hdrBlock->setRead(true);
+                    hdrBlock->setWrite(false);
+                    hdrBlock->setExecute(false);
+                }
+            }
+        }
+
         // Map PE header (image base to first section) so hex view shows full range
         if (imageBase_ > 0 && !sections_.empty()) {
             uint64_t firstSectionAddr = UINT64_MAX;

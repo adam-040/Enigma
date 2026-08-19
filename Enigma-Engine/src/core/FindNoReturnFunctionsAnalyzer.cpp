@@ -15,6 +15,9 @@
 #include <ghidra/Options.h>
 #include <ghidra/TaskMonitor.h>
 #include <ghidra/MessageLog.h>
+#include <ghidra/CompilerSpec.h>
+#include <ghidra/PcodeInjectLibrary.h>
+#include <ghidra/InjectPayload.h>
 #include <map>
 
 namespace ghidra {
@@ -59,6 +62,10 @@ bool FindNoReturnFunctionsAnalyzer::added(Program* program, const AddressSetView
         if (!flows.empty()) {
             target = flows[0]->getAddress();
         } else {
+            continue;
+        }
+
+        if (hasCallFixupWithFallThrough(program, target)) {
             continue;
         }
 
@@ -178,6 +185,22 @@ void FindNoReturnFunctionsAnalyzer::fixCallingFunctionBody(Program* program, con
             fixedSet.add(oldBody.getMinAddress(), oldBody.getMaxAddress());
         }
     }
+}
+
+bool FindNoReturnFunctionsAnalyzer::hasCallFixupWithFallThrough(Program* program,
+                                                                const Address& target) const {
+    auto* funcMgr = program->getFunctionManager();
+    Function* func = funcMgr->getFunctionAt(target);
+    if (!func) return false;
+
+    const std::string& callFixup = func->getCallFixup();
+    if (callFixup.empty()) return false;
+
+    PcodeInjectLibrary* lib = program->getCompilerSpec()->getPcodeInjectLibrary();
+    if (!lib) return false;
+
+    InjectPayload* payload = lib->getPayload(InjectPayload::CALLFIXUP_TYPE, callFixup);
+    return payload != nullptr && payload->isFallThru();
 }
 
 bool FindNoReturnFunctionsAnalyzer::getDefaultEnablement(Program* program) const {

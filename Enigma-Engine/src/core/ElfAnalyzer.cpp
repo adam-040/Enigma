@@ -11,11 +11,16 @@
 #include <ghidra/DataTypeManager.h>
 #include <ghidra/StructureDataType.h>
 #include <ghidra/ByteDataType.h>
+#include <ghidra/CharDataType.h>
 #include <ghidra/WordDataType.h>
 #include <ghidra/DWordDataType.h>
 #include <ghidra/QWordDataType.h>
 #include <ghidra/ArrayDataType.h>
+#include <ghidra/PointerDataType.h>
+#include <ghidra/ReferenceManager.h>
+#include <ghidra/RefType.h>
 #include <ghidra/SymbolTable.h>
+#include <ghidra/SymbolUtilities.h>
 #include <ghidra/SourceType.h>
 #include <memory>
 #include <string>
@@ -64,6 +69,26 @@ static uint64_t readU64(const uint8_t* buf, bool be) {
            (static_cast<uint64_t>(buf[2]) << 16) |
            (static_cast<uint64_t>(buf[1]) << 8) | buf[0];
 }
+
+static uint64_t readLeb128Unsigned(const std::string& s, size_t& pos) {
+    uint64_t result = 0;
+    int shift = 0;
+    while (pos < s.size()) {
+        uint8_t b = static_cast<uint8_t>(s[pos++]);
+        result |= static_cast<uint64_t>(b & 0x7F) << shift;
+        if (!(b & 0x80)) break;
+        shift += 7;
+    }
+    return result;
+}
+
+struct ElfSectionInfo {
+    std::string name;
+    uint32_t type = 0;
+    uint64_t addr = 0;
+    uint64_t off = 0;
+    uint64_t size = 0;
+};
 
 bool ElfAnalyzer::added(Program* program, const AddressSetView& set, TaskMonitor* monitor, MessageLog& log) {
     if (!program) return false;
@@ -181,6 +206,7 @@ bool ElfAnalyzer::added(Program* program, const AddressSetView& set, TaskMonitor
         }
     }
 
+std::vector<ElfSectionInfo> secs;
     if (e_shnum > 0 && e_shnum < 1000 && e_shoff > 0) {
         std::vector<std::string> sectionNames(e_shnum);
         if (e_shstrndx > 0 && e_shstrndx < e_shnum) {
@@ -242,11 +268,181 @@ bool ElfAnalyzer::added(Program* program, const AddressSetView& set, TaskMonitor
                 Data* shData = listing->createData(shAddr, resolvedShdr);
                 std::string comment = "Section Header #" + std::to_string(i);
                 if (!sectionNames[i].empty()) comment += " (" + sectionNames[i] + ")";
-                if (shData) shData->setComment(comment);
+if (shData) shData->setComment(comment);
                 symTable->createLabel(shAddr, "shdr_" + std::to_string(i), SourceType::ANALYSIS);
                 if (!sectionNames[i].empty())
                     symTable->createLabel(shAddr, sectionNames[i], SourceType::ANALYSIS);
             }
+        }
+
+        // GP-5929: collect section metadata for .gnu.build.attributes markup below
+        uint8_t sbuf[8] = {0};
+        for (uint16_t i = 0; i < e_shnum; i++) {
+            uint64_t shOff = e_shoff + i * e_shentsize;
+            auto readSecField = [&](int off, int sz) -> uint64_t {
+                if (memory->getBytes(Address(space, shOff + off), sbuf, sz) != sz) return 0;
+                return (sz == 8) ? readU64(sbuf, bigEndian) : readU32(sbuf, bigEndian);
+            };
+            ElfSectionInfo s;
+            s.name = sectionNames[i];
+            s.type = static_cast<uint32_t>(readSecField(4, 4));
+            s.addr = readSecField(is64Bit ? 0x10 : 0x0C, is64Bit ? 8 : 4);
+            s.off = readSecField(is64Bit ? 0x18 : 0x10, is64Bit ? 8 : 4);
+            s.size = readSecField(is64Bit ? 0x20 : 0x14, is64Bit ? 8 : 4);
+            secs.push_back(s);
+        }
+    }
+
+    const uint32_t SHT_GNU_ATTRIBUTES = 0x6FFFFFF5;
+    const int ptrSize = is64Bit ? 8 : 4;
+
+    for (const ElfSectionInfo& s : secs) {
+        if (s.name != ".gnu.build.attributes" && s.type != SHT_GNU_ATTRIBUTES) continue;
+        if (s.size == 0 || s.size > 0x1000000) continue;
+
+        std::vector<uint8_t> secData(static_cast<size_t>(s.size));
+        if (memory->getBytes(Address(space, s.off), secData.data(), static_cast<int>(s.size))
+            != static_cast<int>(s.size)) {
+            continue;
+        }
+
+        Address secBase(space, s.addr != 0 ? static_cast<int64_t>(s.addr)
+                                           : static_cast<int64_t>(s.off));
+        int totalMarked = 0;
+        size_t noteOff = 0;
+
+        while (noteOff + 12 <= secData.size()) {
+            const uint8_t* p = secData.data() + noteOff;
+            uint32_t nameLen = readU32(p, bigEndian);
+            uint32_t descLen = readU32(p + 4, bigEndian);
+            uint32_t vendorType = readU32(p + 8, bigEndian);
+            if (nameLen > 0x1000 || descLen > 0x1000000) break;
+
+            uint32_t nameAligned = (nameLen + 3) & ~3u;
+            if (noteOff + 12 + nameAligned + descLen > secData.size()) break;
+
+            const uint8_t* nameBytes = p + 12;
+            const uint8_t* desc = p + 12 + nameAligned;
+            std::string nameStr(reinterpret_cast<const char*>(nameBytes), nameLen);
+
+            std::string typeStr = (vendorType == 0x100) ? "OPEN"
+                                : (vendorType == 0x101) ? "FUNC" : "unknown";
+            std::string idStr = "unknown";
+            std::string valStr = "unknown";
+
+            if (nameLen >= 4 && nameStr[0] == 'G' && nameStr[1] == 'A') {
+                char vt = nameStr[2];
+                unsigned idChar = static_cast<unsigned char>(nameStr[3]);
+                size_t valueOff = 4;
+                if (idChar >= 32 && idChar < 127) {
+                    size_t idEnd = nameStr.find('\0', 3);
+                    if (idEnd != std::string::npos) {
+                        idStr = "\"" + nameStr.substr(3, idEnd - 3) + "\"";
+                        valueOff = idEnd + 1;
+                    }
+                } else {
+                    switch (idChar) {
+                        case 1: idStr = "VERSION"; break;
+                        case 2: idStr = "STACK_PROT"; break;
+                        case 3: idStr = "RELRO"; break;
+                        case 4: idStr = "STACKSIZE"; break;
+                        case 5: idStr = "TOOL"; break;
+                        case 6: idStr = "ABI"; break;
+                        case 7: idStr = "POSITION_INDEPENDENCE"; break;
+                        case 8: idStr = "SHORT_ENUM"; break;
+                        default: break;
+                    }
+                }
+                if (vt == '*') {
+                    size_t pos = valueOff;
+                    valStr = std::to_string(readLeb128Unsigned(nameStr, pos));
+                } else if (vt == '$') {
+                    size_t vEnd = nameStr.find('\0', valueOff);
+                    if (vEnd != std::string::npos && vEnd > valueOff) {
+                        valStr = nameStr.substr(valueOff, vEnd - valueOff);
+                    }
+                } else if (vt == '!') {
+                    valStr = "false";
+                } else if (vt == '+') {
+                    valStr = "true";
+                }
+            }
+
+            StructureDataType* noteType = new StructureDataType(
+                "GnuBuildAttribute_" + std::to_string(nameAligned) + "_" +
+                    std::to_string(descLen), 0, dtm);
+            noteType->add(&DWordDataType::dataType(), 4, "namesz", "");
+            noteType->add(&DWordDataType::dataType(), 4, "descsz", "");
+            noteType->add(&DWordDataType::dataType(), 4, "type", "");
+            noteType->add(new ArrayDataType(&CharDataType::dataType(),
+                                            static_cast<int>(nameAligned), 1, dtm),
+                          static_cast<int>(nameAligned), "name", "");
+
+            int noteHdr = 12 + static_cast<int>(nameAligned);
+            bool hasRange = (descLen == static_cast<uint32_t>(2 * ptrSize));
+            if (hasRange) {
+                noteType->add(new PointerDataType(nullptr, ptrSize, dtm), ptrSize, "start", "");
+                noteType->add(new PointerDataType(nullptr, ptrSize, dtm), ptrSize, "end", "");
+            } else if (descLen != 0) {
+                noteType->add(new ArrayDataType(&ByteDataType::dataType(),
+                                                static_cast<int>(descLen), 1, dtm),
+                              static_cast<int>(descLen), "unknown", "");
+            }
+
+            DataType* resolvedNote = dtm->resolve(noteType, nullptr);
+            if (!resolvedNote) {
+                noteOff += 12 + nameAligned + descLen;
+                continue;
+            }
+
+            Address noteAddr = secBase.add(static_cast<int64_t>(noteOff));
+            Data* noteData = listing->createData(noteAddr, resolvedNote);
+            if (!noteData) {
+                noteOff += 12 + nameAligned + descLen;
+                continue;
+            }
+
+            std::string comment = idStr + "=" + valStr;
+            Address startFieldAddr;
+            Address endFieldAddr;
+            Address rangeStartAddr;
+            Address rangeEndAddr;
+            if (hasRange) {
+                uint64_t rangeStart = (ptrSize == 8) ? readU64(desc, bigEndian)
+                                                     : readU32(desc, bigEndian);
+                uint64_t rangeEnd = (ptrSize == 8) ? readU64(desc + 8, bigEndian)
+                                                   : readU32(desc + 4, bigEndian);
+                rangeStartAddr = Address(space, static_cast<int64_t>(rangeStart));
+                rangeEndAddr = Address(space, static_cast<int64_t>(rangeEnd) - 1);
+                startFieldAddr = noteAddr.add(noteHdr);
+                endFieldAddr = noteAddr.add(noteHdr + ptrSize);
+                comment += ", range=" + rangeStartAddr.toString() + "-" + rangeEndAddr.toString();
+            }
+            noteData->setComment(comment);
+
+            std::string label = SymbolUtilities::replaceInvalidChars(
+                "gnu.build.attribute_" + typeStr + "_" + idStr + "=" + valStr, true);
+            if (!label.empty()) {
+                symTable->createLabel(noteAddr, label, SourceType::IMPORTED);
+            }
+
+            if (hasRange) {
+                ReferenceManager* refMgr = program->getReferenceManager();
+                if (refMgr) {
+                    refMgr->addMemoryReference(startFieldAddr, rangeStartAddr, &RefTypes::DATA,
+                                               SourceType::IMPORTED, 0);
+                    refMgr->addMemoryReference(endFieldAddr, rangeEndAddr, &RefTypes::DATA,
+                                               SourceType::IMPORTED, 0);
+                }
+            }
+
+            noteOff += 12 + nameAligned + descLen;
+            ++totalMarked;
+        }
+
+        if (totalMarked > 0 && monitor) {
+            monitor->setMessage("Marked up " + std::to_string(totalMarked) +
+                                " GNU build attributes");
         }
     }
 

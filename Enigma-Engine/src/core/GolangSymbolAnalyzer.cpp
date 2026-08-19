@@ -47,7 +47,10 @@ static const char* FALLBACK_GOVER_OPTIONNAME = "Fallback Go Version";
 static const char* FALLBACK_GOVER_DESC = R"(
 Go version to use if the Go metadata has been obfuscated.)";
 
-static const uint32_t PCHEADER_MAGIC = 0xFFFFFFF0;
+static const uint32_t PCHEADER_MAGIC_1_2 = 0xFFFFFFFB;
+static const uint32_t PCHEADER_MAGIC_1_16 = 0xFFFFFFFA;
+static const uint32_t PCHEADER_MAGIC_1_18 = 0xFFFFFFF0;
+static const uint32_t PCHEADER_MAGIC_1_20 = 0xFFFFFFF1;
 
 static uint32_t readU32LE(const uint8_t* p) {
     return (static_cast<uint32_t>(p[0]) << 0) |
@@ -157,29 +160,61 @@ bool GolangSymbolAnalyzer::added(Program* program, const AddressSetView& set, Ta
             if (off % 65536 == 0) monitor->setProgress(static_cast<int>(off));
 
             uint32_t magic = readU32LE(&data[static_cast<size_t>(off)]);
-            if (magic != PCHEADER_MAGIC) continue;
+            if (magic != PCHEADER_MAGIC_1_2 && magic != PCHEADER_MAGIC_1_16 &&
+                magic != PCHEADER_MAGIC_1_18 && magic != PCHEADER_MAGIC_1_20) {
+                continue;
+            }
 
             // Found potential pclntab
-            // Check header bytes: pad1=0, minLC=1 or 2, ptrSize=4 or 8
+            // Go 1.16+ header bytes: pad1=0, minLC=1 or 2, ptrSize=4 or 8
+            // (Go 1.2-1.15 uses a different byte layout, handled below)
             uint8_t pad1 = data[static_cast<size_t>(off + 4)];
-            uint8_t minLC = data[static_cast<size_t>(off + 5)];
-            uint8_t ptrSizeByte = data[static_cast<size_t>(off + 6)];
             if (pad1 != 0) continue;
-            if (minLC != 1 && minLC != 2) continue;
-            if (ptrSizeByte != 4 && ptrSizeByte != 8) continue;
-            if (static_cast<int>(ptrSizeByte) != ptrSize) continue;
+            if (magic != PCHEADER_MAGIC_1_2) {
+                uint8_t minLC = data[static_cast<size_t>(off + 5)];
+                uint8_t ptrSizeByte = data[static_cast<size_t>(off + 6)];
+                if (minLC != 1 && minLC != 2) continue;
+                if (ptrSizeByte != 4 && ptrSizeByte != 8) continue;
+                if (static_cast<int>(ptrSizeByte) != ptrSize) continue;
+            }
 
             int pcHeaderWords = -1;
             uint64_t nfunc = 0;
             uint64_t textStart = 0;
             uint64_t funcnameOffset = 0;
 
+            // Go 1.2-1.15 format: magic(4) + pad1(1) + pad2(1) + minLC(1) + ptrSize(1),
+            // then nfunc(ptrSize) nfiles textStart funcnameOffset cuOffset filetabOffset
+            // pctabOffset funcdataOffset and a functab slice (3 words).
+            // pad2 occupies byte 7 in this format, so the generic 1.16+ layouts do not apply.
+            if (magic == PCHEADER_MAGIC_1_2) {
+                uint8_t pad2 = data[static_cast<size_t>(off + 5)];
+                uint8_t minLC2 = data[static_cast<size_t>(off + 6)];
+                uint8_t ptrSize2 = data[static_cast<size_t>(off + 7)];
+                if (pad2 == 0 && (minLC2 == 1 || minLC2 == 2) &&
+                    (ptrSize2 == 4 || ptrSize2 == 8) && static_cast<int>(ptrSize2) == ptrSize &&
+                    off + 8 + static_cast<int64_t>(ptrSize) <= static_cast<int64_t>(blockSize)) {
+                    uint64_t nfuncOld;
+                    if (is64) {
+                        nfuncOld = readU64LE(&data[static_cast<size_t>(off + 8)]);
+                    } else {
+                        nfuncOld = readU32LE(&data[static_cast<size_t>(off + 8)]);
+                    }
+                    if (nfuncOld > 0 && nfuncOld < 100000) {
+                        // 8-byte prefix + 8 data words + 3 functab slice words
+                        pcHeaderWords = 8 / static_cast<int>(ptrSize) + 11;
+                        nfunc = nfuncOld;
+                    }
+                }
+            }
+
             // Try Go 1.18+ format first (no headerSize field)
             // For Go 1.18+ 64-bit: offset 7 is start of "int" nfunc
             // header is: magic(4) + pad1(1) + minLC(1) + ptrSize(1) = 7 bytes
             // Then nfunc(int64) = 8 bytes starting at offset 7
             // But byte 7 should be 0 if headerSize existed, or non-zero if nfunc starts
-            if (off + 7 + static_cast<int64_t>(ptrSize) <= static_cast<int64_t>(blockSize)) {
+            if (pcHeaderWords < 0 && magic != PCHEADER_MAGIC_1_2 &&
+                off + 7 + static_cast<int64_t>(ptrSize) <= static_cast<int64_t>(blockSize)) {
                 uint64_t nfunc1;
                 if (is64) {
                     nfunc1 = readU64LE(&data[static_cast<size_t>(off + 7)]);
@@ -200,7 +235,8 @@ bool GolangSymbolAnalyzer::added(Program* program, const AddressSetView& set, Ta
 
             // Try Go 1.16-1.17 format (has headerSize at byte 7)
             // header = magic(4) + pad1(1) + minLC(1) + ptrSize(1) + headerSize(1) + nfunc(8 on 64-bit)
-            if (pcHeaderWords < 0 && off + 8 + static_cast<int64_t>(ptrSize) <= static_cast<int64_t>(blockSize)) {
+            if (pcHeaderWords < 0 && magic != PCHEADER_MAGIC_1_2 &&
+                off + 8 + static_cast<int64_t>(ptrSize) <= static_cast<int64_t>(blockSize)) {
                 uint8_t headerSize = data[static_cast<size_t>(off + 7)];
                 if (headerSize >= 7 && headerSize <= 15) {
                     int nfuncOff = 8;

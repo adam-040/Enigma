@@ -176,6 +176,12 @@ target_compile_definitions(enigma_test_loader PRIVATE ENIGMA_SLEIGH_DIR="${ENIGM
 enigma_apply_warning_policy(enigma_test_loader)
 add_test(NAME enigma_test_loader COMMAND enigma_test_loader)
 
+add_executable(enigma_test_gnu_build_attributes tests/test_gnu_build_attributes.cpp)
+target_link_libraries(enigma_test_gnu_build_attributes PRIVATE enigma_engine)
+target_compile_definitions(enigma_test_gnu_build_attributes PRIVATE ENIGMA_SLEIGH_DIR="${ENIGMA_SLEIGH_DIR}")
+enigma_apply_warning_policy(enigma_test_gnu_build_attributes)
+add_test(NAME enigma_test_gnu_build_attributes COMMAND enigma_test_gnu_build_attributes)
+
 add_executable(enigma_test_macho_loader tests/test_macho_loader.cpp)
 target_link_libraries(enigma_test_macho_loader PRIVATE enigma_engine)
 target_compile_definitions(enigma_test_macho_loader PRIVATE ENIGMA_SLEIGH_DIR="${ENIGMA_SLEIGH_DIR}")
