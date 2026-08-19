@@ -108,7 +108,7 @@ Tested on real Windows binaries:
 - [x] Rename symbols/functions
 - [x] Binary patching
 - [ ] Function Graph
-- [ ] Call Graph
+- [x] Call Graph
 - [ ] Advanced cross-reference browser
 - [ ] Comments and bookmarks
 
