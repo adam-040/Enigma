@@ -261,3 +261,133 @@ Version Tracking, emulator userops, Byte Viewer, scripting, testing/build.
       heuristics); separate plan when instructed
 
 - Created: 2026-08-19 · Track 1 verified: 2026-08-19
+
+## Track 2 - execution log (engine/analysis parity)
+
+Commits: `ae512ff5` (Track 1), `6e17236b` (Track 2 P1-P2), `232b6606` (P3),
+`c9b5027f` (P4). Local resources: distro `ghidra-12.1.3-source` (docs, .sla
+binaries), DEV source `ghidra-Ghidra-12.1.3-build\Ghidra` (15,459 .java),
+precompiled Sleigh `.sla` copied from distro (user decision: no slgh_compile;
+`slgh_compile` cannot build Hexagon GP-6621/GP-6328 specs on this toolchain -
+non-blocking).
+
+### P1-P2 - decompiler sync + analyzer inventory (verified 2026-08-19)
+- Decompiler C++ merged to 12.1.3 (`Features/Decompiler/src/main/c`:
+  jumptable.cc, p-code ops, HRestart, fallthrough - covers GP-7023 switch
+  recovery, GP-6936/6850/6610/6318/2493/5921/5922/6199/6266/6205/6629);
+  `targeted merge` per user directive (no re-tooling).
+- Analyzer inventory: **139 analyzers registered** in `AutoAnalysisManager`
+  (Java 12.1.3 count parity). Registration names: NoReturnFunctionAnalyzer
+  "Non-Returning Functions - Known" (L241), FindNoReturnFunctionsAnalyzer
+  "Non-Returning Functions - Discovered" (L242), StringsAnalyzer "ASCII
+  Strings" (L246), SwiftTypeMetadataAnalyzer (L274), ObjcMessageAnalyzer
+  "Objective-C Message Analyzer" (L276), GolangSymbolAnalyzer/GolangStringAnalyzer
+  (L277/278), SwiftDemanglerAnalyzer "Swift Demangler" (L290). No
+  `StringAnalyzer` class exists in either codebase (Java renamed to
+  StringsAnalyzer).
+- Sleigh: precompiled `.sla` files copied from distro (user decision), per-arch
+  language IDs verified; PcodeCapstoneMapper extended for 4 architectures
+  (x86/x86-64, AArch64, ARM, PPC, MIPS) per user decision; all 39 language
+  families carried.
+
+### P3 - analysis heuristics (9 entries; commit `232b6606`, test 62/62)
+- **GP-6791 NEEDS-FIX - FIXED**: `FindNoReturnFunctionsAnalyzer.cpp` gained
+  `hasCallFixupWithFallThrough(Program*, const Address&)` mirroring Java
+  (func.getCallFixup() -> PcodeInjectLibrary.getPayload(CALLFIXUP_TYPE,
+  callFixup) -> payload.isFallThru()); evidence-loop skip in
+  `detectNoReturn()`-equivalent. API anchors: Function.h:119,
+  InjectPayload.h:27/60, PcodeInjectLibrary.h:44, CompilerSpec.h:106.
+- **GP-6789 MATCH** (no `removeCancelledListener` equivalent; no listener
+  mechanism).
+- **GP-6345 NOT-PORTED** (engine has no offcut-label naming path at all;
+  nothing to align).
+- **GP-6291/6325 PARTIAL - FIXED (multi-magic)**: `GolangSymbolAnalyzer.cpp`
+  accepts all 4 pcHeader magics (GO_1_2=0xFFFFFFFB, GO_1_16=0xFFFFFFFA,
+  GO_1_18=0xFFFFFFF0, GO_1_20=0xFFFFFFF1; Java GoPcHeader.java L45-48) + Go
+  1.2-1.15 layout branch (pad2@5, minLC@6, ptrSize@7, nfunc@8,
+  pcHeaderWords=8/ptrSize+11); "Fallback Go Version" option dead (no
+  GoBuildInfo) - documented.
+- **GP-6327 PARTIAL documented** (no class-layout/method-function creation;
+  Java CALL_OVERRIDE refs target created method functions; no ARM/ObjC
+  corpus; no code change).
+- **GP-6281/6137 PARTIAL documented** (engine has label-only Swift markup).
+- **GP-5929 NOT-PORTED - PORTED**: `.gnu.build.attributes` markup in
+  `ElfAnalyzer.cpp` (SHT_GNU_ATTRIBUTES=0x6FFFFFF5; note parse namesz/descsz/
+  type, name 4-aligned; OPEN=0x100/FUNC=0x101; ids VERSION/STACK_PROT/RELRO/
+  STACKSIZE/TOOL/ABI/POSITION_INDEPENDENCE/SHORT_ENUM; value types `$` string,
+  `*` LEB128, `!` false, `+` true; STRINGVAL ids 32..127; labels
+  `gnu.build.attribute_<TYPE>_<ID>=<VAL>`; struct `GnuBuildAttribute_<nameAligned>
+  _<descLen>`; range refs DATA IMPORTED from start/end; string value starts
+  AFTER the id string's NUL (Java readNextUtf8String semantics)). PLUS latent
+  engine ELF crash fixed: `BinaryLoader` now maps an `ELF_HEADER` block at
+  address 0 covering max(e_phoff+e_phnum*e_phentsize,
+  e_shoff+e_shnum*e_shentsize, 64) clamped to file size (Memory::getBytes
+  throws at unmapped offsets; real ELF files crashed ElfAnalyzer). Fixture
+  test `test_gnu_build_attributes.cpp` (17 assertions; only ELF coverage -
+  corpus_diverse has no ELF files).
+- **GP-7023 MATCH** (covered by decompiler sync, jumptable.cc = 12.1.3).
+- Verified: build OK, CTest **62/62** (61 + new test) with
+  `ENIGMA_CORPUS_DIR=C:\Users\pc\Desktop` +
+  `ENIGMA_EXTRA_CORPUS`=7 x `db.1.gbf` (ctest_phase3.txt).
+
+### P4 - loaders (commit `c9b5027f`, test 63/63)
+- **GP-3960 - FIXED**: `BinaryLoader::populateProgram` (ELF only) detects
+  Swift (section name starts `__swift`/`swift`/`.sw5` - SwiftUtils.isSwift) or
+  golang (contains `gopclntab`/`go.buildinfo`/`go_buildinfo` -
+  GoRttiMapper.hasGolangSections); sets `Program::setCompiler` +
+  `setCompilerSpecID` ("swift"/"golang" - ElfLoader.detectCompilerName).
+- **GP-7057 - FIXED**: `ElfSymbol.isExternal()` parity - external iff
+  (GLOBAL|WEAK) && shndx==SHN_UNDEF (Java disregards st_type/st_value/st_size);
+  both ELF32/64 parsers now read st_shndx. Flag has no consumer in the engine
+  (no external block model - documented); behavior unchanged elsewhere.
+- **BUG FIX found by new test**: ELF64 symbol `sh_link` was read at sh_offset
+  +24 instead of +40 (symbol names from linked string tables were garbage);
+  ELF32 was correct (sh_link at +24 in 32-bit layout).
+- **GP-7085 MATCH** (engine already indexes the EAT with unsigned uint16
+  ordinals).
+- **GP-7079 MATCH-by-absence** (engine reads no LC_DYSYMTAB; the
+  IndexOutOfBounds cannot occur).
+- **Documented NOT-PORTED gaps** (feature absent in engine):
+  GP-7056 ELF PLTGOT w/o section headers (no PLTGOT processing at all);
+  GP-7061+GP-6887 GNU hash table processing/bounds (no GNU hash support);
+  GP-5900 PE export-forwarder thunks (requires EXTERNAL block infra);
+  GP-6502 PE DVRT markup (no PE data-directory markup); GP-7088 COFF
+  ARM64_ADDR64 (no COFF loader); GP-7046 dyld_shared_cache (no cache loader);
+  GP-7071 PEF/OMF; GP-6382 Tenet trace loader; GP-6537 NE Phar Lap;
+  GP-7087 PE LibraryLookupTable JDOM (GUI import data).
+- New test `test_elf_compiler_detect.cpp` (16 assertions: Go/Swift/plain ELF
+  compiler detection + isExternal semantics via .symtab fixture). CTest
+  **63/63**.
+
+### P5 - symbols / data types / demanglers (all documented; no code delta)
+- **GP-7045 MATCH** (SwiftDemanglerAnalyzer has no directory option; already
+  invokes `swift demangle` from PATH - Java removed the dir option).
+- **GP-6394/GP-6363 MATCH by construction** (GnuDemanglerAnalyzer uses
+  `abi::__cxa_demangle` - the reference Itanium demangler; no legacy-
+  demangler path exists, so the legacy `F`-qualifier fix is N/A).
+- **GP-6108 PARTIAL documented** (RustDemanglerAnalyzer is a hand-rolled
+  v0+legacy subset: crate/path/impl/suffix identifiers only; no escaped-
+  identifier decoding `$LT$`->`<` etc., no `_ZN` legacy form).
+- **GP-4901 NOT-PORTED** (MSVC demangler shells out to
+  `UnDecorateSymbolName` with fixed flags; Java's two output options
+  (anonymous-namespace encoding, UDT tags) have no engine equivalent).
+- **GP-3564 MATCH-by-absence** (Structure/Union never validate component
+  names - duplicates already allowed consistently).
+- **GP-5882 MATCH-by-absence** (no datatype dependency-change listeners).
+- **GP-6576 N/A** (no zero-length components in engine StructureDataType).
+- **GP-5808 NOT-PORTED** (no structure/union/enum merge API - feature-add).
+- **GP-6971 N/A** (no PDB importer). **GP-6137** PARTIAL (see P3).
+  **GP-6613 MATCH** (maximumInstructionLength ships in the precompiled .sla).
+  **GP-5924 skipped** (debuginfod = network feature).
+
+### P6 - native pipeline (pending)
+- x86: GP-5780/6061/6675/6767/6818/6937/7015-7019 + RAO/CMPccXADD;
+  AARCH64: GP-7023/6620/7040 (blocked: no AARCH64 handler table in
+  PcodeCapstoneMapper; arm64 falls into ARM table); ARM: GP-4651/5206/6333/
+  6750/6931/7065; MIPS: GP-6697/6766/7133; PPC: GP-6914/5508.
+
+### P7 - verification + docs (pending)
+- Per-fix tests (P3-P4 done), Track-1 guard (fidelity 43/43, import 87/87,
+  rebase 26/26), determinism regression, PLAN docs, final commit.
+
+- Updated: 2026-08-20
