@@ -438,4 +438,77 @@ precompiled (P1-P2). So every 12.1.x processor entry is spec-level MATCH.
 - PLAN docs: `PROGRESS.md` Track 2 completion entry + this execution log.
 - Final commit: `dca862e4` (P6 verdicts + P7 verification; Track 2 complete).
 
+## Track 3 - AARCH64 native pipeline (closed gap, verified 2026-08-20)
+
+Track 2 P6 verdict noted the native pipeline's AARCH64 support was "PARTIAL":
+Capstone could decode, but the language-ID mapping and the mnemonic->pcode
+mapper had no AArch64 path. Track 3 closes that gap (user-approved scope).
+
+### A3.1 - Language-ID mapping (3 sites)
+- `Sleigh::initialize` (`src/pcode/Sleigh.cpp`): added explicit
+  `aarch64`/`arm64` branch -> `CS_ARCH_ARM64`, `CS_MODE_ARM`, codeAlign 4
+  (inserted before the substring "arm" check - "aarch64" does NOT contain
+  "arm", so this was previously unreachable).
+- `DisassemblyAnalyzer::analyze` (`src/core/DisassemblyAnalyzer.cpp` L74-78):
+  `AARCH64` now maps to disassembler architecture "aarch64" (was x86).
+- `GzfProgramImporter::makeDisassembler` (`src/import/GzfProgramImporter.cpp`
+  L414-435): `AARCH64`/`aarch64` now map to "aarch64" (was x86).
+- `FunctionStartAnalyzer::languageToArchShort` (`src/core/FunctionStartAnalyzer.cpp`
+  L163-175): added `find("aarch64")` -> "ARM".
+- Reference (already correct): `AggressiveRecoveryAnalyzer` L140 and
+  `FragmentMergeAnalyzer` L102 map AARCH64 -> "ARM" + bitness 64.
+
+### A3.2 - CapstoneDisassembler (`src/core/Disassembler.cpp`)
+- `initialize`: explicit `aarch64`/`arm64` -> `CS_ARCH_ARM64`, `CS_MODE_ARM`,
+  alignment 4, bitness 64.
+- `determineFlowType`: added A64 conditionals `b.eq/b.ne/b.gt/b.ge/b.lt/b.le/
+  b.hi/b.hs/b.lo/b.ls/b.mi/b.pl/b.vs/b.vc` and `cbz/cbnz/tbz/tbnz` ->
+  CONDITIONAL_JUMP; `eret` added to the terminator list.
+- `extractOperandScalars` made arch-aware (was reading `detail->x86` for every
+  architecture - on ARM64 that union member is `arm64`, whose `op_count` sits
+  AFTER the operands, so the x86 layout read produced a garbage loop bound and
+  a crash). Now branches on `csArch_`: x86 (existing RIP-relative + absolute
+  logic), ARM64 (IMM + absolute MEM only; `[reg+disp]` intentionally skipped
+  as offsets; this Capstone build exposes no `ARM64_REG_PC` constant, so
+  PC-relative loads keep no scalar), ARM (IMM + `ARM_REG_PC`-relative +
+  absolute MEM).
+
+### A3.3 - PcodeCapstoneMapper AArch64 table (`src/pcode/PcodeCapstoneMapper.*`)
+- New `isAARCH64_` flag + `aarch64Handlers_` map + `buildAARCH64Handlers()`
+  (~110 entries): mov/movz/movn/movk/adr/adrp/fmov; ldr*/ldp/ldur*/ldar/ldaxr;
+  str*/stp/stur*/stlr/stxr; add/adds/sub/subs; neg/negs; mul/madd/msub/mneg;
+  sdiv/udiv; and/ands/orr/orn/eor/eon/bic/bics; lsl/lslv/lsr/lsrv/asr/asrv/
+  ror/rorv; cmp/cmn/tst/ccmp/ccmn; sxtb/sxth/sxtw/uxtb/uxth/uxtw/rev*;
+  csel/csinc/csinv/csneg; b/bl/blr/br/ret/eret/svc; b.eq..b.vc/cbz/cbnz/tbz/
+  tbnz; fadd/fsub/fmul/fdiv/fmax/fmin/fmadd/fmsub/fabs/fneg/fsqrt/fcmp/fcmpe/
+  fcvt/scvtf/ucvtf/fcvtas/fcvtau/fcvtms/fcvtmu/fcvtns/fcvtnu/fcvtps/fcvtpu/
+  fcvtzs/fcvtzu.
+- `parseOperand` A64 register layout: x0-x30 -> offsets 0-30 size 8; w0-w30
+  size 4; sp=31 (size 8), wsp=31 (size 4); lr=30, fp=29; v/q = 64+n size 16;
+  d = 64+n size 8; s size 4; h size 2; b size 1; xzr/wzr -> `makeConst(0)`.
+  SIMD d0/s0/v0 alias to the same 64+n base (approximation, consistent with
+  the other per-arch tables).
+
+### A3.4 - Verification (synthetic only; 34/34 + full CTest 64/64)
+- New suite `tests/test_aarch64_pipeline.cpp` (registered as
+  `enigma_test_aarch64_pipeline`, 34 subtests, exit 0): 16-instruction A64
+  blob (stp/mov/sub/mov/add/bl/ldr/str/cmp/b.le/mov/ldp/ret/blr/cbz/adrp)
+  decoded via the Sleigh pipeline (16/16, 4 bytes each, pcode categories
+  CALL/CALLIND/RETURN/STORE/LOAD/INT_ADD/INT_SUB/CBRANCH), via
+  CapstoneDisassembler (mnemonics + flow types: bl=CALL, b.le=CONDITIONAL_JUMP,
+  ret=TERMINATOR, cbz=CONDITIONAL_JUMP, adrp=FALL_THROUGH), and via the mapper
+  (mov x0, xzr -> COPY).
+- Crash fixed during verification: `extractOperandScalars` (A3.2) segfaulted
+  on ARM64 (`detail->x86` read of `cs_arm64` data) - reproduced under gdb,
+  fixed by the arch-aware branch.
+- Full CTest **64/64, exit 0** with the Track 2 env (`ENIGMA_CORPUS_DIR` +
+  `ENIGMA_EXTRA_CORPUS` = 7 x `~0000000N.db\db.1.gbf`); determinism regression
+  green (35.5s). No regression in Track 1 guard (fidelity/import/rebase).
+- Known limitation (documented in tracking doc): no real AARCH64/ELF binary
+  corpus exists on this machine (`ghidra_1213_proj` holds PE only), so
+  verification is synthetic. Re-verify against an ELF/COFF-ARM64/Mach-O corpus
+  when binaries become available.
+- Commit: `TBD` (single change set: 7 source files + 1 new test + 1 tracking
+  doc + PROGRESS.md).
+
 - Updated: 2026-08-20

@@ -73,6 +73,7 @@ bool DisassemblyAnalyzer::added(Program* program, const AddressSetView& set,
         std::string lidStr = lid.getIdAsString();
         if (lidStr.find("x86") != std::string::npos || lidStr.find("i386") != std::string::npos)
             arch = "x86";
+        else if (lidStr.find("AARCH64") != std::string::npos) arch = "aarch64";
         else if (lidStr.find("ARM") != std::string::npos) arch = "arm";
         else if (lidStr.find("MIPS") != std::string::npos) arch = "mips";
         else if (lidStr.find("PowerPC") != std::string::npos) arch = "ppc";

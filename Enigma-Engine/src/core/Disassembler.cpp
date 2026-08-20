@@ -26,8 +26,54 @@ namespace ghidra {
 // Extract address-relevant scalar values from a Capstone instruction.
 // For x86/x86_64 this resolves RIP/EIP-relative displacements to absolute
 // addresses and records absolute immediates / absolute memory operands.
-static void extractOperandScalars(const cs_insn* insn, DisassembledInstruction& di, int bitness) {
+static void extractOperandScalars(const cs_insn* insn, DisassembledInstruction& di, int bitness, cs_arch arch) {
     if (!insn || !insn->detail) return;
+
+    if (arch == CS_ARCH_ARM64) {
+        const cs_arm64& a64 = insn->detail->arm64;
+        di.operandScalars.resize(a64.op_count);
+        for (uint8_t i = 0; i < a64.op_count; ++i) {
+            const cs_arm64_op& op = a64.operands[i];
+            std::vector<std::unique_ptr<Scalar>>& out = di.operandScalars[i];
+            if (op.type == ARM64_OP_IMM) {
+                int scalarBits = (bitness >= 64) ? 64 : 32;
+                out.push_back(std::make_unique<Scalar>(scalarBits, static_cast<int64_t>(op.imm)));
+            } else if (op.type == ARM64_OP_MEM) {
+                // [reg+disp] displacements are offsets, not addresses, so they are
+                // intentionally skipped to avoid false positives.
+                if (op.mem.base == ARM64_REG_INVALID && op.mem.index == ARM64_REG_INVALID && op.mem.disp != 0) {
+                    int scalarBits = (bitness >= 64) ? 64 : 32;
+                    out.push_back(std::make_unique<Scalar>(scalarBits, static_cast<int64_t>(op.mem.disp)));
+                }
+            }
+        }
+        return;
+    }
+
+    if (arch == CS_ARCH_ARM) {
+        const cs_arm& arm = insn->detail->arm;
+        di.operandScalars.resize(arm.op_count);
+        for (uint8_t i = 0; i < arm.op_count; ++i) {
+            const cs_arm_op& op = arm.operands[i];
+            std::vector<std::unique_ptr<Scalar>>& out = di.operandScalars[i];
+            if (op.type == ARM_OP_IMM) {
+                int scalarBits = (bitness >= 64) ? 64 : 32;
+                out.push_back(std::make_unique<Scalar>(scalarBits, static_cast<int64_t>(op.imm)));
+            } else if (op.type == ARM_OP_MEM) {
+                bool hasBase = (op.mem.base != ARM_REG_INVALID);
+                bool hasIndex = (op.mem.index != ARM_REG_INVALID);
+                if (op.mem.base == ARM_REG_PC) {
+                    // PC-relative: target = instruction_addr + 8 + disp
+                    uint64_t target = insn->address + 8 + static_cast<uint64_t>(op.mem.disp);
+                    out.push_back(std::make_unique<Scalar>(64, static_cast<int64_t>(target)));
+                } else if (!hasBase && !hasIndex && op.mem.disp != 0) {
+                    int scalarBits = (bitness >= 64) ? 64 : 32;
+                    out.push_back(std::make_unique<Scalar>(scalarBits, static_cast<int64_t>(op.mem.disp)));
+                }
+            }
+        }
+        return;
+    }
 
     const cs_x86& x86 = insn->detail->x86;
     di.operandScalars.resize(x86.op_count);
@@ -77,14 +123,20 @@ FlowType* Disassembler::determineFlowType(const std::string& mnemonic, const std
         mnemonic == "jecxz" || mnemonic == "loop" || mnemonic == "loope" || mnemonic == "loopne" ||
         mnemonic == "bgt" || mnemonic == "bge" || mnemonic == "blt" || mnemonic == "ble" ||
         mnemonic == "bhi" || mnemonic == "bhs" || mnemonic == "blo" || mnemonic == "bls" ||
-        mnemonic == "bmi" || mnemonic == "bpl" || mnemonic == "bvc" || mnemonic == "bvs") {
+        mnemonic == "bmi" || mnemonic == "bpl" || mnemonic == "bvc" || mnemonic == "bvs" ||
+        mnemonic == "b.eq" || mnemonic == "b.ne" || mnemonic == "b.gt" || mnemonic == "b.ge" ||
+        mnemonic == "b.lt" || mnemonic == "b.le" || mnemonic == "b.hi" || mnemonic == "b.hs" ||
+        mnemonic == "b.lo" || mnemonic == "b.ls" || mnemonic == "b.mi" || mnemonic == "b.pl" ||
+        mnemonic == "b.vs" || mnemonic == "b.vc" ||
+        mnemonic == "cbz" || mnemonic == "cbnz" || mnemonic == "tbz" || mnemonic == "tbnz") {
         return const_cast<FlowType*>(&RefTypes::CONDITIONAL_JUMP);
     }
     if (mnemonic == "call" || mnemonic == "bl" || mnemonic == "blx" || mnemonic == "jal" ||
         mnemonic == "jalr" || mnemonic == "blr") {
         return const_cast<FlowType*>(&RefTypes::UNCONDITIONAL_CALL);
     }
-    if (mnemonic == "ret" || mnemonic == "bx" || mnemonic == "syscall" || mnemonic == "svc" ||
+    if (mnemonic == "ret" || mnemonic == "bx" || mnemonic == "eret" ||
+        mnemonic == "syscall" || mnemonic == "svc" ||
         (mnemonic == "pop" && !operands.empty() && operands[0] == "pc")) {
         return const_cast<FlowType*>(&RefTypes::TERMINATOR);
     }
@@ -93,7 +145,7 @@ FlowType* Disassembler::determineFlowType(const std::string& mnemonic, const std
 
 class CapstoneDisassembler : public Disassembler {
 public:
-    CapstoneDisassembler() : handle_(0), arch_("unknown"), alignment_(1), bitness_(64) {}
+    CapstoneDisassembler() : handle_(0), arch_("unknown"), csArch_(CS_ARCH_MAX), alignment_(1), bitness_(64) {}
 
     ~CapstoneDisassembler() override {
         if (handle_ != 0) {
@@ -112,6 +164,11 @@ public:
             csMode = (bitness == 64) ? CS_MODE_64 : CS_MODE_32;
             alignment_ = 1;
             bitness_ = bitness;
+        } else if (architecture == "aarch64" || architecture == "arm64") {
+            csArch = CS_ARCH_ARM64;
+            csMode = CS_MODE_ARM;
+            alignment_ = 4;
+            bitness_ = 64;
         } else if (architecture.find("arm") != std::string::npos || architecture.find("ARM") != std::string::npos) {
             csArch = (bitness == 64) ? CS_ARCH_ARM64 : CS_ARCH_ARM;
             csMode = CS_MODE_ARM;
@@ -139,6 +196,7 @@ public:
 
         cs_option(handle_, CS_OPT_DETAIL, CS_OPT_ON);
         arch_ = architecture;
+        csArch_ = csArch;
         return true;
     }
 
@@ -176,7 +234,7 @@ public:
             }
 
             result.flowType = determineFlowType(result.mnemonic, result.operands);
-            extractOperandScalars(insn, result, bitness_);
+            extractOperandScalars(insn, result, bitness_, csArch_);
             cs_free(insn, count);
         }
 
@@ -220,7 +278,7 @@ public:
             }
 
             di.flowType = determineFlowType(di.mnemonic, di.operands);
-            extractOperandScalars(&insn[i], di, bitness_);
+            extractOperandScalars(&insn[i], di, bitness_, csArch_);
             results.push_back(std::move(di));
         }
 
@@ -272,6 +330,7 @@ public:
 private:
     csh handle_;
     std::string arch_;
+    cs_arch csArch_;
     int alignment_;
     int bitness_;
 };

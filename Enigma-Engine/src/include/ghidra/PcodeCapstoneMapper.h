@@ -27,6 +27,7 @@ public:
 private:
     bool initialized_ = false;
     std::string architecture_;
+    bool isAARCH64_ = false;
     bool isARM_ = false;
     bool isMIPS_ = false;
     bool isPPC_ = false;
@@ -87,11 +88,13 @@ private:
     using Handler = std::function<void(const DisassembledInstruction&, Funcdata&, const Address&)>;
     std::unordered_map<std::string, Handler> x86Handlers_;
     std::unordered_map<std::string, Handler> armHandlers_;
+    std::unordered_map<std::string, Handler> aarch64Handlers_;
     std::unordered_map<std::string, Handler> mipsHandlers_;
     std::unordered_map<std::string, Handler> ppcHandlers_;
 
     void buildX86Handlers();
     void buildARMHandlers();
+    void buildAARCH64Handlers();
     void buildMIPSHandlers();
     void buildPPCHandlers();
 };

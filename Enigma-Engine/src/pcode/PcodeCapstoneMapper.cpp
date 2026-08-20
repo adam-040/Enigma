@@ -16,6 +16,7 @@ PcodeCapstoneMapper::PcodeCapstoneMapper()
       regSpace_(new GenericAddressSpace("register", 8, AddressSpace::TYPE_REGISTER, 0)) {
     buildX86Handlers();
     buildARMHandlers();
+    buildAARCH64Handlers();
     buildMIPSHandlers();
     buildPPCHandlers();
 }
@@ -25,6 +26,7 @@ bool PcodeCapstoneMapper::initialize(const std::string& architecture) {
     std::string archLower = architecture;
     std::transform(archLower.begin(), archLower.end(), archLower.begin(),
                    [](unsigned char c) { return std::tolower(c); });
+    isAARCH64_ = (archLower.find("aarch64") != std::string::npos || archLower.find("arm64") != std::string::npos);
     isARM_ = (archLower.find("arm") != std::string::npos);
     isMIPS_ = (archLower.find("mips") != std::string::npos);
     isPPC_ = (archLower.find("ppc") != std::string::npos || archLower.find("powerpc") != std::string::npos);
@@ -187,6 +189,46 @@ VarnodeAST* PcodeCapstoneMapper::parseOperand(const std::string& op, Funcdata& f
         if (regName == "sp") regOffset = 13;
         if (regName == "lr") regOffset = 14;
         if (regName == "pc") regOffset = 15;
+    } else if (isAARCH64_) {
+        // AArch64: x0-x30 (64-bit) / w0-w30 (32-bit subregisters),
+        // sp/wsp, xzr/wzr (zero), lr/fp aliases, SIMD v/q (128) / d (64) /
+        // s (32) / h (16) / b (8).  Offsets 0-30 = GPRs, 31 = sp,
+        // 64+ = SIMD/FP.
+        if (regName == "xzr" || regName == "wzr") {
+            return makeConst(fd, 0, (regName == "wzr") ? 4 : 8);
+        }
+        if (regName.size() >= 2) {
+            char prefix = regName[0];
+            std::string numPart = regName.substr(1);
+            bool allDigits = !numPart.empty() && std::all_of(numPart.begin(), numPart.end(),
+                [](char c) { return std::isdigit(static_cast<unsigned char>(c)); });
+            if (allDigits) {
+                uint64_t n = std::stoul(numPart);
+                if ((prefix == 'x' || prefix == 'w') && n <= 30) {
+                    regOffset = n;
+                    regSize = (prefix == 'x') ? 8 : 4;
+                } else if ((prefix == 'v' || prefix == 'q') && n <= 31) {
+                    regOffset = 64 + n;
+                    regSize = 16;
+                } else if (prefix == 'd' && n <= 31) {
+                    regOffset = 64 + n;
+                    regSize = 8;
+                } else if (prefix == 's' && n <= 31) {
+                    regOffset = 64 + n;
+                    regSize = 4;
+                } else if (prefix == 'h' && n <= 31) {
+                    regOffset = 64 + n;
+                    regSize = 2;
+                } else if (prefix == 'b' && n <= 31) {
+                    regOffset = 64 + n;
+                    regSize = 1;
+                }
+            }
+        }
+        if (regName == "sp") { regOffset = 31; regSize = 8; }
+        if (regName == "wsp") { regOffset = 31; regSize = 4; }
+        if (regName == "lr") { regOffset = 30; regSize = 8; }
+        if (regName == "fp") { regOffset = 29; regSize = 8; }
     } else if (isMIPS_) {
         // MIPS registers: $zero, $v0-$v1, $a0-$a3, $t0-$t9, $s0-$s7, $sp, $ra, $fp, $gp
         if (regName == "$zero" || regName == "zero") regOffset = 0;
@@ -348,7 +390,8 @@ void PcodeCapstoneMapper::mapInstruction(const DisassembledInstruction& di, Func
                    [](unsigned char c) { return std::tolower(c); });
 
     const std::unordered_map<std::string, Handler>* handlers = &x86Handlers_;
-    if (isARM_) handlers = &armHandlers_;
+    if (isAARCH64_) handlers = &aarch64Handlers_;
+    else if (isARM_) handlers = &armHandlers_;
     else if (isMIPS_) handlers = &mipsHandlers_;
     else if (isPPC_) handlers = &ppcHandlers_;
 
@@ -1253,6 +1296,159 @@ void PcodeCapstoneMapper::buildARMHandlers() {
     armHandlers_["vld3r.32"] = [this](const auto& di, auto& fd, const auto& addr) { mapLoad(di, fd, addr); };
     armHandlers_["vld4r.16"] = [this](const auto& di, auto& fd, const auto& addr) { mapLoad(di, fd, addr); };
     armHandlers_["vld4r.32"] = [this](const auto& di, auto& fd, const auto& addr) { mapLoad(di, fd, addr); };
+}
+
+// ---- AArch64 Handler Table ----
+
+void PcodeCapstoneMapper::buildAARCH64Handlers() {
+    // Moves / PC-relative address loads
+    aarch64Handlers_["mov"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
+    aarch64Handlers_["movz"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
+    aarch64Handlers_["movn"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
+    aarch64Handlers_["movk"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
+    aarch64Handlers_["mvn"] = [this](const auto& di, auto& fd, const auto& addr) { mapNegNot(di, fd, addr, false); };
+    aarch64Handlers_["adr"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
+    aarch64Handlers_["adrp"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
+    aarch64Handlers_["fmov"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
+
+    // Load / store
+    aarch64Handlers_["ldr"] = [this](const auto& di, auto& fd, const auto& addr) { mapLoad(di, fd, addr); };
+    aarch64Handlers_["ldrb"] = [this](const auto& di, auto& fd, const auto& addr) { mapLoad(di, fd, addr); };
+    aarch64Handlers_["ldrh"] = [this](const auto& di, auto& fd, const auto& addr) { mapLoad(di, fd, addr); };
+    aarch64Handlers_["ldrsb"] = [this](const auto& di, auto& fd, const auto& addr) { mapLoad(di, fd, addr); };
+    aarch64Handlers_["ldrsh"] = [this](const auto& di, auto& fd, const auto& addr) { mapLoad(di, fd, addr); };
+    aarch64Handlers_["ldrsw"] = [this](const auto& di, auto& fd, const auto& addr) { mapLoad(di, fd, addr); };
+    aarch64Handlers_["ldur"] = [this](const auto& di, auto& fd, const auto& addr) { mapLoad(di, fd, addr); };
+    aarch64Handlers_["ldurb"] = [this](const auto& di, auto& fd, const auto& addr) { mapLoad(di, fd, addr); };
+    aarch64Handlers_["ldurh"] = [this](const auto& di, auto& fd, const auto& addr) { mapLoad(di, fd, addr); };
+    aarch64Handlers_["ldursb"] = [this](const auto& di, auto& fd, const auto& addr) { mapLoad(di, fd, addr); };
+    aarch64Handlers_["ldursh"] = [this](const auto& di, auto& fd, const auto& addr) { mapLoad(di, fd, addr); };
+    aarch64Handlers_["ldursw"] = [this](const auto& di, auto& fd, const auto& addr) { mapLoad(di, fd, addr); };
+    aarch64Handlers_["ldp"] = [this](const auto& di, auto& fd, const auto& addr) { mapLoad(di, fd, addr); };
+    aarch64Handlers_["ldpsw"] = [this](const auto& di, auto& fd, const auto& addr) { mapLoad(di, fd, addr); };
+    aarch64Handlers_["ldnp"] = [this](const auto& di, auto& fd, const auto& addr) { mapLoad(di, fd, addr); };
+    aarch64Handlers_["ldar"] = [this](const auto& di, auto& fd, const auto& addr) { mapLoad(di, fd, addr); };
+    aarch64Handlers_["ldarb"] = [this](const auto& di, auto& fd, const auto& addr) { mapLoad(di, fd, addr); };
+    aarch64Handlers_["ldarh"] = [this](const auto& di, auto& fd, const auto& addr) { mapLoad(di, fd, addr); };
+    aarch64Handlers_["ldaxr"] = [this](const auto& di, auto& fd, const auto& addr) { mapLoad(di, fd, addr); };
+    aarch64Handlers_["str"] = [this](const auto& di, auto& fd, const auto& addr) { mapStore(di, fd, addr); };
+    aarch64Handlers_["strb"] = [this](const auto& di, auto& fd, const auto& addr) { mapStore(di, fd, addr); };
+    aarch64Handlers_["strh"] = [this](const auto& di, auto& fd, const auto& addr) { mapStore(di, fd, addr); };
+    aarch64Handlers_["stur"] = [this](const auto& di, auto& fd, const auto& addr) { mapStore(di, fd, addr); };
+    aarch64Handlers_["sturb"] = [this](const auto& di, auto& fd, const auto& addr) { mapStore(di, fd, addr); };
+    aarch64Handlers_["sturh"] = [this](const auto& di, auto& fd, const auto& addr) { mapStore(di, fd, addr); };
+    aarch64Handlers_["stp"] = [this](const auto& di, auto& fd, const auto& addr) { mapStore(di, fd, addr); };
+    aarch64Handlers_["stnp"] = [this](const auto& di, auto& fd, const auto& addr) { mapStore(di, fd, addr); };
+    aarch64Handlers_["stlr"] = [this](const auto& di, auto& fd, const auto& addr) { mapStore(di, fd, addr); };
+    aarch64Handlers_["stlrb"] = [this](const auto& di, auto& fd, const auto& addr) { mapStore(di, fd, addr); };
+    aarch64Handlers_["stlrh"] = [this](const auto& di, auto& fd, const auto& addr) { mapStore(di, fd, addr); };
+    aarch64Handlers_["stxr"] = [this](const auto& di, auto& fd, const auto& addr) { mapStore(di, fd, addr); };
+
+    // Arithmetic / logical
+    aarch64Handlers_["add"] = [this](const auto& di, auto& fd, const auto& addr) { mapAddSub(di, fd, addr, PcodeOp::INT_ADD); };
+    aarch64Handlers_["adds"] = [this](const auto& di, auto& fd, const auto& addr) { mapAddSub(di, fd, addr, PcodeOp::INT_ADD); };
+    aarch64Handlers_["sub"] = [this](const auto& di, auto& fd, const auto& addr) { mapAddSub(di, fd, addr, PcodeOp::INT_SUB); };
+    aarch64Handlers_["subs"] = [this](const auto& di, auto& fd, const auto& addr) { mapAddSub(di, fd, addr, PcodeOp::INT_SUB); };
+    aarch64Handlers_["neg"] = [this](const auto& di, auto& fd, const auto& addr) { mapNegNot(di, fd, addr, true); };
+    aarch64Handlers_["negs"] = [this](const auto& di, auto& fd, const auto& addr) { mapNegNot(di, fd, addr, true); };
+    aarch64Handlers_["mul"] = [this](const auto& di, auto& fd, const auto& addr) { mapMulDiv(di, fd, addr, PcodeOp::INT_MULT); };
+    aarch64Handlers_["madd"] = [this](const auto& di, auto& fd, const auto& addr) { mapMulDiv(di, fd, addr, PcodeOp::INT_MULT); };
+    aarch64Handlers_["msub"] = [this](const auto& di, auto& fd, const auto& addr) { mapMulDiv(di, fd, addr, PcodeOp::INT_MULT); };
+    aarch64Handlers_["mneg"] = [this](const auto& di, auto& fd, const auto& addr) { mapMulDiv(di, fd, addr, PcodeOp::INT_MULT); };
+    aarch64Handlers_["sdiv"] = [this](const auto& di, auto& fd, const auto& addr) { mapMulDiv(di, fd, addr, PcodeOp::INT_SDIV); };
+    aarch64Handlers_["udiv"] = [this](const auto& di, auto& fd, const auto& addr) { mapMulDiv(di, fd, addr, PcodeOp::INT_DIV); };
+    aarch64Handlers_["and"] = [this](const auto& di, auto& fd, const auto& addr) { mapBoolOp(di, fd, addr, PcodeOp::INT_AND); };
+    aarch64Handlers_["ands"] = [this](const auto& di, auto& fd, const auto& addr) { mapBoolOp(di, fd, addr, PcodeOp::INT_AND); };
+    aarch64Handlers_["orr"] = [this](const auto& di, auto& fd, const auto& addr) { mapBoolOp(di, fd, addr, PcodeOp::INT_OR); };
+    aarch64Handlers_["orn"] = [this](const auto& di, auto& fd, const auto& addr) { mapBoolOp(di, fd, addr, PcodeOp::INT_OR); };
+    aarch64Handlers_["eor"] = [this](const auto& di, auto& fd, const auto& addr) { mapBoolOp(di, fd, addr, PcodeOp::INT_XOR); };
+    aarch64Handlers_["eon"] = [this](const auto& di, auto& fd, const auto& addr) { mapBoolOp(di, fd, addr, PcodeOp::INT_XOR); };
+    aarch64Handlers_["bic"] = [this](const auto& di, auto& fd, const auto& addr) { mapBoolOp(di, fd, addr, PcodeOp::INT_AND); };
+    aarch64Handlers_["bics"] = [this](const auto& di, auto& fd, const auto& addr) { mapBoolOp(di, fd, addr, PcodeOp::INT_AND); };
+    aarch64Handlers_["lsl"] = [this](const auto& di, auto& fd, const auto& addr) { mapBoolOp(di, fd, addr, PcodeOp::INT_LEFT); };
+    aarch64Handlers_["lslv"] = [this](const auto& di, auto& fd, const auto& addr) { mapBoolOp(di, fd, addr, PcodeOp::INT_LEFT); };
+    aarch64Handlers_["lsr"] = [this](const auto& di, auto& fd, const auto& addr) { mapBoolOp(di, fd, addr, PcodeOp::INT_RIGHT); };
+    aarch64Handlers_["lsrv"] = [this](const auto& di, auto& fd, const auto& addr) { mapBoolOp(di, fd, addr, PcodeOp::INT_RIGHT); };
+    aarch64Handlers_["asr"] = [this](const auto& di, auto& fd, const auto& addr) { mapBoolOp(di, fd, addr, PcodeOp::INT_SRIGHT); };
+    aarch64Handlers_["asrv"] = [this](const auto& di, auto& fd, const auto& addr) { mapBoolOp(di, fd, addr, PcodeOp::INT_SRIGHT); };
+    aarch64Handlers_["ror"] = [this](const auto& di, auto& fd, const auto& addr) { mapBoolOp(di, fd, addr, PcodeOp::INT_RIGHT); };
+    aarch64Handlers_["rorv"] = [this](const auto& di, auto& fd, const auto& addr) { mapBoolOp(di, fd, addr, PcodeOp::INT_RIGHT); };
+    aarch64Handlers_["cmp"] = [this](const auto& di, auto& fd, const auto& addr) { mapCmpTest(di, fd, addr, false); };
+    aarch64Handlers_["cmn"] = [this](const auto& di, auto& fd, const auto& addr) { mapCmpTest(di, fd, addr, false); };
+    aarch64Handlers_["tst"] = [this](const auto& di, auto& fd, const auto& addr) { mapCmpTest(di, fd, addr, true); };
+    aarch64Handlers_["ccmp"] = [this](const auto& di, auto& fd, const auto& addr) { mapCmpTest(di, fd, addr, false); };
+    aarch64Handlers_["ccmn"] = [this](const auto& di, auto& fd, const auto& addr) { mapCmpTest(di, fd, addr, false); };
+
+    // Extends / selects (approximate)
+    aarch64Handlers_["sxtb"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
+    aarch64Handlers_["sxth"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
+    aarch64Handlers_["sxtw"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
+    aarch64Handlers_["uxtb"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
+    aarch64Handlers_["uxth"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
+    aarch64Handlers_["uxtw"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
+    aarch64Handlers_["rev"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
+    aarch64Handlers_["rev16"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
+    aarch64Handlers_["rev32"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
+    aarch64Handlers_["rev64"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
+    aarch64Handlers_["csel"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
+    aarch64Handlers_["csinc"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
+    aarch64Handlers_["csinv"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
+    aarch64Handlers_["csneg"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
+
+    // Control flow
+    aarch64Handlers_["b"] = [this](const auto& di, auto& fd, const auto& addr) { mapBranch(di, fd, addr); };
+    aarch64Handlers_["bl"] = [this](const auto& di, auto& fd, const auto& addr) { mapCall(di, fd, addr); };
+    aarch64Handlers_["blr"] = [this](const auto& di, auto& fd, const auto& addr) { mapCallInd(di, fd, addr); };
+    aarch64Handlers_["br"] = [this](const auto& di, auto& fd, const auto& addr) { mapBranchInd(di, fd, addr); };
+    aarch64Handlers_["ret"] = [this](const auto& di, auto& fd, const auto& addr) { mapReturn(di, fd, addr); };
+    aarch64Handlers_["eret"] = [this](const auto& di, auto& fd, const auto& addr) { mapReturn(di, fd, addr); };
+    aarch64Handlers_["svc"] = [this](const auto& di, auto& fd, const auto& addr) { mapSyscall(di, fd, addr); };
+    aarch64Handlers_["b.eq"] = [this](const auto& di, auto& fd, const auto& addr) { mapCBranch(di, fd, addr); };
+    aarch64Handlers_["b.ne"] = [this](const auto& di, auto& fd, const auto& addr) { mapCBranch(di, fd, addr); };
+    aarch64Handlers_["b.gt"] = [this](const auto& di, auto& fd, const auto& addr) { mapCBranch(di, fd, addr); };
+    aarch64Handlers_["b.ge"] = [this](const auto& di, auto& fd, const auto& addr) { mapCBranch(di, fd, addr); };
+    aarch64Handlers_["b.lt"] = [this](const auto& di, auto& fd, const auto& addr) { mapCBranch(di, fd, addr); };
+    aarch64Handlers_["b.le"] = [this](const auto& di, auto& fd, const auto& addr) { mapCBranch(di, fd, addr); };
+    aarch64Handlers_["b.hi"] = [this](const auto& di, auto& fd, const auto& addr) { mapCBranch(di, fd, addr); };
+    aarch64Handlers_["b.hs"] = [this](const auto& di, auto& fd, const auto& addr) { mapCBranch(di, fd, addr); };
+    aarch64Handlers_["b.lo"] = [this](const auto& di, auto& fd, const auto& addr) { mapCBranch(di, fd, addr); };
+    aarch64Handlers_["b.ls"] = [this](const auto& di, auto& fd, const auto& addr) { mapCBranch(di, fd, addr); };
+    aarch64Handlers_["b.mi"] = [this](const auto& di, auto& fd, const auto& addr) { mapCBranch(di, fd, addr); };
+    aarch64Handlers_["b.pl"] = [this](const auto& di, auto& fd, const auto& addr) { mapCBranch(di, fd, addr); };
+    aarch64Handlers_["b.vs"] = [this](const auto& di, auto& fd, const auto& addr) { mapCBranch(di, fd, addr); };
+    aarch64Handlers_["b.vc"] = [this](const auto& di, auto& fd, const auto& addr) { mapCBranch(di, fd, addr); };
+    aarch64Handlers_["cbz"] = [this](const auto& di, auto& fd, const auto& addr) { mapCBranch(di, fd, addr); };
+    aarch64Handlers_["cbnz"] = [this](const auto& di, auto& fd, const auto& addr) { mapCBranch(di, fd, addr); };
+    aarch64Handlers_["tbz"] = [this](const auto& di, auto& fd, const auto& addr) { mapCBranch(di, fd, addr); };
+    aarch64Handlers_["tbnz"] = [this](const auto& di, auto& fd, const auto& addr) { mapCBranch(di, fd, addr); };
+
+    // Floating point
+    aarch64Handlers_["fadd"] = [this](const auto& di, auto& fd, const auto& addr) { mapFloatArith(di, fd, addr, PcodeOp::FLOAT_ADD); };
+    aarch64Handlers_["fsub"] = [this](const auto& di, auto& fd, const auto& addr) { mapFloatArith(di, fd, addr, PcodeOp::FLOAT_SUB); };
+    aarch64Handlers_["fmul"] = [this](const auto& di, auto& fd, const auto& addr) { mapFloatArith(di, fd, addr, PcodeOp::FLOAT_MULT); };
+    aarch64Handlers_["fdiv"] = [this](const auto& di, auto& fd, const auto& addr) { mapFloatArith(di, fd, addr, PcodeOp::FLOAT_DIV); };
+    aarch64Handlers_["fmax"] = [this](const auto& di, auto& fd, const auto& addr) { mapFloatArith(di, fd, addr, PcodeOp::FLOAT_MULT); };
+    aarch64Handlers_["fmin"] = [this](const auto& di, auto& fd, const auto& addr) { mapFloatArith(di, fd, addr, PcodeOp::FLOAT_MULT); };
+    aarch64Handlers_["fmadd"] = [this](const auto& di, auto& fd, const auto& addr) { mapFloatArith(di, fd, addr, PcodeOp::FLOAT_MULT); };
+    aarch64Handlers_["fmsub"] = [this](const auto& di, auto& fd, const auto& addr) { mapFloatArith(di, fd, addr, PcodeOp::FLOAT_MULT); };
+    aarch64Handlers_["fabs"] = [this](const auto& di, auto& fd, const auto& addr) { mapFloatUnary(di, fd, addr, PcodeOp::FLOAT_ABS); };
+    aarch64Handlers_["fneg"] = [this](const auto& di, auto& fd, const auto& addr) { mapFloatUnary(di, fd, addr, PcodeOp::FLOAT_NEG); };
+    aarch64Handlers_["fsqrt"] = [this](const auto& di, auto& fd, const auto& addr) { mapFloatUnary(di, fd, addr, PcodeOp::FLOAT_SQRT); };
+    aarch64Handlers_["fcmp"] = [this](const auto& di, auto& fd, const auto& addr) { mapFloatCmp(di, fd, addr, PcodeOp::FLOAT_EQUAL); };
+    aarch64Handlers_["fcmpe"] = [this](const auto& di, auto& fd, const auto& addr) { mapFloatCmp(di, fd, addr, PcodeOp::FLOAT_EQUAL); };
+    aarch64Handlers_["fcvt"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
+    aarch64Handlers_["scvtf"] = [this](const auto& di, auto& fd, const auto& addr) { mapInt2Float(di, fd, addr); };
+    aarch64Handlers_["ucvtf"] = [this](const auto& di, auto& fd, const auto& addr) { mapInt2Float(di, fd, addr); };
+    aarch64Handlers_["fcvtas"] = [this](const auto& di, auto& fd, const auto& addr) { mapFloat2Int(di, fd, addr); };
+    aarch64Handlers_["fcvtau"] = [this](const auto& di, auto& fd, const auto& addr) { mapFloat2Int(di, fd, addr); };
+    aarch64Handlers_["fcvtms"] = [this](const auto& di, auto& fd, const auto& addr) { mapFloat2Int(di, fd, addr); };
+    aarch64Handlers_["fcvtmu"] = [this](const auto& di, auto& fd, const auto& addr) { mapFloat2Int(di, fd, addr); };
+    aarch64Handlers_["fcvtns"] = [this](const auto& di, auto& fd, const auto& addr) { mapFloat2Int(di, fd, addr); };
+    aarch64Handlers_["fcvtnu"] = [this](const auto& di, auto& fd, const auto& addr) { mapFloat2Int(di, fd, addr); };
+    aarch64Handlers_["fcvtps"] = [this](const auto& di, auto& fd, const auto& addr) { mapFloat2Int(di, fd, addr); };
+    aarch64Handlers_["fcvtpu"] = [this](const auto& di, auto& fd, const auto& addr) { mapFloat2Int(di, fd, addr); };
+    aarch64Handlers_["fcvtzs"] = [this](const auto& di, auto& fd, const auto& addr) { mapFloat2Int(di, fd, addr); };
+    aarch64Handlers_["fcvtzu"] = [this](const auto& di, auto& fd, const auto& addr) { mapFloat2Int(di, fd, addr); };
 }
 
 // ---- MIPS Handler Table ----

@@ -165,6 +165,8 @@ static std::string languageToArchShort(const std::string& langId) {
     std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
     if (lower.find("x86") != std::string::npos || lower.find("i386") != std::string::npos)
         return "x86";
+    if (lower.find("aarch64") != std::string::npos)
+        return "ARM";
     if (lower.find("arm") != std::string::npos)
         return "ARM";
     if (lower.find("mips") != std::string::npos)

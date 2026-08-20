@@ -41,6 +41,10 @@ bool Sleigh::initialize() {
         csArch = CS_ARCH_X86;
         csMode = (archBitness_ == 64) ? CS_MODE_64 : CS_MODE_32;
         codeAlign = 1;
+    } else if (archLower.find("aarch64") != std::string::npos || archLower.find("arm64") != std::string::npos) {
+        csArch = CS_ARCH_ARM64;
+        csMode = CS_MODE_ARM;
+        codeAlign = 4;
     } else if (archLower.find("arm") != std::string::npos) {
         csArch = CS_ARCH_ARM;
         csMode = (archBitness_ == 64) ? CS_MODE_ARM : CS_MODE_ARM;

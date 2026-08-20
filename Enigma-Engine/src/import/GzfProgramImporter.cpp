@@ -415,7 +415,9 @@ std::unique_ptr<Disassembler> GzfProgramImporter::makeDisassembler(ProgramDB* pr
     const std::string lang = program->getLanguageID().getIdAsString();
     std::string arch = "x86";
     int bitness = 32;
-    if (lang.find("ARM") != std::string::npos || lang.find("arm") != std::string::npos) {
+    if (lang.find("AARCH64") != std::string::npos || lang.find("aarch64") != std::string::npos) {
+        arch = "aarch64";
+    } else if (lang.find("ARM") != std::string::npos || lang.find("arm") != std::string::npos) {
         arch = "arm";
     } else if (lang.find("MIPS") != std::string::npos) {
         arch = "mips";
