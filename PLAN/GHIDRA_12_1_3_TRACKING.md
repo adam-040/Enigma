@@ -265,11 +265,12 @@ Version Tracking, emulator userops, Byte Viewer, scripting, testing/build.
 ## Track 2 - execution log (engine/analysis parity)
 
 Commits: `ae512ff5` (Track 1), `6e17236b` (Track 2 P1-P2), `232b6606` (P3),
-`c9b5027f` (P4). Local resources: distro `ghidra-12.1.3-source` (docs, .sla
-binaries), DEV source `ghidra-Ghidra-12.1.3-build\Ghidra` (15,459 .java),
-precompiled Sleigh `.sla` copied from distro (user decision: no slgh_compile;
-`slgh_compile` cannot build Hexagon GP-6621/GP-6328 specs on this toolchain -
-non-blocking).
+`c9b5027f` (P4), `f1c616cf` (P5 docs), `dca862e4` (P6-P7 verdicts +
+verification; Track 2 complete). Local resources: distro `ghidra-12.1.3-source`
+(docs, .sla binaries), DEV source `ghidra-Ghidra-12.1.3-build\Ghidra`
+(15,459 .java), precompiled Sleigh `.sla` copied from distro (user decision:
+no slgh_compile; `slgh_compile` cannot build Hexagon GP-6621/GP-6328 specs on
+this toolchain - non-blocking).
 
 ### P1-P2 - decompiler sync + analyzer inventory (verified 2026-08-19)
 - Decompiler C++ merged to 12.1.3 (`Features/Decompiler/src/main/c`:
@@ -424,8 +425,17 @@ precompiled (P1-P2). So every 12.1.x processor entry is spec-level MATCH.
   GP-6914 MATCH spec-level (v3.0B/v3.0C instructions in .sinc - synced;
   Capstone PPC decodes; new mnemonics -> mapDefault - documented).
 
-### P7 - verification + docs (pending)
-- Per-fix tests (P3-P4 done), Track-1 guard (fidelity 43/43, import 87/87,
-  rebase 26/26), determinism regression, PLAN docs, final commit.
+### P7 - verification + docs (verified 2026-08-20; Track 2 COMPLETE)
+- Per-fix tests: P3 (62/62 incl. test_gnu_build_attributes 17), P4 (63/63
+  incl. test_elf_compiler_detect 16), P5/P6 documentation-only.
+- Track-1 guard: fidelity 43/43, import 87/87, rebase 26/26 (all inside the
+  full CTest run below).
+- Full CTest **63/63, exit 0** (log `%TEMP%\opencode\ctest_phase7.txt`) with
+  `ENIGMA_CORPUS_DIR=C:\Users\pc\Desktop` + `ENIGMA_EXTRA_CORPUS` = 7 x
+  `~0000000N.db\db.1.gbf` (**7 zeros** before N; a 6-zero path makes the
+  fidelity test report "Gbf: file too small" — false failure, corpora intact).
+  Determinism regression green (36.9s).
+- PLAN docs: `PROGRESS.md` Track 2 completion entry + this execution log.
+- Final commit: `dca862e4` (P6 verdicts + P7 verification; Track 2 complete).
 
 - Updated: 2026-08-20
