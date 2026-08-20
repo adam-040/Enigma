@@ -526,6 +526,7 @@ mapper had no AArch64 path. Track 3 closes that gap (user-approved scope).
   corpus would broaden coverage; the mapper table's ~110 entries are exercised
   only partially by the synthetic blob + this binary.
 - Commits: `6bdae421` (Track 3 initial: mapper + pipeline + synthetic test) +
-  follow-up real-ELF verification commit.
+  `9eb1be20` (real-ELF verification: guessLanguageFromArch AARCH64 fix,
+  corpus ELF + baseline, test + regression extension).
 
 - Updated: 2026-08-20
