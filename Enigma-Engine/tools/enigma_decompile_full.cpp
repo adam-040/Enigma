@@ -51,6 +51,7 @@ static void printUsage(const char* prog) {
               << "  -o <file>      Write output to file instead of stdout\n"
               << "  -time          Print decompilation timing breakdown\n"
               << "  -max-func <N>  Limit total decompiled functions (default: 200)\n"
+              << "  -all           Decompile every function discovered by analysis (not just entry-reachable)\n"
               << "  -no-crt       Do not suppress CRT/library function boundary\n"
               << "  -no-bridge    Skip all ProgramDB→decompiler bridging\n"
               << "  -no-type-bridge  Skip type bridge only\n"
@@ -521,6 +522,7 @@ int main(int argc, char** argv) {
     uint64_t entryPoint = 0;
     bool userSetLang = false, userSetBase = false, userSetEntry = false, showTiming = false;
     bool noCrt = false, noBridge = false, noTypeBridge = false, rawTypes = false;
+    bool decompileAll = false;
     int64_t maxFuncs = 200;
 
     for (int i = 1; i < argc; i++) {
@@ -548,6 +550,8 @@ int main(int argc, char** argv) {
             noTypeBridge = true;
         } else if (std::strcmp(argv[i], "-raw-types") == 0) {
             rawTypes = true;
+        } else if (std::strcmp(argv[i], "-all") == 0) {
+            decompileAll = true;
         } else {
             binary = argv[i];
         }
@@ -591,7 +595,7 @@ int main(int argc, char** argv) {
         detectedEntry = bloader->getEntryPoint();
         if (!userSetLang) {
             std::string guessed = ghidra::BinaryLoader::guessLanguageFromArch(
-                bloader->getArchitecture(), bloader->getBitness());
+                bloader->getArchitecture(), bloader->getBitness(), bloader->isBigEndian());
             if (guessed != "unknown") {
                 // Use correct compiler spec
                 std::string compiler = bloader->getFormatName() == "Mac OS X Mach-O"
@@ -619,16 +623,20 @@ int main(int argc, char** argv) {
         };
 
         // Build symbol map from imports and exports.
-        // For imports, also map the IAT entries' TARGET addresses (the actual
+        // For PE imports, also map the IAT entries' TARGET addresses (the actual
         // function VAs stored in the IAT) so that readonly propagation can
         // still resolve constant function pointers back to import names.
+        // ELF .got slots hold lazy-binding placeholders (PLT0 address) in the
+        // file, not function VAs, so the IAT read is skipped for ELF.
         {
             auto imps = bloader->getImports();
+            bool isPeFormat = bloader->getFormatName() == "PE";
             if (std::getenv("ENIGMA_DEBUG"))
                 std::cerr << "  Imports: " << imps.size() << "\n";
             for (const auto& imp : imps) {
                 uint64_t mappedIatAddr = mapLoadedAddress(imp.address);
                 symbolNames[mappedIatAddr] = imp.functionName;
+                if (!isPeFormat) continue;
                 // Read the IAT entry value (actual function VA) from the binary
                 auto iatBytes = bloader->getBytes(imp.address, 8);
                 if (iatBytes.size() >= 8) {
@@ -1552,6 +1560,42 @@ int main(int argc, char** argv) {
         // Behavioral CRT classification replaces the old name-based
         // crtDiscoveryQueue + main renaming. See below for the new
         // post-BFS classification pass.
+
+        // -all: decompile every function the analysis pipeline discovered
+        // (bridged into the global scope), not just entry-reachable code.
+        if (decompileAll) {
+            ghidra_decompiler::Scope* globalScope = arch->symboltab->getGlobalScope();
+            std::vector<Funcdata*> allFuncs;
+            for (ghidra_decompiler::MapIterator it = globalScope->begin();
+                 it != globalScope->end(); ++it) {
+                const ghidra_decompiler::SymbolEntry* entry = *it;
+                if (!entry) continue;
+                ghidra_decompiler::Symbol* sym = entry->getSymbol();
+                if (!sym) continue;
+                auto* fsym = dynamic_cast<ghidra_decompiler::FunctionSymbol*>(sym);
+                if (!fsym) continue;
+                Funcdata* fd = fsym->getFunction();
+                if (!fd) continue;
+                uint64_t off = fd->getAddress().getOffset();
+                if (off == 0 || !isExecutableAddress(off)) continue;
+                if (!visited.insert(off).second) continue;
+                if (isCrtFunction(fd->getName()) && !noCrt) continue;
+                if (fd->isProcStarted()) {
+                    rememberOutput(fd);
+                    continue;
+                }
+                if (decompileOne(fd)) {
+                    rememberOutput(fd);
+                    userFuncCount++;
+                    if (maxFuncs > 0 && userFuncCount >= maxFuncs) {
+                        if (std::getenv("ENIGMA_DEBUG"))
+                            std::cerr << "    [all-limit] max functions reached\n";
+                        break;
+                    }
+                }
+            }
+            (void)allFuncs;
+        }
 
         if (std::getenv("ENIGMA_DEBUG"))
             std::cerr << "Total functions: " << allFds.size() << "\n";

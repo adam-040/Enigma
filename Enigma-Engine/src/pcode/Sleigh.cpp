@@ -48,14 +48,17 @@ bool Sleigh::initialize() {
     } else if (archLower.find("arm") != std::string::npos) {
         csArch = CS_ARCH_ARM;
         csMode = (archBitness_ == 64) ? CS_MODE_ARM : CS_MODE_ARM;
+        if (archBigEndian_) csMode = static_cast<cs_mode>(csMode | CS_MODE_BIG_ENDIAN);
         codeAlign = 4;
     } else if (archLower.find("mips") != std::string::npos) {
         csArch = CS_ARCH_MIPS;
         csMode = (archBitness_ == 64) ? CS_MODE_MIPS64 : CS_MODE_MIPS32;
+        if (archBigEndian_) csMode = static_cast<cs_mode>(csMode | CS_MODE_BIG_ENDIAN);
         codeAlign = 4;
     } else if (archLower.find("ppc") != std::string::npos || archLower.find("powerpc") != std::string::npos) {
         csArch = CS_ARCH_PPC;
         csMode = (archBitness_ == 64) ? CS_MODE_64 : CS_MODE_32;
+        if (archBigEndian_) csMode = static_cast<cs_mode>(csMode | CS_MODE_BIG_ENDIAN);
         codeAlign = 4;
     } else {
         return false;

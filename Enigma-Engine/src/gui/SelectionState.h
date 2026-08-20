@@ -10,7 +10,8 @@ enum class TokenKind {
     BracesOuter,   // external {} () — yellow
     BracesInner,   // internal {} () — light pink
     Operator,      // = + - * / | & — dark
-    Semicolon      // ; — red
+    Semicolon,     // ; — red
+    Equate         // named constant from the EquateTable — amber
 };
 
 struct SelectionState {

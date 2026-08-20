@@ -33,7 +33,7 @@ MemoryBlockType BinaryLoader::sectionToMemoryBlockType(const SectionInfo& sectio
     return MemoryBlockType::DEFAULT;
 }
 
-std::string BinaryLoader::guessLanguageFromArch(const std::string& arch, int bitness) {
+std::string BinaryLoader::guessLanguageFromArch(const std::string& arch, int bitness, bool bigEndian) {
     if (arch.find("x86") != std::string::npos || arch.find("i386") != std::string::npos ||
         arch.find("i686") != std::string::npos) {
         return bitness == 64 ? "x86:LE:64:default" : "x86:LE:32:default";
@@ -42,13 +42,18 @@ std::string BinaryLoader::guessLanguageFromArch(const std::string& arch, int bit
         return bitness == 64 ? "AARCH64:LE:64:v8A" : "ARM:LE:32:v8";
     }
     if (arch.find("ARM") != std::string::npos || arch.find("arm") != std::string::npos) {
+        if (bigEndian) return bitness == 64 ? "AARCH64:LE:64:v8A" : "ARM:BE:32:v8";
         return bitness == 64 ? "AARCH64:LE:64:v8A" : "ARM:LE:32:v8";
     }
     if (arch.find("MIPS") != std::string::npos || arch.find("mips") != std::string::npos) {
-        return bitness == 64 ? "MIPS:BE:64:default" : "MIPS:BE:32:default";
+        return bitness == 64
+            ? (bigEndian ? "MIPS:BE:64:default" : "MIPS:LE:64:default")
+            : (bigEndian ? "MIPS:BE:32:default" : "MIPS:LE:32:default");
     }
     if (arch.find("PowerPC") != std::string::npos || arch.find("ppc") != std::string::npos) {
-        return bitness == 64 ? "PowerPC:BE:64:default" : "PowerPC:BE:32:default";
+        return bitness == 64
+            ? (bigEndian ? "PowerPC:BE:64:default" : "PowerPC:LE:64:64-32addr")
+            : (bigEndian ? "PowerPC:BE:32:default" : "PowerPC:LE:32:default");
     }
     if (arch.find("RISCV") != std::string::npos || arch.find("riscv") != std::string::npos) {
         return bitness == 64 ? "RISCV:LE:64:default" : "RISCV:LE:32:default";
@@ -119,6 +124,10 @@ public:
             }
             // CPU_TYPE_POWERPC = 18, CPU_TYPE_POWERPC64 = 0x01000012
             return (cputype == 0x01000012 || cputype == 18);
+        }
+        if (formatName_ == "ELF" && rawData_.size() >= 6) {
+            // EI_DATA byte: 1 = little-endian, 2 = big-endian
+            return rawData_[5] == 2;
         }
         return false;
     }
@@ -219,7 +228,7 @@ public:
         if (!formatName_.empty())
             program->setExecutableFormat(formatName_);
 
-        std::string languageId = guessLanguageFromArch(arch_, bitness_);
+        std::string languageId = guessLanguageFromArch(arch_, bitness_, isBigEndian());
         if (!languageId.empty() && languageId != "unknown") {
             program->setLanguageID(LanguageID(languageId));
         }
@@ -584,25 +593,57 @@ private:
         return true;
     }
 
+    uint16_t elf16(size_t off) const {
+        if (off + 2 > rawData_.size()) return 0;
+        uint16_t v = *reinterpret_cast<const uint16_t*>(rawData_.data() + off);
+        if (elfBigEndian_) return static_cast<uint16_t>((v >> 8) | (v << 8));
+        return v;
+    }
+
+    uint32_t elf32(size_t off) const {
+        if (off + 4 > rawData_.size()) return 0;
+        uint32_t v = *reinterpret_cast<const uint32_t*>(rawData_.data() + off);
+        if (elfBigEndian_)
+            return ((v & 0xFF) << 24) | ((v & 0xFF00) << 8) | ((v >> 8) & 0xFF00) | (v >> 24);
+        return v;
+    }
+
+    int32_t elfs32(size_t off) const { return static_cast<int32_t>(elf32(off)); }
+
+    uint64_t elf64(size_t off) const {
+        if (off + 8 > rawData_.size()) return 0;
+        uint64_t v = *reinterpret_cast<const uint64_t*>(rawData_.data() + off);
+        if (elfBigEndian_)
+            return ((v & 0xFFULL) << 56) | ((v & 0xFF00ULL) << 40) | ((v & 0xFF0000ULL) << 24) |
+                   ((v & 0xFF000000ULL) << 8) | ((v >> 8) & 0xFF000000ULL) |
+                   ((v >> 24) & 0xFF0000ULL) | ((v >> 40) & 0xFF00ULL) | (v >> 56);
+        return v;
+    }
+
+    int64_t elfs64(size_t off) const { return static_cast<int64_t>(elf64(off)); }
+
     bool parseELF() {
         formatName_ = "ELF";
         bitness_ = (rawData_[4] == 2) ? 64 : 32;
+        elfBigEndian_ = (rawData_.size() >= 6 && rawData_[5] == 2);
 
-        uint16_t machine = *reinterpret_cast<uint16_t*>(rawData_.data() + 18);
+        uint16_t machine = elf16(18);
         switch (machine) {
-            case 0x03: arch_ = "x86"; bitness_ = 32; break;
-            case 0x3E: arch_ = "x86"; bitness_ = 64; break;
-            case 0x28: arch_ = "ARM"; bitness_ = 32; break;
-            case 0xB7: arch_ = "AARCH64"; bitness_ = 64; break;
-            case 0x08: arch_ = "MIPS"; bitness_ = 32; break;
-            case 0xF3: arch_ = "RISCV"; bitness_ = 64; break;
+            case 0x03: arch_ = "x86"; break;
+            case 0x3E: arch_ = "x86"; break;
+            case 0x28: arch_ = "ARM"; break;
+            case 0xB7: arch_ = "AARCH64"; break;
+            case 0x08: arch_ = "MIPS"; break;
+            case 0x14: arch_ = "PowerPC"; break;
+            case 0x15: arch_ = "PowerPC"; break;
+            case 0xF3: arch_ = "RISCV"; break;
             default: arch_ = "unknown"; break;
         }
 
         if (bitness_ == 32) {
-            entryPoint_ = *reinterpret_cast<uint32_t*>(rawData_.data() + 24);
+            entryPoint_ = elf32(24);
         } else {
-            entryPoint_ = *reinterpret_cast<uint64_t*>(rawData_.data() + 24);
+            entryPoint_ = elf64(24);
         }
 
         imageBase_ = 0;
@@ -615,6 +656,7 @@ private:
 
         parseELFSymbols();
         parseELFImports();
+        parseELFRelocations();
 
         return true;
     }
@@ -835,10 +877,10 @@ private:
     }
 
     void parseELF32() {
-        uint32_t shoff = *reinterpret_cast<uint32_t*>(rawData_.data() + 32);
-        uint16_t shnum = *reinterpret_cast<uint16_t*>(rawData_.data() + 48);
-        uint16_t shentsize = *reinterpret_cast<uint16_t*>(rawData_.data() + 46);
-        uint16_t shstrndx = *reinterpret_cast<uint16_t*>(rawData_.data() + 50);
+        uint32_t shoff = elf32(32);
+        uint16_t shnum = elf16(48);
+        uint16_t shentsize = elf16(46);
+        uint16_t shstrndx = elf16(50);
 
         std::vector<uint32_t> sectionNames(shnum);
 
@@ -847,14 +889,14 @@ private:
             if (secOffset + 40 > rawData_.size()) break;
 
             SectionInfo section{};
-            uint32_t nameIdx = *reinterpret_cast<uint32_t*>(rawData_.data() + secOffset);
-            section.type = *reinterpret_cast<uint32_t*>(rawData_.data() + secOffset + 4);
-            section.virtualAddress = *reinterpret_cast<uint32_t*>(rawData_.data() + secOffset + 12);
-            section.fileOffset = *reinterpret_cast<uint32_t*>(rawData_.data() + secOffset + 16);
-            section.fileSize = *reinterpret_cast<uint32_t*>(rawData_.data() + secOffset + 20);
+            uint32_t nameIdx = elf32(secOffset);
+            section.type = elf32(secOffset + 4);
+            section.virtualAddress = elf32(secOffset + 12);
+            section.fileOffset = elf32(secOffset + 16);
+            section.fileSize = elf32(secOffset + 20);
             section.virtualSize = section.fileSize;
 
-            uint32_t flags = *reinterpret_cast<uint32_t*>(rawData_.data() + secOffset + 8);
+            uint32_t flags = elf32(secOffset + 8);
             section.isReadable = (flags & 0x2) != 0;
             section.isWritable = (flags & 0x1) != 0;
             section.isExecutable = (flags & 0x4) != 0;
@@ -865,7 +907,7 @@ private:
 
         if (shstrndx < shnum) {
             uint32_t strSecOffset = shoff + shstrndx * shentsize;
-            uint32_t strOffset = *reinterpret_cast<uint32_t*>(rawData_.data() + strSecOffset + 16);
+            uint32_t strOffset = elf32(strSecOffset + 16);
 
             for (size_t i = 0; i < sections_.size(); i++) {
                 uint32_t nameOff = strOffset + sectionNames[i];
@@ -877,10 +919,10 @@ private:
     }
 
     void parseELF64() {
-        uint64_t shoff = *reinterpret_cast<uint64_t*>(rawData_.data() + 40);
-        uint16_t shnum = *reinterpret_cast<uint16_t*>(rawData_.data() + 60);
-        uint16_t shentsize = *reinterpret_cast<uint16_t*>(rawData_.data() + 58);
-        uint16_t shstrndx = *reinterpret_cast<uint16_t*>(rawData_.data() + 62);
+        uint64_t shoff = elf64(40);
+        uint16_t shnum = elf16(60);
+        uint16_t shentsize = elf16(58);
+        uint16_t shstrndx = elf16(62);
 
         std::vector<uint32_t> sectionNames(shnum);
 
@@ -889,14 +931,14 @@ private:
             if (secOffset + 64 > rawData_.size()) break;
 
             SectionInfo section{};
-            uint32_t nameIdx = *reinterpret_cast<uint32_t*>(rawData_.data() + secOffset);
-            section.type = *reinterpret_cast<uint32_t*>(rawData_.data() + secOffset + 4);
-            section.virtualAddress = *reinterpret_cast<uint64_t*>(rawData_.data() + secOffset + 16);
-            section.fileOffset = *reinterpret_cast<uint64_t*>(rawData_.data() + secOffset + 24);
-            section.fileSize = *reinterpret_cast<uint64_t*>(rawData_.data() + secOffset + 32);
+            uint32_t nameIdx = elf32(secOffset);
+            section.type = elf32(secOffset + 4);
+            section.virtualAddress = elf64(secOffset + 16);
+            section.fileOffset = elf64(secOffset + 24);
+            section.fileSize = elf64(secOffset + 32);
             section.virtualSize = section.fileSize;
 
-            uint64_t flags = *reinterpret_cast<uint64_t*>(rawData_.data() + secOffset + 8);
+            uint64_t flags = elf64(secOffset + 8);
             section.isReadable = (flags & 0x2) != 0;
             section.isWritable = (flags & 0x1) != 0;
             section.isExecutable = (flags & 0x4) != 0;
@@ -907,7 +949,7 @@ private:
 
         if (shstrndx < shnum) {
             uint64_t strSecOffset = shoff + shstrndx * shentsize;
-            uint64_t strOffset = *reinterpret_cast<uint64_t*>(rawData_.data() + strSecOffset + 24);
+            uint64_t strOffset = elf64(strSecOffset + 24);
 
             for (size_t i = 0; i < sections_.size(); i++) {
                 uint64_t nameOff = strOffset + sectionNames[i];
@@ -927,27 +969,27 @@ private:
     }
 
     void parseELF32Symbols() {
-        uint32_t shoff = *reinterpret_cast<uint32_t*>(rawData_.data() + 32);
-        uint16_t shnum = *reinterpret_cast<uint16_t*>(rawData_.data() + 48);
-        uint16_t shentsize = *reinterpret_cast<uint16_t*>(rawData_.data() + 46);
+        uint32_t shoff = elf32(32);
+        uint16_t shnum = elf16(48);
+        uint16_t shentsize = elf16(46);
 
         for (uint16_t i = 0; i < shnum; ++i) {
             uint32_t secOffset = shoff + i * shentsize;
             if (secOffset + 40 > rawData_.size()) break;
 
-            uint32_t type = *reinterpret_cast<uint32_t*>(rawData_.data() + secOffset + 4);
+            uint32_t type = elf32(secOffset + 4);
             if (type != 2 && type != 11) continue;
 
-            uint32_t symOffset = *reinterpret_cast<uint32_t*>(rawData_.data() + secOffset + 16);
-            uint32_t symSize = *reinterpret_cast<uint32_t*>(rawData_.data() + secOffset + 20);
-            uint32_t linkIdx = *reinterpret_cast<uint32_t*>(rawData_.data() + secOffset + 24);
-            uint32_t entSize = *reinterpret_cast<uint32_t*>(rawData_.data() + secOffset + 36);
+            uint32_t symOffset = elf32(secOffset + 16);
+            uint32_t symSize = elf32(secOffset + 20);
+            uint32_t linkIdx = elf32(secOffset + 24);
+            uint32_t entSize = elf32(secOffset + 36);
             if (entSize == 0) entSize = 16;
 
             uint32_t strTabOffset = 0;
             if (linkIdx < shnum) {
                 uint32_t linkOffset = shoff + linkIdx * shentsize;
-                strTabOffset = *reinterpret_cast<uint32_t*>(rawData_.data() + linkOffset + 16);
+                strTabOffset = elf32(linkOffset + 16);
             }
 
             uint32_t numSymbols = symSize / entSize;
@@ -955,13 +997,13 @@ private:
                 uint32_t symOff = symOffset + j * entSize;
                 if (symOff + 16 > rawData_.size()) break;
 
-                uint32_t nameIdx = *reinterpret_cast<uint32_t*>(rawData_.data() + symOff);
-                uint32_t value = *reinterpret_cast<uint32_t*>(rawData_.data() + symOff + 4);
-                uint32_t size = *reinterpret_cast<uint32_t*>(rawData_.data() + symOff + 8);
+                uint32_t nameIdx = elf32(symOff);
+                uint32_t value = elf32(symOff + 4);
+                uint32_t size = elf32(symOff + 8);
                 uint8_t info = rawData_[symOff + 12];
                 uint8_t bind = info >> 4;
                 uint8_t stype = info & 0xF;
-                uint16_t shndx = *reinterpret_cast<uint16_t*>(rawData_.data() + symOff + 14);
+                uint16_t shndx = elf16(symOff + 14);
 
                 if (nameIdx == 0 || value == 0) continue;
 
@@ -985,27 +1027,27 @@ private:
     }
 
     void parseELF64Symbols() {
-        uint64_t shoff = *reinterpret_cast<uint64_t*>(rawData_.data() + 40);
-        uint16_t shnum = *reinterpret_cast<uint16_t*>(rawData_.data() + 60);
-        uint16_t shentsize = *reinterpret_cast<uint16_t*>(rawData_.data() + 58);
+        uint64_t shoff = elf64(40);
+        uint16_t shnum = elf16(60);
+        uint16_t shentsize = elf16(58);
 
         for (uint16_t i = 0; i < shnum; ++i) {
             uint64_t secOffset = shoff + i * shentsize;
             if (secOffset + 64 > rawData_.size()) break;
 
-            uint32_t type = *reinterpret_cast<uint32_t*>(rawData_.data() + secOffset + 4);
+            uint32_t type = elf32(secOffset + 4);
             if (type != 2 && type != 11) continue;
 
-            uint64_t symOffset = *reinterpret_cast<uint64_t*>(rawData_.data() + secOffset + 24);
-            uint64_t symSize = *reinterpret_cast<uint64_t*>(rawData_.data() + secOffset + 32);
-            uint32_t linkIdx = *reinterpret_cast<uint32_t*>(rawData_.data() + secOffset + 40);
-            uint64_t entSize = *reinterpret_cast<uint64_t*>(rawData_.data() + secOffset + 56);
+            uint64_t symOffset = elf64(secOffset + 24);
+            uint64_t symSize = elf64(secOffset + 32);
+            uint32_t linkIdx = elf32(secOffset + 40);
+            uint64_t entSize = elf64(secOffset + 56);
             if (entSize == 0) entSize = 24;
 
             uint64_t strTabOffset = 0;
             if (linkIdx < shnum) {
                 uint64_t linkOffset = shoff + linkIdx * shentsize;
-                strTabOffset = *reinterpret_cast<uint64_t*>(rawData_.data() + linkOffset + 24);
+                strTabOffset = elf64(linkOffset + 24);
             }
 
             uint64_t numSymbols = symSize / entSize;
@@ -1013,13 +1055,13 @@ private:
                 uint64_t symOff = symOffset + j * entSize;
                 if (symOff + 24 > rawData_.size()) break;
 
-                uint32_t nameIdx = *reinterpret_cast<uint32_t*>(rawData_.data() + symOff);
+                uint32_t nameIdx = elf32(symOff);
                 uint8_t info = rawData_[symOff + 4];
                 uint8_t bind = info >> 4;
                 uint8_t stype = info & 0xF;
-                uint16_t shndx = *reinterpret_cast<uint16_t*>(rawData_.data() + symOff + 6);
-                uint64_t value = *reinterpret_cast<uint64_t*>(rawData_.data() + symOff + 8);
-                uint64_t size = *reinterpret_cast<uint64_t*>(rawData_.data() + symOff + 16);
+                uint16_t shndx = elf16(symOff + 6);
+                uint64_t value = elf64(symOff + 8);
+                uint64_t size = elf64(symOff + 16);
 
                 if (nameIdx == 0 || value == 0) continue;
 
@@ -1051,21 +1093,21 @@ private:
     }
 
     void parseELF32Dynamic() {
-        uint32_t shoff = *reinterpret_cast<uint32_t*>(rawData_.data() + 32);
-        uint16_t shnum = *reinterpret_cast<uint16_t*>(rawData_.data() + 48);
-        uint16_t shentsize = *reinterpret_cast<uint16_t*>(rawData_.data() + 46);
+        uint32_t shoff = elf32(32);
+        uint16_t shnum = elf16(48);
+        uint16_t shentsize = elf16(46);
 
         uint32_t dynOffset = 0, dynSize = 0, strTabOffset = 0;
         for (uint16_t i = 0; i < shnum; ++i) {
             uint32_t secOffset = shoff + i * shentsize;
             if (secOffset + 40 > rawData_.size()) break;
-            uint32_t type = *reinterpret_cast<uint32_t*>(rawData_.data() + secOffset + 4);
+            uint32_t type = elf32(secOffset + 4);
             if (type == 6) {
-                dynOffset = *reinterpret_cast<uint32_t*>(rawData_.data() + secOffset + 16);
-                dynSize = *reinterpret_cast<uint32_t*>(rawData_.data() + secOffset + 20);
+                dynOffset = elf32(secOffset + 16);
+                dynSize = elf32(secOffset + 20);
             }
             if (type == 3) {
-                strTabOffset = *reinterpret_cast<uint32_t*>(rawData_.data() + secOffset + 16);
+                strTabOffset = elf32(secOffset + 16);
             }
         }
 
@@ -1076,8 +1118,8 @@ private:
             uint32_t entryOffset = dynOffset + i * 8;
             if (entryOffset + 8 > rawData_.size()) break;
 
-            int32_t tag = *reinterpret_cast<int32_t*>(rawData_.data() + entryOffset);
-            uint32_t val = *reinterpret_cast<uint32_t*>(rawData_.data() + entryOffset + 4);
+            int32_t tag = elfs32(entryOffset);
+            uint32_t val = elf32(entryOffset + 4);
 
             if (tag == 1) {
                 std::string libName;
@@ -1097,21 +1139,21 @@ private:
     }
 
     void parseELF64Dynamic() {
-        uint64_t shoff = *reinterpret_cast<uint64_t*>(rawData_.data() + 40);
-        uint16_t shnum = *reinterpret_cast<uint16_t*>(rawData_.data() + 60);
-        uint16_t shentsize = *reinterpret_cast<uint16_t*>(rawData_.data() + 58);
+        uint64_t shoff = elf64(40);
+        uint16_t shnum = elf16(60);
+        uint16_t shentsize = elf16(58);
 
         uint64_t dynOffset = 0, dynSize = 0, strTabOffset = 0;
         for (uint16_t i = 0; i < shnum; ++i) {
             uint64_t secOffset = shoff + i * shentsize;
             if (secOffset + 64 > rawData_.size()) break;
-            uint32_t type = *reinterpret_cast<uint32_t*>(rawData_.data() + secOffset + 4);
+            uint32_t type = elf32(secOffset + 4);
             if (type == 6) {
-                dynOffset = *reinterpret_cast<uint64_t*>(rawData_.data() + secOffset + 24);
-                dynSize = *reinterpret_cast<uint64_t*>(rawData_.data() + secOffset + 32);
+                dynOffset = elf64(secOffset + 24);
+                dynSize = elf64(secOffset + 32);
             }
             if (type == 3) {
-                strTabOffset = *reinterpret_cast<uint64_t*>(rawData_.data() + secOffset + 24);
+                strTabOffset = elf64(secOffset + 24);
             }
         }
 
@@ -1122,8 +1164,8 @@ private:
             uint64_t entryOffset = dynOffset + i * 16;
             if (entryOffset + 16 > rawData_.size()) break;
 
-            int64_t tag = *reinterpret_cast<int64_t*>(rawData_.data() + entryOffset);
-            uint64_t val = *reinterpret_cast<uint64_t*>(rawData_.data() + entryOffset + 8);
+            int64_t tag = elfs64(entryOffset);
+            uint64_t val = elf64(entryOffset + 8);
 
             if (tag == 1) {
                 std::string libName;
@@ -1139,6 +1181,260 @@ private:
                 }
             }
             if (tag == 0) break;
+        }
+    }
+
+    // ELF dynamic relocations: resolve PLT/GOT import slots to symbol names.
+    // The dynamic symbol table lists imports as UND symbols with value 0, so
+    // parseELFSymbols() skips them; the relocation sections (.rela.plt /
+    // .rela.dyn) map each GOT slot (and its PLT stub) to the imported symbol.
+    // This gives dynamically-linked ELFs named imports instead of bare
+    // "(dynamic)" library records or unresolved GOT-relative indirect calls.
+    void parseELFRelocations() {
+        if (bitness_ == 32) {
+            parseELF32Relocations();
+        } else {
+            parseELF64Relocations();
+        }
+    }
+
+    // PLT layout per arch: {header bytes, stub size}. Standard values used by
+    // the system linkers: AArch64 = 32-byte header + 16-byte stubs,
+    // x86/x86-64 = 16-byte header + 16-byte stubs. ARM is detected from the
+    // .plt bytes (see armPltStubLayout) because lld and binutils emit
+    // different layouts. MIPS and PPC have no contiguous .plt stub region:
+    // MIPS uses .MIPS.stubs and PPC's .plt is a GOT-style 4-byte slot table
+    // whose values are stub addresses in .text (already named by the linker's
+    // .plt_pic32.* symbols), so {0, 0} skips the phantom stub import.
+    static std::pair<uint64_t, uint64_t> pltLayout(const std::string& arch) {
+        if (arch == "AARCH64") return {32, 16};
+        if (arch == "MIPS" || arch == "PowerPC") return {0, 0};
+        return {16, 16}; // x86, RISCV, default
+    }
+
+    // ARM PLT layouts differ per linker: lld emits a 32-byte header (16 bytes
+    // of PLT0 code + 16 bytes of padding) with 16-byte stub slots, binutils a
+    // 20-byte header with 12-byte stubs. Detect the real stub base and stride
+    // from the .plt bytes instead of assuming: every ARM stub starts with
+    // `add ip, pc, #imm` (0xe28fc600).
+    std::pair<uint64_t, uint64_t> armPltStubLayout() {
+        for (const auto& s : sections_) {
+            if (s.name != ".plt" || s.fileSize < 16 ||
+                s.fileOffset >= rawData_.size()) continue;
+            std::vector<uint64_t> starts;
+            const uint8_t* p = rawData_.data() + s.fileOffset;
+            uint64_t n = std::min<uint64_t>(s.fileSize, rawData_.size() - s.fileOffset);
+            for (uint64_t i = 4; i + 4 <= n; ++i) {
+                bool match = elfBigEndian_
+                    ? (p[i] == 0xe2 && p[i+1] == 0x8f && p[i+2] == 0xc6 && p[i+3] == 0x00)
+                    : (p[i] == 0x00 && p[i+1] == 0xc6 && p[i+2] == 0x8f && p[i+3] == 0xe2);
+                if (match) {
+                    starts.push_back(s.virtualAddress + i);
+                    if (starts.size() == 2) break;
+                }
+            }
+            if (starts.size() >= 1)
+                return {starts[0], starts.size() >= 2 ? starts[1] - starts[0] : 16};
+        }
+        return {0, 0};
+    }
+
+    static uint32_t jumpSlotRelocType(const std::string& arch) {
+        // R_*_JUMP_SLOT: x86/x86-64 = 7, ARM32 = 22, AARCH64 = 0x402,
+        // MIPS = 2, PPC = 21, RISCV = 5.
+        if (arch == "ARM") return 22;
+        if (arch == "AARCH64") return 0x402;
+        if (arch == "MIPS") return 2;
+        if (arch == "PowerPC") return 21;
+        if (arch == "RISCV") return 5;
+        return 7;
+    }
+
+    void parseELF64Relocations() {
+        uint64_t shoff = elf64(40);
+        uint16_t shnum = elf16(60);
+        uint16_t shentsize = elf16(58);
+
+        uint64_t pltVaddr = 0;
+        for (const auto& s : sections_)
+            if (s.name == ".plt") { pltVaddr = s.virtualAddress; break; }
+
+        uint64_t pltStubBase = 0, pltStubSize = 0;
+        if (arch_ == "ARM") {
+            std::tie(pltStubBase, pltStubSize) = armPltStubLayout();
+        } else {
+            uint64_t pltHeader;
+            std::tie(pltHeader, pltStubSize) = pltLayout(arch_);
+            pltStubBase = pltVaddr + pltHeader;
+        }
+        uint32_t jsType = jumpSlotRelocType(arch_);
+        uint64_t stubIdx = 0;
+
+        for (uint16_t i = 0; i < shnum; ++i) {
+            uint64_t secOffset = shoff + i * shentsize;
+            if (secOffset + 64 > rawData_.size()) break;
+            uint32_t type = elf32(secOffset + 4);
+            // SHT_RELA = 4, SHT_REL = 9
+            if (type != 4 && type != 9) continue;
+
+            uint64_t relOffset = elf64(secOffset + 24);
+            uint64_t relSize = elf64(secOffset + 32);
+            uint64_t entSize = elf64(secOffset + 56);
+            if (entSize == 0) entSize = (type == 4) ? 24 : 16;
+            uint32_t linkIdx = elf32(secOffset + 40); // symbol table section index
+
+            // Symbol table's linked string table
+            uint64_t strTabOffset = 0;
+            if (linkIdx < shnum) {
+                uint64_t lso = shoff + linkIdx * shentsize;
+                uint32_t strIdx = elf32(lso + 40);
+                if (strIdx < shnum) {
+                    uint64_t strso = shoff + strIdx * shentsize;
+                    strTabOffset = elf64(strso + 24);
+                }
+            }
+
+            uint64_t numRels = relSize / entSize;
+            for (uint64_t j = 0; j < numRels; ++j) {
+                uint64_t rOffset = relOffset + j * entSize;
+                if (rOffset + 16 > rawData_.size()) break;
+                uint64_t rInfo = elf64(rOffset + 8);
+                uint64_t symIdx = rInfo >> 32;
+                uint32_t rType = static_cast<uint32_t>(rInfo & 0xFFFFFFFF);
+
+                std::string symName;
+                if (strTabOffset != 0 && linkIdx < shnum) {
+                    uint64_t lso = shoff + linkIdx * shentsize;
+                    uint64_t symTabOff = elf64(lso + 24);
+                    uint64_t symEnt = elf64(lso + 56);
+                    if (symEnt == 0) symEnt = 24;
+                    uint64_t symOff = symTabOff + symIdx * symEnt;
+                    if (symOff + 8 <= rawData_.size()) {
+                        uint32_t nameIdx = elf32(symOff);
+                        if (nameIdx != 0 && strTabOffset + nameIdx < rawData_.size()) {
+                            symName = reinterpret_cast<const char*>(rawData_.data() + strTabOffset + nameIdx);
+                        }
+                    }
+                }
+                if (symName.empty() || symName == "(dynamic)") continue;
+
+                uint64_t gotSlot = elf64(rOffset); // r_offset = GOT slot VA
+
+                if (rType == jsType) {
+                    // JUMP_SLOT: function import. Name both the GOT slot
+                    // (the indirect target) and its PLT stub.
+                    ImportInfo imp{};
+                    imp.functionName = symName;
+                    imp.address = gotSlot;
+                    imports_.push_back(imp);
+
+                    if (pltStubBase != 0 && pltStubSize > 0) {
+                        ImportInfo stub{};
+                        stub.functionName = symName;
+                        stub.address = pltStubBase + stubIdx * pltStubSize;
+                        imports_.push_back(stub);
+                    }
+                    stubIdx++;
+                } else if (rType == 6 || rType == 0x401 || rType == 21 ||
+                           rType == 1 || rType == 20) {
+                    // GLOB_DAT / data import: name the GOT slot only.
+                    ImportInfo imp{};
+                    imp.functionName = symName;
+                    imp.address = gotSlot;
+                    imports_.push_back(imp);
+                }
+            }
+        }
+    }
+
+    void parseELF32Relocations() {
+        uint32_t shoff = elf32(32);
+        uint16_t shnum = elf16(48);
+        uint16_t shentsize = elf16(46);
+
+        uint64_t pltVaddr = 0;
+        for (const auto& s : sections_)
+            if (s.name == ".plt") { pltVaddr = s.virtualAddress; break; }
+
+        uint64_t pltStubBase = 0, pltStubSize = 0;
+        if (arch_ == "ARM") {
+            std::tie(pltStubBase, pltStubSize) = armPltStubLayout();
+        } else {
+            uint64_t pltHeader;
+            std::tie(pltHeader, pltStubSize) = pltLayout(arch_);
+            pltStubBase = pltVaddr + pltHeader;
+        }
+        uint32_t jsType = jumpSlotRelocType(arch_);
+        uint64_t stubIdx = 0;
+
+        for (uint16_t i = 0; i < shnum; ++i) {
+            uint32_t secOffset = shoff + i * shentsize;
+            if (secOffset + 40 > rawData_.size()) break;
+            uint32_t type = elf32(secOffset + 4);
+            if (type != 4 && type != 9) continue;
+
+            uint32_t relOffset = elf32(secOffset + 16);
+            uint32_t relSize = elf32(secOffset + 20);
+            uint32_t entSize = elf32(secOffset + 36);
+            if (entSize == 0) entSize = (type == 4) ? 12 : 8;
+            uint32_t linkIdx = elf32(secOffset + 24);
+
+            uint32_t strTabOffset = 0;
+            if (linkIdx < shnum) {
+                uint32_t lso = shoff + linkIdx * shentsize;
+                uint32_t strIdx = elf32(lso + 24);
+                if (strIdx < shnum) {
+                    uint32_t strso = shoff + strIdx * shentsize;
+                    strTabOffset = elf32(strso + 16);
+                }
+            }
+
+            uint32_t numRels = relSize / entSize;
+            for (uint32_t j = 0; j < numRels; ++j) {
+                uint32_t rOffset = relOffset + j * entSize;
+                if (rOffset + 8 > rawData_.size()) break;
+                uint32_t rInfo = elf32(rOffset + 4);
+                uint32_t symIdx = rInfo >> 8;
+                uint32_t rType = rInfo & 0xFF;
+
+                std::string symName;
+                if (strTabOffset != 0 && linkIdx < shnum) {
+                    uint32_t lso = shoff + linkIdx * shentsize;
+                    uint32_t symTabOff = elf32(lso + 16);
+                    uint32_t symEnt = elf32(lso + 36);
+                    if (symEnt == 0) symEnt = 16;
+                    uint32_t symOff = symTabOff + symIdx * symEnt;
+                    if (symOff + 8 <= rawData_.size()) {
+                        uint32_t nameIdx = elf32(symOff);
+                        if (nameIdx != 0 && strTabOffset + nameIdx < rawData_.size()) {
+                            symName = reinterpret_cast<const char*>(rawData_.data() + strTabOffset + nameIdx);
+                        }
+                    }
+                }
+                if (symName.empty() || symName == "(dynamic)") continue;
+
+                uint32_t gotSlot = elf32(rOffset);
+
+                if (rType == jsType) {
+                    ImportInfo imp{};
+                    imp.functionName = symName;
+                    imp.address = gotSlot;
+                    imports_.push_back(imp);
+
+                    if (pltStubBase != 0 && pltStubSize > 0) {
+                        ImportInfo stub{};
+                        stub.functionName = symName;
+                        stub.address = pltStubBase + stubIdx * pltStubSize;
+                        imports_.push_back(stub);
+                    }
+                    stubIdx++;
+                } else if (rType == 6 || rType == 21 || rType == 1 || rType == 20) {
+                    ImportInfo imp{};
+                    imp.functionName = symName;
+                    imp.address = gotSlot;
+                    imports_.push_back(imp);
+                }
+            }
         }
     }
 
@@ -1666,6 +1962,7 @@ private:
     std::string formatName_;
     std::string arch_;
     int bitness_ = 32;
+    bool elfBigEndian_ = false;
     uint32_t cpusubtype_ = 0;
     uint32_t dysymtabIndirectSymOffset_ = 0;
     uint32_t dysymtabIndirectSymCount_ = 0;

@@ -255,6 +255,86 @@ int main() {
         }
     }
 
+    // ---- 5. Real ELF end-to-end: ARM32 / MIPS(LE) / PowerPC(BE) ----
+    {
+        struct ElfCase {
+            const char* path;
+            const char* arch;
+            int bitness;
+            const char* langId;
+            bool bigEndian;
+            const char* capstoneArch;
+        };
+        const ElfCase cases[] = {
+            {"arm32_fib.elf", "ARM", 32, "ARM:LE:32:v8", false, "arm"},
+            {"mipsel_fib.elf", "MIPS", 32, "MIPS:LE:32:default", false, "mips"},
+            {"ppc32_fib.elf", "PowerPC", 32, "PowerPC:BE:32:default", true, "ppc"},
+        };
+        for (const auto& c : cases) {
+            std::string elfPath = std::string(ENIGMA_SOURCE_DIR) + "/tests/corpus/" + c.path;
+            auto loader = ghidra::createLoader();
+            if (!loader || !loader->load(elfPath)) {
+                TEST_MSG(std::string(c.path) + ": load", false, "cannot load corpus ELF");
+                continue;
+            }
+            TEST_MSG(std::string(c.path) + ": arch detected", loader->getArchitecture() == c.arch,
+                     loader->getArchitecture());
+            TEST_MSG(std::string(c.path) + ": bitness", loader->getBitness() == c.bitness,
+                     std::to_string(loader->getBitness()));
+            TEST_MSG(std::string(c.path) + ": bigEndian", loader->isBigEndian() == c.bigEndian,
+                     std::to_string(loader->isBigEndian()));
+            TEST_MSG(std::string(c.path) + ": language guessed",
+                     ghidra::BinaryLoader::guessLanguageFromArch(
+                         loader->getArchitecture(), loader->getBitness(), loader->isBigEndian()) == c.langId,
+                     ghidra::BinaryLoader::guessLanguageFromArch(
+                         loader->getArchitecture(), loader->getBitness(), loader->isBigEndian()));
+            TEST(std::string(c.path) + ": entry point > 0", loader->getEntryPoint() > 0);
+
+            ghidra::GenericAddressSpace ramSpace("ram", 64, ghidra::AddressSpace::TYPE_RAM, 1);
+            ghidra::GenericAddressSpace constSpace("const", 64, ghidra::AddressSpace::TYPE_CONSTANT, 2);
+            ghidra::GenericAddressSpace uniqueSpace("unique", 64, ghidra::AddressSpace::TYPE_UNIQUE, 3);
+            ghidra::GenericAddressSpace regSpace("register", 64, ghidra::AddressSpace::TYPE_REGISTER, 4);
+            ghidra::GenericAddressSpace stackSpace("stack", 64, ghidra::AddressSpace::TYPE_STACK, 5);
+            ghidra::ProgramDB prog(c.path, nullptr, nullptr);
+            auto* addrFactory = dynamic_cast<ghidra::ProgramAddressFactory*>(prog.getAddressFactory());
+            if (addrFactory) {
+                addrFactory->addAddressSpace(&ramSpace);
+                addrFactory->setDefaultSpace(&ramSpace);
+                addrFactory->setConstantSpace(&constSpace);
+                addrFactory->setUniqueSpace(&uniqueSpace);
+                addrFactory->setRegisterSpace(&regSpace);
+                addrFactory->setStackSpace(&stackSpace);
+            }
+
+            TEST_MSG(std::string(c.path) + ": populateProgram", loader->populateProgram(&prog),
+                     "populateProgram failed");
+            TEST_MSG(std::string(c.path) + ": language ID",
+                     prog.getLanguageID().getIdAsString() == c.langId,
+                     prog.getLanguageID().getIdAsString());
+
+            auto dis = ghidra::createDisassembler(c.capstoneArch, c.bitness, c.bigEndian);
+            TEST_MSG(std::string(c.path) + ": createDisassembler(" + c.capstoneArch + ")",
+                     dis != nullptr, "failed for " + std::string(c.capstoneArch));
+            if (dis) {
+                auto* mem = prog.getMemory();
+                if (mem) {
+                    auto* defaultSpace = const_cast<ghidra::AddressSpace*>(
+                        prog.getAddressFactory()->getDefaultAddressSpace());
+                    ghidra::Address startAddr(defaultSpace, loader->getEntryPoint());
+                    std::vector<uint8_t> bytes(16, 0);
+                    mem->getBytes(startAddr, bytes.data(), 16);
+                    auto insns = dis->disassembleRange(bytes, loader->getEntryPoint(), 16, 4);
+                    TEST_MSG(std::string(c.path) + ": entry disassembles (>= 4 insns)",
+                             insns.size() >= 4, "got " + std::to_string(insns.size()));
+                    if (insns.size() >= 1) {
+                        TEST_MSG(std::string(c.path) + ": entry insn is 4 bytes",
+                                 insns[0].length == 4, "len=" + std::to_string(insns[0].length));
+                    }
+                }
+            }
+        }
+    }
+
     std::cout << "\n" << passed << "/" << total << " passed\n";
     return (passed == total) ? 0 : 1;
 }

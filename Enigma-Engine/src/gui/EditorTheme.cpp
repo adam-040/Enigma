@@ -117,6 +117,7 @@ QColor EditorTheme::colorFor(TokenKind kind) {
     case TokenKind::BracesInner: return QColor(0xc0, 0x39, 0x2b);
     case TokenKind::Operator:    return textColor();
     case TokenKind::Semicolon:   return QColor(0xc0, 0x39, 0x2b);
+    case TokenKind::Equate:      return QColor(0xc0, 0x6f, 0x00); // amber (named constant)
     default:                     return textColor();
     }
 }
@@ -138,7 +139,7 @@ bool EditorTheme::isEmphasis(TokenKind kind) {
 
 // Derived from the enum so adding new TokenKind values keeps the tables in sync,
 // avoiding out-of-bounds access in the paint hot path.
-static const int TOKEN_KIND_COUNT = static_cast<int>(TokenKind::Semicolon) + 1;
+static const int TOKEN_KIND_COUNT = static_cast<int>(TokenKind::Equate) + 1;
 
 const QColor* EditorTheme::colorTable() {
     static QColor table[TOKEN_KIND_COUNT] = {
@@ -164,6 +165,7 @@ const QColor* EditorTheme::colorTable() {
         /* BracesInner */ QColor(0xc0, 0x39, 0x2b), // red
         /* Operator  */ QColor(0x1e, 0x1e, 0x1e),    // dark/black
         /* Semicolon */ QColor(0xc0, 0x39, 0x2b),    // red
+        /* Equate    */ QColor(0xc0, 0x6f, 0x00),    // amber (named constant)
     };
     return table;
 }

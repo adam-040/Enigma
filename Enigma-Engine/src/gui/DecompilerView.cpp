@@ -2,10 +2,97 @@
 #include <QXmlStreamReader>
 #include <QSet>
 #include <unordered_map>
+#include <ghidra/ProgramDB.h>
+#include <ghidra/Memory.h>
+#include <ghidra/Address.h>
+#include <ghidra/AddressFactory.h>
 
 DecompilerView::DecompilerView(QWidget* parent)
     : FieldView(parent)
 {
+}
+
+// ── String-injection helpers ────────────────────────────────────────────────
+// Mirrors the CLI post-processor (resolveStringRefs in enigma_decompile_full):
+// (char *)0xHEX pointer args are read from program memory and rendered as
+// C string literals so the decompiler GUI shows "password: " not 0x404000.
+
+QString DecompilerView::readStringAt(uint64_t addr) const {
+    if (!program_ || addr == 0) return QString();
+    auto* mem = program_->getMemory();
+    auto* af = program_->getAddressFactory();
+    if (!mem || !af) return QString();
+    uint8_t buf[256];
+    int got = 0;
+    try {
+        got = mem->getBytes(af->oldGetAddressFromLong(addr), buf, static_cast<int>(sizeof(buf)));
+    } catch (...) { return QString(); }
+    if (got <= 0) return QString();
+
+    QString out;
+    bool printable = true;
+    for (int i = 0; i < got; ++i) {
+        uint8_t b = buf[i];
+        if (b == 0) break;
+        if (b < 0x20 && b != '\t' && b != '\n' && b != '\r') { printable = false; break; }
+        out += QChar(static_cast<char>(b));
+    }
+    if (!printable || out.isEmpty()) return QString();
+    return out;
+}
+
+bool DecompilerView::tryResolveStringToken(const QVector<Token>& history, Token& t) const {
+    if (!program_ || t.text.isEmpty()) return false;
+
+    // Only pure hex literals can be string-pointer candidates.
+    bool ok = false;
+    uint64_t addr = 0;
+    const QString& txt = t.text;
+    if (txt.size() > 2 && txt.startsWith(QStringLiteral("0x"), Qt::CaseInsensitive))
+        addr = txt.mid(2).toULongLong(&ok, 16);
+    if (!ok) return false;
+
+    // Cast-pointer pattern immediately before the literal: ( <type> * ) 0x...
+    // Scan backward over padding/empty tokens for ')' then '*' then a type token.
+    int j = static_cast<int>(history.size()) - 1;
+    while (j >= 0 && history[j].text.isEmpty()) --j;
+    if (j < 0 || history[j].text != QLatin1String(")")) return false;
+    --j;
+    while (j >= 0 && history[j].text.isEmpty()) --j;
+    if (j < 0 || history[j].text != QLatin1String("*")) return false;
+    --j;
+    while (j >= 0 && history[j].text.isEmpty()) --j;
+    if (j < 0) return false;
+    const QString prev = history[j].text;
+    const bool isType = history[j].kind == TokenKind::Type
+        || prev == QLatin1String("const")
+        || prev.startsWith(QStringLiteral("undefined"));
+    if (!isType) return false;
+
+    const QString str = readStringAt(addr);
+    if (str.isEmpty()) return false;
+
+    QString quoted = "\"";
+    for (const QChar& c : str) {
+        char ch = c.toLatin1();
+        switch (ch) {
+        case '\n': quoted += "\\n"; break;
+        case '\r': quoted += "\\r"; break;
+        case '\t': quoted += "\\t"; break;
+        case '\\': quoted += "\\\\"; break;
+        case '"':  quoted += "\\\""; break;
+        default:
+            if (static_cast<unsigned char>(ch) < 0x20)
+                quoted += QStringLiteral("\\x%1")
+                              .arg(static_cast<unsigned char>(ch), 2, 16, QLatin1Char('0'));
+            else
+                quoted += c;
+        }
+    }
+    quoted += '"';
+    t.text = quoted;
+    t.kind = TokenKind::String;
+    return true;
 }
 
 // ── Decompiler color scheme (balanced to match disassembler aesthetic) ───────
@@ -193,6 +280,7 @@ std::vector<Token> DecompilerView::tokenizeCLine(const QString& line, int& brace
             bool ok = false;
             uint64_t val = txt.mid(2).toULongLong(&ok, 16);
             if (ok && val > 0x1000) t.refTarget = val;
+            tryResolveStringToken(QVector<Token>(result.begin(), result.end()), t); // (char *)0xHEX → "string literal"
             result.push_back(t);
             i = j;
             continue;
@@ -484,6 +572,7 @@ std::unique_ptr<Document> DecompilerView::documentFromMarkup(
             t.addr = tokenAddr != 0 ? tokenAddr : (statementAddr != 0 ? statementAddr : funcAddr);
             if (line.addr == 0)
                 line.addr = t.addr;
+            tryResolveStringToken(line.tokens, t); // (char *)0xHEX → "string literal"
             line.tokens.push_back(t);
         }
     }

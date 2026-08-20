@@ -6,6 +6,9 @@
 #include <ghidra/Memory.h>
 #include <ghidra/Address.h>
 #include <ghidra/AddressFactory.h>
+#include <ghidra/EquateTable.h>
+#include <ghidra/Listing.h>
+#include <ghidra/CodeUnit.h>
 #include <ghidra/patch/PatchManager.h>
 #include <ghidra/patch/Patch.h>
 #include <QPainter>
@@ -272,6 +275,11 @@ void DisassemblyFieldView::seek(uint64_t addr) {
                 if (!r) break;
                 if (r->kind == DisasmRow::Kind::Instruction) {
                     row = best;
+                    break;
+                }
+                if (r->kind == DisasmRow::Kind::DataSection && r->length > 0 &&
+                    addr < r->address + static_cast<uint64_t>(r->length)) {
+                    row = best; // exact byte inside a data-section dump
                     break;
                 }
                 if (r->kind == DisasmRow::Kind::FunctionHeader && best + 1 < model_.rowCount()) {
@@ -557,6 +565,41 @@ void DisassemblyFieldView::buildTokensForDecoded(DecodedInstruction& inst) {
             inst.totalCols += t.len + t.spaceAfter;
             inst.tokens.push_back(t);
         }
+
+        // Attach user/imported comments (EOL, repeatable, post, plate, pre)
+        // at the end of the line so the disassembly window matches Ghidra.
+        if (program_) {
+            try {
+                ghidra::Listing* listing = program_->getListing();
+                if (listing) {
+                    ghidra::CodeUnit* cu = listing->getCodeUnitAt(
+                        program_->getAddressFactory()->oldGetAddressFromLong(inst.address));
+                    if (cu) {
+                        QStringList parts;
+                        const std::string eol = cu->getComment();
+                        const std::string rep = cu->getRepeatableComment();
+                        const std::string post = cu->getPostComment();
+                        const std::string plate = cu->getPlateComment();
+                        const std::string pre = cu->getPreComment();
+                        if (!eol.empty())   parts << QString::fromStdString(eol);
+                        if (!rep.empty())   parts << QString::fromStdString(rep);
+                        if (!post.empty())  parts << QString::fromStdString(post);
+                        if (!plate.empty()) parts << QString::fromStdString(plate);
+                        if (!pre.empty())   parts << QString::fromStdString(pre);
+                        if (!parts.isEmpty()) {
+                            Token ct;
+                            ct.text = QStringLiteral("  ; ") + parts.join(QStringLiteral(" | "));
+                            ct.kind = TokenKind::Comment;
+                            ct.addr = inst.address;
+                            ct.startCol = inst.totalCols;
+                            ct.len = ct.text.size();
+                            inst.tokens.push_back(ct);
+                            inst.totalCols += ct.len;
+                        }
+                    }
+                }
+            } catch (...) {}
+        }
     } else {
         Token t;
         t.text = inst.operands.isEmpty() ? QStringLiteral(";") : inst.operands;
@@ -685,6 +728,8 @@ QString DisassemblyFieldView::lineText(int row) const {
         if (r->kind == DisasmRow::Kind::FunctionHeader)
             return QString("; === %1 ===").arg(r->text);
         if (r->kind == DisasmRow::Kind::GapComment)
+            return r->text;
+        if (r->kind == DisasmRow::Kind::DataSection)
             return r->text;
         return QString();
     }
@@ -897,7 +942,7 @@ void DisassemblyFieldView::paintEvent(QPaintEvent* event) {
     // paint their apex over it - the old order sliced every head that landed
     // at the margin boundary (random chopped tips).
     if (cfgValid_) {
-        paintBlockBackdrop(painter, first, last, cellH, scrollY, vpW);
+        paintBlockBackdrop(painter, first, last, cellH, scrollY, scrollX, vpW);
         ensureCfaDrawList(first, last);
     }
 
@@ -929,7 +974,7 @@ void DisassemblyFieldView::paintEvent(QPaintEvent* event) {
         int baseX = leftPad - scrollX;
 
         if (ri == currentRow_) {
-            painter.fillRect(cfaMarginPx_, y, vpW - cfaMarginPx_, cellH, EditorTheme::caretLineColor());
+            painter.fillRect(cfaMarginPx_ - scrollX, y, vpW, cellH, EditorTheme::caretLineColor());
         }
 
         const std::vector<Token>* toks = nullptr;
@@ -963,7 +1008,7 @@ void DisassemblyFieldView::paintEvent(QPaintEvent* event) {
         if (!patchedSites.empty() && rowAddr != 0 && patchedSites.count(rowAddr)) {
             // Patch marker sits at the margin/text boundary, keeping the CFG
             // margin dedicated to arrow graphics.
-            painter.fillRect(cfaMarginPx_ + 2, y + 2, 4, cellH - 4, QColor(0x2e, 0xcc, 0x71));
+            painter.fillRect(cfaMarginPx_ + 2 - scrollX, y + 2, 4, cellH - 4, QColor(0x2e, 0xcc, 0x71));
         }
 
         maxColsSeen_ = std::max(maxColsSeen_, maxCol);
@@ -1022,11 +1067,11 @@ void DisassemblyFieldView::paintEvent(QPaintEvent* event) {
     }
 
     // 1px vertical separator isolating the CFG margin from text area
-    painter.fillRect(cfaMarginPx_, 0, 1, vpH, QColor(0xdc, 0xe1, 0xe8));
+    painter.fillRect(cfaMarginPx_ - scrollX, 0, 1, vpH, QColor(0xdc, 0xe1, 0xe8));
 
     // Paint CFG flow arrows on top of line backgrounds for crisp, unclipped rendering
     if (cfgValid_) {
-        paintCfaGutter(painter, first, last, cellH, scrollY);
+        paintCfaGutter(painter, first, last, cellH, scrollY, scrollX);
     }
 
     if (hasFocus() && caretVisible_) {
@@ -1040,8 +1085,10 @@ void DisassemblyFieldView::paintEvent(QPaintEvent* event) {
 }
 
 void DisassemblyFieldView::paintBlockBackdrop(QPainter& painter, int first, int last,
-                                              int cellH, int scrollY, int vpW) {
+                                              int cellH, int scrollY, int scrollX, int vpW) {
     int prevBlock = -2;
+    const int contentLeft = cfaMarginPx_ - scrollX; // follows horizontal scroll like the text
+    const int tintW = std::max(0, vpW - contentLeft);
     for (int ri = first; ri <= last; ++ri) {
         const cfg::CfgBlock* blk = cfg_.blockAtRow(ri);
         if (!blk) {
@@ -1052,18 +1099,18 @@ void DisassemblyFieldView::paintBlockBackdrop(QPainter& painter, int first, int 
         if (blk->index != prevBlock) {
             // Tints and separators are strictly constrained to the text area:
             // the CFG margin keeps a pure, untouched background.
-            painter.fillRect(cfaMarginPx_, y, vpW - cfaMarginPx_, cellH,
+            painter.fillRect(contentLeft, y, tintW, cellH,
                              EditorTheme::blockTint(blk->index));
             painter.setPen(EditorTheme::blockSeparatorColor());
-            painter.drawLine(cfaMarginPx_, y, vpW, y);
+            painter.drawLine(contentLeft, y, vpW, y);
             prevBlock = blk->index;
         }
     }
 }
 
 void DisassemblyFieldView::paintCfaGutter(QPainter& painter, int first, int last,
-                                          int cellH, int scrollY) {
-    const int x0 = cfaMarginPx_; // text boundary (e.g. 48)
+                                          int cellH, int scrollY, int scrollX) {
+    const int x0 = cfaMarginPx_ - scrollX; // text boundary (e.g. 48)
     const int vpH = viewport()->height();
 
     // Professional Ghidra/IDA style branch rendering:
@@ -1080,7 +1127,7 @@ void DisassemblyFieldView::paintCfaGutter(QPainter& painter, int first, int last
         QColor color = isSelected ? QColor(0x00, 0xaa, 0x55) : (isCursorLinked ? QColor(0x00, 0x78, 0xd4) : QColor(0x60, 0x68, 0x74));
         const int w = isHighlit ? 2 : 1;
 
-        const int xLane = laneX(item.lane);
+        const int xLane = laneX(item.lane) - scrollX;
         const int yFrom = e.fromRow * cellH - scrollY + cellH / 2;
         const int yTo = e.toRow * cellH - scrollY + cellH / 2;
 
@@ -1129,9 +1176,9 @@ void DisassemblyFieldView::paintCfaGutter(QPainter& painter, int first, int last
 }
 
 std::vector<QPoint> DisassemblyFieldView::cfaRoute(const cfg::CfaEdge& e, int lane,
-                                                   int cellH, int scrollY) const {
-    const int x0 = cfaMarginPx_; // text boundary
-    const int xT = laneX(lane); // nesting column: deeper nesting sits further left
+                                                   int cellH, int scrollY, int scrollX) const {
+    const int x0 = cfaMarginPx_ - scrollX; // text boundary
+    const int xT = laneX(lane) - scrollX; // nesting column: deeper nesting sits further left
     // Integer pixel alignment: every coordinate is snapped to a clean integer
     // (qRound) so lines land exactly on pixel centers - no sub-pixel blur, no
     // 1px clipping artifacts.
@@ -1144,7 +1191,8 @@ std::vector<QPoint> DisassemblyFieldView::cfaRoute(const cfg::CfaEdge& e, int la
 }
 
 const cfg::CfaEdge* DisassemblyFieldView::edgeAt(const QPoint& pos) {
-    if (!cfgValid_ || pos.x() >= cfaMarginPx_) return nullptr;
+    const int scrollX = horizontalScrollBar()->value();
+    if (!cfgValid_ || pos.x() + scrollX >= cfaMarginPx_) return nullptr;
     const int cellH = EditorTheme::cellHeight();
     const int scrollY = verticalScrollBar()->value();
     const int first = scrollY / cellH;
@@ -1163,7 +1211,7 @@ const cfg::CfaEdge* DisassemblyFieldView::edgeAt(const QPoint& pos) {
     stroker.setJoinStyle(Qt::RoundJoin);
     stroker.setCapStyle(Qt::RoundCap);
     for (const CfaDrawItem& it : cfaDrawList_) {
-        const std::vector<QPoint> route = cfaRoute(*it.edge, it.lane, cellH, scrollY);
+        const std::vector<QPoint> route = cfaRoute(*it.edge, it.lane, cellH, scrollY, scrollX);
         QPainterPath path(route[0]);
         for (size_t i = 1; i < route.size(); ++i)
             path.lineTo(route[i]);
@@ -1254,7 +1302,7 @@ void DisassemblyFieldView::mousePressEvent(QMouseEvent* event) {
         if (lineCount() == 0) return;
         viewport()->setFocus();
         resetCaretBlink();
-        if (event->pos().x() < cfaMarginPx_) {
+        if (event->pos().x() + horizontalScrollBar()->value() < cfaMarginPx_) {
             // Single click in the gutter highlights the edge (neon) but does
             // not navigate - smooth traversal is performed on double-click.
             selectEdge(edgeAt(event->pos()));
@@ -1287,7 +1335,7 @@ void DisassemblyFieldView::mouseMoveEvent(QMouseEvent* event) {
     }
     auto hit = caretAtPos(event->pos());
     const Token* tok = tokenAt(hit.row, hit.col);
-    if (event->pos().x() < cfaMarginPx_) {
+    if (event->pos().x() + horizontalScrollBar()->value() < cfaMarginPx_) {
         if (const cfg::CfaEdge* e = edgeAt(event->pos())) {
             viewport()->setCursor(Qt::PointingHandCursor);
             const QString label = QStringLiteral("%1: 0x%2 -> 0x%3")
@@ -1351,7 +1399,7 @@ void DisassemblyFieldView::mouseDoubleClickEvent(QMouseEvent* event) {
         if (lineCount() == 0) return;
         // Gutter: single highlight already set on press; double-click animates a
         // smooth scroll that centers the destination (no instant re-seek).
-        if (event->pos().x() < cfaMarginPx_ && cfgValid_) {
+        if (event->pos().x() + horizontalScrollBar()->value() < cfaMarginPx_ && cfgValid_) {
             const cfg::CfaEdge* e = edgeAt(event->pos());
             selectEdge(e);
             if (e && e->resolved() && e->toRow >= 0 && e->fromRow >= 0 && e->toAddr != 0) {
@@ -1748,6 +1796,11 @@ void DisassemblyFieldView::applySelection(const SelectionState& sel) {
                     const DisasmRow* r = model_.rowAt(best);
                     if (!r) break;
                     if (r->kind == DisasmRow::Kind::Instruction) { row = best; break; }
+                    if (r->kind == DisasmRow::Kind::DataSection && r->length > 0 &&
+                        sel.address < r->address + static_cast<uint64_t>(r->length)) {
+                        row = best; // exact byte inside a data-section dump
+                        break;
+                    }
                     if (r->kind == DisasmRow::Kind::FunctionHeader &&
                         best + 1 < model_.rowCount()) {
                         const DisasmRow* next = model_.rowAt(best + 1);
@@ -1925,6 +1978,7 @@ std::vector<Token> DisassemblyFieldView::tokenizeOperands(const QString& ops, ui
     int n = ops.size();
     int i = 0;
     int bracketDepth = 0;
+    int opIndex = 0; // Ghidra operand position (comma-separated at bracket depth 0)
 
     auto consumeSpaces = [&](int pos) {
         while (pos < n && ops[pos].isSpace()) ++pos;
@@ -1959,7 +2013,25 @@ std::vector<Token> DisassemblyFieldView::tokenizeOperands(const QString& ops, ui
             t.addr = lineAddr;
             bool ok = false;
             uint64_t val = txt.mid(2).toULongLong(&ok, 16);
-            if (ok && val > 0x1000) t.refTarget = val;
+            if (ok) {
+                if (val > 0x1000) t.refTarget = val;
+                // Equate lookup: replace the raw constant with its defined name
+                // when the import bound one to this (address, operand).
+                if (program_ && val <= static_cast<uint64_t>(INT64_MAX)) {
+                    try {
+                        if (auto* eqTable = program_->getEquateTable()) {
+                            ghidra::Address a =
+                                program_->getAddressFactory()->oldGetAddressFromLong(lineAddr);
+                            ghidra::Equate* eq = eqTable->getEquate(
+                                a, opIndex, static_cast<int64_t>(val));
+                            if (eq) {
+                                t.text = QString::fromStdString(eq->getName());
+                                t.kind = TokenKind::Equate;
+                            }
+                        }
+                    } catch (...) {}
+                }
+            }
             result.push_back(t);
             i = consumeSpaces(j);
             result.back().spaceAfter = i - j;
@@ -1995,6 +2067,7 @@ std::vector<Token> DisassemblyFieldView::tokenizeOperands(const QString& ops, ui
             c == QLatin1Char(',') || c == QLatin1Char(':') ||
             c == QLatin1Char('(') || c == QLatin1Char(')')) {
             addToken(ops.mid(i, 1), bracketDepth > 0 ? TokenKind::MemRef : TokenKind::Punctuation);
+            if (c == QLatin1Char(',') && bracketDepth == 0) ++opIndex;
             ++i;
             continue;
         }

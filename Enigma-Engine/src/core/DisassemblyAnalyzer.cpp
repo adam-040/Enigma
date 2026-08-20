@@ -77,6 +77,8 @@ bool DisassemblyAnalyzer::added(Program* program, const AddressSetView& set,
         else if (lidStr.find("ARM") != std::string::npos) arch = "arm";
         else if (lidStr.find("MIPS") != std::string::npos) arch = "mips";
         else if (lidStr.find("PowerPC") != std::string::npos) arch = "ppc";
+        if (lidStr.find(":BE:") != std::string::npos)
+            bigEndian = true;
         if (lidStr.find("64") != std::string::npos)
             bitness = 64;
         else if (lidStr == "unknown" && addrFactory->getDefaultAddressSpace()) {

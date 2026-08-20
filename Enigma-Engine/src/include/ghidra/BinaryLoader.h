@@ -97,7 +97,7 @@ public:
     virtual uint64_t virtualAddressToFileOffset(uint64_t vaddr) const = 0;
     virtual bool populateProgram(ProgramDB* program) = 0;
 
-    static std::string guessLanguageFromArch(const std::string& arch, int bitness);
+    static std::string guessLanguageFromArch(const std::string& arch, int bitness, bool bigEndian = false);
     static std::string guessCompilerSpecFromArch(const std::string& arch, int bitness);
 
 protected:

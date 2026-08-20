@@ -54,6 +54,20 @@ regen("avx.bin", ["-base", "1000", "-entry", "1000", corpus_bin("avx.bin")])
 regen("branch_test.bin", ["-base", "1000", "-entry", "1000", corpus_bin("branch_test.bin")])
 regen("call_test.bin", ["-base", "1000", "-entry", "1000", corpus_bin("call_test.bin")])
 
+for name in ("arm32_fib.elf", "mipsel_fib.elf", "ppc32_fib.elf"):
+    regen(name, ["-max-func", "4", corpus_bin(name)], timeout=60)
+
+regen("large_x86_64.elf", ["-all", "-max-func", "50", corpus_bin("large_x86_64.elf")], timeout=120)
+
+# Dynamically-linked AArch64 PIE: PLT/GOT imports resolved via ELF relocations.
+regen("aarch64_pie_dyn.elf", ["-all", "-max-func", "50", corpus_bin("aarch64_pie_dyn.elf")], timeout=120)
+
+# Dynamically-linked ELF shared objects (lld): cross-arch PLT/GOT import
+# resolution (x86-64 JUMP_SLOT/GLOB_DAT, ARM REL + 32-byte-header PLT,
+# PPC GOT-style .plt with .plt_pic32.* stub symbols, MIPS GOT-only).
+for name in ("x64_dyn.elf", "arm_dyn.elf", "ppc_dyn.elf", "mips_dyn.elf"):
+    regen(name, ["-all", "-max-func", "50", corpus_bin(name)], timeout=120)
+
 ldr_exe = os.path.join(ENGINE_ROOT, "build-cmake", "enigma_test_loader.exe")
 if os.path.exists(ldr_exe):
     regen("pe_test.bin", ["-max-func", "5", ldr_exe], timeout=120)

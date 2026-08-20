@@ -176,6 +176,10 @@ static std::string languageToArchShort(const std::string& langId) {
     return "";
 }
 
+static bool languageIsBigEndian(const std::string& langId) {
+    return langId.find(":BE:") != std::string::npos;
+}
+
 // PHASE 3 FIX: validate a FunctionStart candidate by examining the bytes
 // immediately before it. A real function start must not be the fallthrough
 // target of a normal preceding instruction. Padding/terminator instructions
@@ -274,7 +278,7 @@ static int findPatternStarts(Program* program, TaskMonitor* monitor, int maxPerP
     auto funcRanges = buildFunctionRanges(funcMgr);
 
     // Cache disassembler for all isValidFunctionStartCandidate calls in this pass
-    auto disassembler = createDisassembler(arch, bitness, false);
+    auto disassembler = createDisassembler(arch, bitness, languageIsBigEndian(lidStr));
 
     int found = 0;
     auto blocks = memory->getBlocks();
@@ -350,7 +354,7 @@ static int findCallDestinations(Program* program, TaskMonitor* monitor, int maxP
 
     // Precompute function ranges and cache disassembler
     auto funcRanges = buildFunctionRanges(funcMgr);
-    auto disassembler = createDisassembler(arch, bitness, false);
+    auto disassembler = createDisassembler(arch, bitness, languageIsBigEndian(lidStr));
 
     int found = 0;
     auto blocks = memory->getBlocks();
@@ -424,7 +428,7 @@ static int findJmpThunks(Program* program, TaskMonitor* monitor, int maxPerPass,
 
     // Precompute function ranges and cache disassembler
     auto funcRanges = buildFunctionRanges(funcMgr);
-    auto disassembler = createDisassembler(arch, bitness, false);
+    auto disassembler = createDisassembler(arch, bitness, languageIsBigEndian(lidStr));
 
     int found = 0;
     auto blocks = memory->getBlocks();
@@ -486,7 +490,7 @@ static int findMultiInstructionPatterns(Program* program, TaskMonitor* monitor, 
     std::string arch = languageToArchShort(lidStr);
     int bitness = (lidStr.find("64") != std::string::npos) ? 64 : 32;
     if (arch != "x86") return 0;
-    auto disassembler = createDisassembler(arch, bitness, false);
+    auto disassembler = createDisassembler(arch, bitness, languageIsBigEndian(lidStr));
     if (!disassembler) return 0;
 
     // Define byte triggers for the first instruction of each multi-instr pattern.
@@ -797,7 +801,7 @@ static int findTailCallWrappers(Program* program, TaskMonitor* monitor, int maxP
     std::string arch = languageToArchShort(lidStr);
     int bitness = (lidStr.find("64") != std::string::npos) ? 64 : 32;
     if (arch != "x86") return 0;
-    auto disassembler = createDisassembler(arch, bitness, false);
+    auto disassembler = createDisassembler(arch, bitness, languageIsBigEndian(lidStr));
     if (!disassembler) return 0;
 
     // Precompute function ranges (merged) for the containment check
@@ -887,7 +891,7 @@ static int findZeroPrologueFunctions(Program* program, TaskMonitor* monitor, int
     std::string lidStr = lid.getIdAsString();
     std::string arch = languageToArchShort(lidStr);
     int bitness = (lidStr.find("64") != std::string::npos) ? 64 : 32;
-    auto disassembler = createDisassembler(arch, bitness, false);
+    auto disassembler = createDisassembler(arch, bitness, languageIsBigEndian(lidStr));
     auto funcRanges = buildFunctionRanges(funcMgr);
 
     int found = 0;

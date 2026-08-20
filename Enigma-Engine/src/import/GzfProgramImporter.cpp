@@ -428,7 +428,8 @@ std::unique_ptr<Disassembler> GzfProgramImporter::makeDisassembler(ProgramDB* pr
     if (lang.find("64") != std::string::npos) {
         bitness = 64;
     }
-    auto dis = createDisassembler(arch, bitness, false);
+    bool bigEndian = lang.find(":BE:") != std::string::npos;
+    auto dis = createDisassembler(arch, bitness, bigEndian);
     if (!dis) {
         throw std::runtime_error("failed to create disassembler for import");
     }

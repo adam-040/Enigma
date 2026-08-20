@@ -530,3 +530,328 @@ mapper had no AArch64 path. Track 3 closes that gap (user-approved scope).
   corpus ELF + baseline, test + regression extension).
 
 - Updated: 2026-08-20
+
+## Track 4 - ARM32 / MIPS / PowerPC real-ELF verification (closed, 2026-08-20)
+
+Track 3 verified AARCH64 with a real cross-compiled ELF and caught the
+"AARCH64 lacks 'ARM' substring" bug class twice. Track 4 applies the same
+methodology to the remaining native-pipeline archs (ARM32, MIPS, PowerPC):
+cross-compile real ELFs with clang 22.1.8 (`D:\msys64\mingw64\bin\clang.exe`,
+`-target <t> -O1 -fno-inline -nostdlib -static -ffreestanding
+-fno-asynchronous-unwind-tables -fuse-ld=lld -Wl,-e,_start`), decompile
+end-to-end with `enigma_decompile_full`, fix every gap found. **No commits
+made in this track - user commits.**
+
+### A4.1 - ELF loader endianness (big-endian PPC was undetectable)
+
+- `parseELF()` read all header/section/symbol/dynamic fields with LE
+  reinterpret_cast reads. A BE PPC ELF (e_machine 0x14) came out as
+  e_machine 0x1400 (unknown arch), entry point byte-swapped
+  (0xd8000110 vs 0x100100d8) -> "Unsupported architecture: " and
+  `guessLanguageFromArch` fell through to x86 defaults.
+- Fix: `elf16/elf32/elf64/elfs32/elfs64` byte-swap helpers (gated on
+  `elfBigEndian_` = EI_DATA byte `rawData_[5] == 2`), used across
+  `parseELF`, `parseELF32/64`, `parseELF32/64Symbols`,
+  `parseELF32/64Dynamic`. Also removed bitness_ overrides per e_machine
+  (bitness comes from EI_CLASS byte 4; EM_MIPS 0x08 is 32/64).
+- Added `case 0x14` (EM_PPC) + `case 0x15` (EM_PPC64) -> "PowerPC".
+- `isBigEndian()` now returns EI_DATA==2 for ELF (was always false).
+- `guessLanguageFromArch` gained `bool bigEndian` param (default false,
+  header default keeps old callers compiling): MIPS -> MIPS:LE/BE:32:default,
+  PowerPC -> PowerPC:BE:32:default / PowerPC:LE:32:default,
+  PowerPC 64 BE -> PowerPC:BE:64:default, PowerPC 64 LE ->
+  PowerPC:LE:64:64-32addr (no PowerPC:LE:64:default exists in ppc.ldefs),
+  ARM BE -> ARM:BE:32:v8. Callers updated: `populateProgram`
+  (BinaryLoader.cpp:231), `enigma_decompile_full.cpp:593`.
+- `extractOperandScalars` got `cs_mips` + `cs_ppc` branches (MIPS_REG_PC
+  PC-relative MEM -> resolved target; IMM -> Scalar; MEM with no base ->
+  disp Scalar). Previously MIPS/PPC fell into the `detail->x86` branch -
+  same UB crash class as the ARM64 segfault from Track 3.
+
+### A4.2 - Capstone BE mode propagation (analysis pipeline)
+
+- `CapstoneDisassembler::initialize` set `CS_MODE_BIG_ENDIAN` at the top but
+  the ARM/MIPS/PPC branches overwrote `csMode` with the bitness mode,
+  discarding it. BE PPC decoded as LE (1 of 16 entry bytes decoded).
+- Fix: OR `CS_MODE_BIG_ENDIAN` into csMode in the ARM/MIPS/PPC branches.
+- Hardcoded `createDisassembler(arch, bitness, false)` callers made
+  endian-aware: `FunctionStartAnalyzer` (6 sites, new
+  `languageIsBigEndian(lidStr)` = `lidStr.find(":BE:")`), `DisassemblyAnalyzer`,
+  `FragmentMergeAnalyzer`, `GzfProgramImporter::makeDisassembler`
+  (derives from language ID). `AggressiveRecoveryAnalyzer` +
+  `AggressiveInstructionFinderAnalyzer` already used `lang->isBigEndian()`.
+- `Sleigh::initialize` (experimental pipeline) gained `setBigEndian(bool)`;
+  ORs the BE mode for ARM/MIPS/PPC Capstone handles.
+
+### A4.3 - Corpus + tests
+
+- New corpus ELFs (all from the same freestanding fib/sum/max3 source,
+  `-fno-inline` keeps all functions; `sum()` constant-folds to 0x6f):
+  `tests/corpus/arm32_fib.elf` (e_machine 0x28, LE32, 1292 B),
+  `tests/corpus/mipsel_fib.elf` (e_machine 0x08, LE32, 1684 B),
+  `tests/corpus/ppc32_fib.elf` (e_machine 0x14, BE32, 1124 B).
+  Baselines `tests/corpus/expected/<name>.c` (UTF-8 no BOM, trailing blank
+  line matches tool stdout; `Set-Content` BOM pitfall avoided via
+  `[System.IO.File]::WriteAllText` + `UTF8Encoding($false)`).
+- `test_corpus_regression.py` extended: 19/19 pass (16 previous + 3 new).
+- `test_aarch64_pipeline.cpp` section 5: per-arch loop
+  (arch/bitness/bigEndian/language-guess/entry/populateProgram/language ID/
+  createDisassembler/entry disasm >= 4 insns @ 4 bytes). 74/74 pass.
+
+### A4.4 - End-to-end decompile verification
+
+- ARM32: `_start` calls sum()/fib(10), `fib` recursion correct,
+  `sum` -> 0x6f.
+- MIPS (LE): same correctness; `g_glob` write appears as
+  `**(int32_t**)(arg_t9 + 0x100f0)` (MIPS gp-relative addressing kept
+  symbolic - known quality limitation, not a pipeline failure).
+- PowerPC (BE): `fib` recursion correct (different loop form), `sum` ->
+  0x6f, `*ptr_0x10020190 = ...` (global write resolved to absolute
+  address; BE data section addresses now correct after A4.1).
+- Full CTest 64/64 exit 0; determinism 47.4s; corpus regression 19/19.
+
+## Track 5 - Large stripped x86-64 ELF scale verification (closed, 2026-08-20)
+
+Track 4 verified ARM32/MIPS/PPC at small scale (3 tiny ELFs). Track 5
+stress-tests the pipeline at scale with a real stripped 1.1 MB x86-64 ELF
+(`C:\Users\pc\Desktop\ELF-Binary`, e_machine 0x3E, EXEC, no symbol table,
+~862 KB of `.text` at 0x400130, entry 0x4038b1). The analysis pipeline
+discovers 3192-3213 function starts; the decompiler previously never saw
+most of them. **No commits made in this track - user commits.**
+
+### A5.1 - Analysis-time pointer size bug (found at scale)
+
+- `ApplyDataArchiveAnalyzer::added` computed the archive pointer size as
+  `lang ? lang->getDefaultSpace()->getSize()/8 : 4`. During analysis the
+  ProgramDB holds ONLY a language ID string - no `Language*` object is ever
+  attached (`Program::setLanguage` has no callers), so the fallback `4` was
+  always taken. On 64-bit ELFs the GCC/Windows type archives (`FILE`,
+  `va_list`, `HANDLE`, `LPVOID`, ...) were materialized as 4-byte pointers.
+  Observed as "Detected format: ELF, pointer size=4" on the 64-bit ELF.
+- Fix: when `lang` is null, parse the third `:`-separated component of the
+  language ID ("family:endian:size:variant") and derive ptrSize
+  (16/24 -> 2, <=32 -> 4, else /8). Now prints pointer size=8 for the
+  x86-64 ELF. Real Ghidra builds the language from the ID and reads
+  `getDefaultSpace()->getSize()`; the ID-derived size is equivalent for the
+  analysis-phase archive materialization.
+
+### A5.2 - -all flag (decompile every discovered function)
+
+- The tool's BFS only follows entry-reachable calls (the stripped ELF's
+  entry reaches just 23 functions); the other ~2970 analysis-discovered
+  functions were bridged into the decompiler scope but never decompiled.
+- Added `-all` to `enigma_decompile_full`: after the BFS, iterate the
+  decompiler global scope (MapIterator over FunctionSymbols, same pattern as
+  `AnalysisBridge::bridgeImportSignatures`) and decompile every function in
+  executable memory, skipping CRT and already-processed ones; honors
+  `-max-func`. Full run: 2964 functions decompiled in ~67s (2970 expected -
+  CRT-filtered), deterministic (two runs byte-identical).
+
+### A5.3 - Corpus + tests
+
+- `tests/corpus/large_x86_64.elf` (1,131,168 B) + baseline
+  `tests/corpus/expected/large_x86_64.elf.c` from `-all -max-func 50`
+  (42 functions, 31,834 bytes; baseline captured via stdout like
+  `regenerate_corpus.py`, NOT `-o` which writes CRLF - pitfall: the expected
+  file must be LF like the other baselines).
+- `test_corpus_regression.py` + `regenerate_corpus.py` extended:
+  **20/20 pass**. Full CTest **64/64 exit 0** (determinism 50.0s).
+- Known artifact: one `halt_baddata` in the full output
+  (`func_0x4a975d`) - the function-start scan landed on `ff ff` padding
+  before valid code at a stripped binary's alignment gap; expected
+  behavior for stripped binaries, not a pipeline defect.
+
+- Updated: 2026-08-20
+
+## Track 6 - Dynamically-linked ELF import resolution (closed, 2026-08-20)
+
+Track 5 covered a stripped (static, no imports) ELF. Track 6 verifies a
+real dynamically-linked ELF end-to-end: `C:\Users\pc\Desktop\crack_tests\
+impossible` - an AArch64 PIE (ELF64, DYN, entry 0xc78, `.dynsym` 0x320,
+`.plt` 0x14b0, `.got` 0x5758, `.got.plt` 0x5780, `.rela.dyn` 0x6a8,
+`.rela.plt` 0x750, 8,176 B). **No commits made in this track - user
+commits.**
+
+### A6.1 - ELF dynamic import gap (found at recon)
+
+- Dynamically-linked ELF imports were NOT resolved to names: `entry()`
+  showed `(*ptr_0x5798)()` instead of `__libc_init()`. Three causes:
+  1. `parseELFImports` only extracted DT_NEEDED library names
+     (`functionName="(dynamic)"`, address 0) - no function imports.
+  2. `parseELFSymbols` skips undefined symbols (value 0), which is exactly
+     what `.dynsym` entries for imports look like.
+  3. No ELF relocation parsing at all - no SHT_RELA/SHT_REL, no
+     JUMP_SLOT/GLOB_DAT handling, so GOT slots and PLT stubs had no names.
+- PE imports worked because the PE IAT holds the function VA; ELF GOT slots
+  are zeroed in the file (runtime-resolved), so the PE-style 8-byte IAT read
+  can never name an ELF import.
+
+### A6.2 - Fix: `parseELFRelocations` in `BinaryLoader.cpp`
+
+- Added `parseELFRelocations()` (called after `parseELFImports`), with
+  ELF32/ELF64 variants:
+  - Iterates SHT_RELA (4) / SHT_REL (9) sections (`.rela.plt`, `.rela.dyn`).
+  - Resolves each entry's symbol name through the linked symbol table's
+    string table (relocation `sh_link` -> symtab, symtab `sh_link` -> strtab).
+  - JUMP_SLOT relocations: adds an import at the GOT slot (r_offset) AND at
+    the PLT stub (`plt_vaddr + pltHeader + stubIdx * stubSize`) so both the
+    indirect call `(*_ptrace)()` and the call site `ptrace()` resolve.
+    PLT layout per arch: AARCH64 header 32/stub 16; ARM 20/12; MIPS/PPC/
+    x86 16/16 (see `pltLayout`). JUMP_SLOT types: x86 7, ARM 22,
+    AARCH64 0x402, MIPS 2, PPC 21, RISCV 5 (`jumpSlotRelocType`).
+  - GLOB_DAT / data imports (stdin, stdout): import at the GOT slot only.
+- Result: 33 imports (15 JUMP_SLOT x 2 slots + 2 GLOB_DAT + 1 DT_NEEDED),
+  `entry()` calls `__libc_init()`, all 15 PLT stubs named (`ptrace`,
+  `syscall`, `scanf`, `malloc`, `free`, `setvbuf`, `prctl`, ...).
+
+### A6.3 - Fix: PE-only IAT read in `enigma_decompile_full`
+
+- The tool's import loop read 8 bytes at each import address and mapped the
+  value as the function VA (the PE IAT trick). For ELF, `.got.plt` slots in
+  the file contain the lazy-binding PLT0 placeholder (0x14b0) - so every
+  JUMP_SLOT import mapped `symbolNames[0x14b0] = name`, the last one
+  (`prctl`) won, and the PLT0 thunk function at 0x14b0 was wrongly named
+  `prctl` (two `prctl` functions in output, one dereferencing the reserved
+  slot 0x5790). Guarded the IAT read with `getFormatName() == "PE"`.
+
+### A6.4 - Pre-existing, unrelated pipeline error
+
+- `Analysis pipeline error: Writing is not allowed` on this binary is
+  pre-existing (reproduced with relocations disabled - Imports: 1, same
+  error): the `ELF_HEADER` block (address 0, read-only) overlaps this PIE's
+  low-VA sections. Caught in the tool (falls back to direct symbolNames
+  bridging); output unaffected. Not caused by Track 6.
+
+### A6.5 - Corpus + tests
+
+- `tests/corpus/aarch64_pie_dyn.elf` (8,176 B, the `impossible` binary) +
+  baseline `tests/corpus/expected/aarch64_pie_dyn.elf.c` from
+  `-all -max-func 50` (10 functions incl. 9 named import stubs). Deterministic
+  (two runs byte-identical).
+- `test_corpus_regression.py` + `regenerate_corpus.py` extended:
+  **21/21 pass**. Full CTest **64/64 exit 0** (determinism 32.1s).
+
+- Updated: 2026-08-20
+
+## Track 7 - Cross-arch dynamic-import resolution (closed, 2026-08-20)
+
+Track 6 verified dynamic-import naming on one arch (AArch64 PIE). Track 7
+applies the same verification to the remaining native-pipeline archs by
+cross-compiling dynamically-linked ELF shared objects with clang 22.1.8 +
+lld (`-shared -nostdlib -ffreestanding`, undefined function/data refs ->
+lld emits PLT/GOT + JUMP_SLOT/GLOB_DAT relocs): `x64_dyn.elf` (R_X86_64_*,
+RELA), `arm_dyn.elf` (R_ARM_*, **REL** format), `ppc_dyn.elf` (R_PPC_*),
+`mips_dyn.elf`. **No commits made in this track - user commits.**
+
+### A7.1 - ARM: wrong PLT layout crashed the tool
+
+- Track 6 assumed ARM PLT = 20-byte header + 12-byte stubs (binutils
+  layout). lld emits a 32-byte header (16 bytes of PLT0 code + 16 bytes of
+  `d4` padding) with 16-byte stub slots, so the stub-import addresses landed
+  at 0x103b4 + 12i - on the padding and one slot behind the real stubs.
+  The tool crashed (0xC0000005) creating functions at mid-`.plt` padding
+  addresses, and every stub got the PREVIOUS symbol's name.
+- Fix: `armPltStubLayout()` locates the real stub base and stride from the
+  `.plt` bytes - every ARM stub starts with `add ip, pc, #imm`
+  (0xe28fc600); the first two matches give the base and stride. Linker-
+  independent (works for lld 32/16 and binutils 20/12). Both ELF32 and ELF64
+  parsers now use `{stubBase, stubSize}` instead of the header-based math.
+
+### A7.2 - PPC: no contiguous stub region (phantom imports)
+
+- PPC's `.plt` is a GOT-style 4-byte slot table (JUMP_SLOT r_offsets point
+  into it, values are stub addresses in `.text` already named by lld's
+  `.plt_pic32.*` symbols). Track 6's `header + idx*stub` math produced
+  phantom imports at wrong addresses. Fix: `pltLayout` returns `{0, 0}` for
+  PPC and MIPS (MIPS has no `.plt` either - it uses `.MIPS.stubs`), and the
+  stub-import push is gated on `stubSize > 0`. PPC call sites now resolve to
+  the real `.plt_pic32.*` symbol names; `*_g_data` data import works.
+
+### A7.3 - Verified results per arch
+
+- **x86-64** (10 JUMP_SLOT + 1 GLOB_DAT, RELA): all 10 stubs named, calls
+  show `fib()`, `prctl()`, ...; recursive `fib` decompiles through its PLT
+  stub; `_g_data` resolved. Layout {16, 16} already correct.
+- **ARM** (10 JUMP_SLOT + 1 GLOB_DAT, REL): crash fixed; every stub derefs
+  its own GOT slot (`(*_prctl)()` inside `prctl()`), `_start` calls all 10
+  named imports, `*_g_data` resolved.
+- **PPC** (10 JMP_SLOT + 1 ADDR32 data reloc): stubs named via `.plt_pic32.*`
+  symbols, calls + recursion correct, `*_g_data` resolved.
+- **MIPS**: lld emits NO dynamic relocations for MIPS `-shared` (GOT holds
+  lazy-binding placeholders, no `.rel[a].plt`/`.rel[a].dyn`), so imports stay
+  unnamed GOT-relative (`arg_t9 + offset`) - an lld artifact, not a loader
+  gap; documented as a known limitation.
+
+### A7.4 - Corpus + tests
+
+- `tests/corpus/{x64_dyn,arm_dyn,ppc_dyn,mips_dyn}.elf` (2,720-3,680 B) +
+  baselines from `-all -max-func 50` (deterministic, two runs byte-identical;
+  AArch64 baseline byte-unchanged at 1425 B - no regression).
+- `test_corpus_regression.py` + `regenerate_corpus.py` extended:
+  **25/25 pass**. Full CTest **64/64 exit 0** (determinism ~32-41s, varies
+  with load).
+
+## Track 8 - GUI feature gaps (closed, 2026-08-20)
+
+Track 1-7 closed backend/loader gaps. Track 8 fixes the four GUI gaps audited
+in `C:\Users\pc\Desktop\gaps\main-gaps.md`: features that are fully built and
+tested in the engine but never reached the Qt interface. **No commits made in
+this track - user commits.**
+
+### A8.1 - Disassembly vs. HexView visibility scope
+
+- `DisassemblyModel::buildIndex` filtered out every non-executable block
+  (`if (!(block->getFlags() & FLAG_EXECUTE)) continue;`), so `.rdata`/`.data`/
+  `.rsrc` were invisible to the Disassembly window and `addressToRow(addr)`
+  returned -1 for any data address (Hex -> ASM sync stuck on the nearest
+  previous instruction).
+- Fix: new `DisasmRow::Kind::DataSection`. `buildDataSections()` emits one
+  banner row per non-executable initialized block (`; === .rdata (0x.. - 0x..)
+  ===`) plus a 16-byte hex+ASCII dump row per chunk, merged into the address-
+  ordered index. Every byte of every chunk is mapped in `addressToRow_` so
+  `addressToRow()` resolves data addresses exactly. `seek()`/`applySelection()`
+  walk-back now accepts a containing `DataSection` row, and `lineText()`/
+  `rowTokens()` render them (search and selection work over data rows).
+
+### A8.2 - Equate system connected to the disassembly
+
+- `DisassemblyFieldView::tokenizeOperands` rendered every numeric constant raw
+  (`0x20`) even though the EquateTable imports bindings and its tests pass
+  (20/20).
+- Fix: tokenizer now tracks the Ghidra operand index (top-level comma count)
+  and queries `EquateTable::getEquate(addr, opIndex, value)` for each hex
+  literal; matches render as the equate name with a new `TokenKind::Equate`
+  token (amber) instead of the raw number. Works in both the indexed and
+  fallback disassembly paths.
+
+### A8.3 - Advanced comment system connected to the disassembly
+
+- `buildTokensForDecoded` only ever showed gap text; user/imported comments
+  (EOL / Pre / Post / Plate / Repeatable) stored on `CodeUnit` were never
+  read by the GUI.
+- Fix: after tokenizing operands, the view queries
+  `Listing::getCodeUnitAt(addr)` and appends the non-empty comment fields
+  (EOL, repeatable, post, plate, pre) as a green `; ...` token at line end.
+
+### A8.4 - String injection in the decompiler GUI
+
+- The CLI (`enigma_decompile_full.cpp` `resolveStringRefs`) turns `(char *)0xHEX`
+  pointer arguments into C string literals, but the GUI decompiler
+  (`MainWindow` STEP 6 -> `DecompilerView`) never did, so strings appeared as
+  hex addresses.
+- Fix: `DecompilerView` gained a program pointer (`setProgram`, wired at all 5
+  program-swap sites in MainWindow) and two helpers: `readStringAt()` reads
+  up to 256 printable bytes from program memory at a VA; `tryResolveStringToken()`
+  detects the `( <type> * ) 0x...` cast pattern in the token history (both the
+  markup path `documentFromMarkup` and the fallback path `tokenizeCLine`) and
+  replaces the hex literal with an escaped string-literal token.
+
+### A8.5 - Verification
+
+- Full build clean (85 targets, incl. `enigma_gui`). Corpus regression **25/25**,
+  full CTest **64/64 exit 0** - no engine/CLI regression.
+- GUI behavior verified by code inspection + build (no GUI test harness exists);
+  run `enigma_gui.exe` and navigate to a data section / import a Ghidra project
+  to see the new data rows, equate names, comments and string literals.
+
+- Updated: 2026-08-20

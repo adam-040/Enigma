@@ -1184,6 +1184,7 @@ void MainWindow::onOpenProject() {
 
     disasmView_->setProgram(program_.get());
     disasmView_->setDecompInterface(decompInterface_.get());
+    decompView_->setProgram(program_.get());
     repoPath_ = repoDir;
 
     populateExplorer();
@@ -1350,6 +1351,7 @@ void MainWindow::onImportFinished() {
     decompInterface_->closeProgram();
     disasmView_->setProgram(program_.get());
     disasmView_->setDecompInterface(decompInterface_.get());
+    decompView_->setProgram(program_.get());
     if (!decompInterface_->openProgram(program_.get())) {
         QMessageBox::warning(this, tr("Error"),
             tr("Failed to open imported program in decompiler."));
@@ -1650,6 +1652,7 @@ void MainWindow::loadBinary(const QString& path) {
     // Update view pointers to new program immediately (before any failure that could return).
     disasmView_->setProgram(program_.get());
     disasmView_->setDecompInterface(decompInterface_.get());
+    decompView_->setProgram(program_.get());
     // Log address factory details
     {
         auto* af = prog->getAddressFactory();

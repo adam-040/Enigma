@@ -236,7 +236,31 @@ bool ApplyDataArchiveAnalyzer::added(Program* program, const AddressSetView& set
 
     const std::string& format = program->getExecutableFormat();
     Language* lang = program->getLanguage();
-    int ptrSize = lang ? (lang->getDefaultSpace()->getSize() / 8) : 4;
+    int ptrSize = 4;
+    if (lang) {
+        ptrSize = lang->getDefaultSpace()->getSize() / 8;
+    } else {
+        // No Language object is attached during analysis (only the language
+        // ID string is known). Derive the pointer size from the ID's
+        // third ':'-separated component ("family:endian:size:variant").
+        const std::string& lid = program->getLanguageID().getIdAsString();
+        size_t first = lid.find(':');
+        size_t second = (first == std::string::npos) ? std::string::npos
+                                                     : lid.find(':', first + 1);
+        if (second != std::string::npos) {
+            size_t third = lid.find(':', second + 1);
+            std::string sizeStr = lid.substr(second + 1,
+                third == std::string::npos ? std::string::npos : third - second - 1);
+            try {
+                int sizeBits = std::stoi(sizeStr);
+                if (sizeBits == 16 || sizeBits == 24) ptrSize = 2;
+                else if (sizeBits <= 32) ptrSize = 4;
+                else ptrSize = sizeBits / 8;
+            } catch (...) {
+                ptrSize = 4;
+            }
+        }
+    }
 
     bool isPE = (format.find("PE") != std::string::npos ||
                  format.find("Portable Executable") != std::string::npos);

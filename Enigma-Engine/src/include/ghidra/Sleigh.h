@@ -31,6 +31,7 @@ private:
     bool capstoneInitialized_;
     std::string archName_;
     int archBitness_;
+    bool archBigEndian_ = false;
 
     struct ContextCache {
         Address lastAddr;
@@ -69,6 +70,7 @@ public:
     int4 getMaxInstructionBytes() const { return maxInstructionBytes; }
 
     void setArchitecture(const std::string& arch, int bitness);
+    void setBigEndian(bool bigEndian) { archBigEndian_ = bigEndian; }
     PcodeCapstoneMapper& getMapper() { return mapper_; }
 };
 

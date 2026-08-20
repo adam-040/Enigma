@@ -17,6 +17,7 @@ struct DisasmRow {
         Instruction,    // a decoded instruction at `address`
         FunctionHeader, // "; === name ==="
         GapComment,     // "; --- N bytes of data ---"
+        DataSection,    // a byte dump row inside a non-executable block (.rdata/.data/.rsrc)
     };
     Kind kind = Kind::Instruction;
     uint64_t address = 0; // instruction address (Instruction) or anchor (header/gap)
@@ -64,5 +65,7 @@ private:
                             const std::vector<FuncInfo>& functions);
     void buildGapComments(ghidra::ProgramDB* program,
                           const std::vector<std::pair<uint64_t, uint64_t>>& coveredRanges);
+    void buildDataSections(ghidra::ProgramDB* program,
+                           std::vector<DisasmRow>& outRows);
     QString analyzeGap(ghidra::ProgramDB* program, uint64_t gapStart, uint64_t gapEnd) const;
 };

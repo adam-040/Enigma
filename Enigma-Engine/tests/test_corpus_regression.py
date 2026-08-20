@@ -94,6 +94,33 @@ aarch64_elf = corpus_bin("aarch64_fib.elf")
 expected = os.path.join(EXPECTED, "aarch64_fib.elf.c")
 run_corpus_test("aarch64_fib.elf", ["-max-func", "4", aarch64_elf], expected, timeout=60)
 
+# === ARM32 / MIPS(LE) / PowerPC(LE) ELF binary tests (real cross-compiled ELFs) ===
+for name in ("arm32_fib.elf", "mipsel_fib.elf", "ppc32_fib.elf"):
+    elf = corpus_bin(name)
+    expected = os.path.join(EXPECTED, f"{name}.c")
+    run_corpus_test(name, ["-max-func", "4", elf], expected, timeout=60)
+
+# === Large stripped x86-64 ELF (1.1 MB, ~3000 functions) ===
+# -all decompiles every function the analysis pipeline discovered (not just
+# entry-reachable code); -max-func 50 bounds the regression baseline.
+large_elf = corpus_bin("large_x86_64.elf")
+expected = os.path.join(EXPECTED, "large_x86_64.elf.c")
+run_corpus_test("large_x86_64.elf", ["-all", "-max-func", "50", large_elf], expected, timeout=120)
+
+# === Dynamically-linked AArch64 PIE ELF (PLT/GOT imports via ELF relocations) ===
+dyn_elf = corpus_bin("aarch64_pie_dyn.elf")
+expected = os.path.join(EXPECTED, "aarch64_pie_dyn.elf.c")
+run_corpus_test("aarch64_pie_dyn.elf", ["-all", "-max-func", "50", dyn_elf], expected, timeout=120)
+
+# === Dynamically-linked ELF shared objects (lld), cross-arch import resolution ===
+# x64_dyn.elf / arm_dyn.elf / ppc_dyn.elf / mips_dyn.elf exercise per-arch PLT
+# layouts (x86-64 16+16, ARM 32-byte-header + 16-byte stubs, PPC GOT-style .plt
+# with .plt_pic32.* symbols, MIPS GOT-only) and REL vs RELA relocation formats.
+for name in ("x64_dyn.elf", "arm_dyn.elf", "ppc_dyn.elf", "mips_dyn.elf"):
+    elf = corpus_bin(name)
+    expected = os.path.join(EXPECTED, f"{name}.c")
+    run_corpus_test(name, ["-all", "-max-func", "50", elf], expected, timeout=120)
+
 # === PE binary corpus test ===
 ldr_exe = os.path.join(ENGINE_ROOT, "build-cmake", "enigma_test_loader.exe")
 if os.path.exists(ldr_exe):

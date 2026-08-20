@@ -215,9 +215,9 @@ private:
     // Builds/rebuilds the control-flow graph over the current model rows.
     void buildCFG();
     void paintBlockBackdrop(QPainter& painter, int first, int last,
-                            int cellH, int scrollY, int vpW);
+                            int cellH, int scrollY, int scrollX, int vpW);
     void paintCfaGutter(QPainter& painter, int first, int last,
-                        int cellH, int scrollY);
+                        int cellH, int scrollY, int scrollX);
     // Returns the most specific drawn edge under the cursor, or nullptr.
     const cfg::CfaEdge* edgeAt(const QPoint& pos);
     // Sets the neon-highlighted edge (nullptr clears) and repaints.
@@ -266,7 +266,7 @@ private:
     // boundary. The arrowhead is drawn at the tip pointing into the target.
     // `lane` is the render-time track (from the draw list, not the static one).
     std::vector<QPoint> cfaRoute(const cfg::CfaEdge& edge, int lane,
-                                 int cellH, int scrollY) const;
+                                 int cellH, int scrollY, int scrollX) const;
     // Jump to an exact address like the double-click jump (seek + broadcast).
     void jumpToAddress(uint64_t target);
 

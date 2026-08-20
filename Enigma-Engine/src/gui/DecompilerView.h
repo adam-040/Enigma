@@ -6,6 +6,10 @@
 #include <utility>
 #include <vector>
 
+namespace ghidra {
+class ProgramDB;
+}
+
 class DecompilerView : public FieldView {
     Q_OBJECT
 public:
@@ -15,6 +19,7 @@ public:
                         const QString& markupXml,
                         const std::vector<std::pair<uint64_t, uint64_t>>& opAddresses);
     void clear();
+    void setProgram(ghidra::ProgramDB* program) { program_ = program; }
 
 signals:
     void addressDoubleClicked(uint64_t addr);
@@ -29,5 +34,11 @@ private:
         const std::vector<std::pair<uint64_t, uint64_t>>& opAddresses) const;
     static TokenKind classifyCWord(const QString& id);
 
+    // String-injection helpers: resolve (char *)0xHEX cast pointers against
+    // program memory into C string literals ("password: " instead of 0x404000).
+    QString readStringAt(uint64_t addr) const;
+    bool tryResolveStringToken(const QVector<Token>& history, Token& t) const;
+
     QString lastText_;
+    ghidra::ProgramDB* program_ = nullptr;
 };

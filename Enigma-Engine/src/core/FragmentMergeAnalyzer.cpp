@@ -102,7 +102,8 @@ bool FragmentMergeAnalyzer::added(Program* program, const AddressSetView& set,
     else if (lidStr.find("ARM") != std::string::npos || lidStr.find("AARCH64") != std::string::npos) arch = "ARM";
     if (arch == "x86") {
         int bitness = (lidStr.find("64") != std::string::npos) ? 64 : 32;
-        auto disassembler = createDisassembler(arch, bitness, false);
+        bool bigEndian = lidStr.find(":BE:") != std::string::npos;
+        auto disassembler = createDisassembler(arch, bitness, bigEndian);
         if (disassembler) {
             monitor->setMessage("Scanning gaps for CALL-target functions...");
 

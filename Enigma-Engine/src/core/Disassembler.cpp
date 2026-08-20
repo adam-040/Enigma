@@ -75,6 +75,52 @@ static void extractOperandScalars(const cs_insn* insn, DisassembledInstruction& 
         return;
     }
 
+    if (arch == CS_ARCH_MIPS) {
+        const cs_mips& mips = insn->detail->mips;
+        di.operandScalars.resize(mips.op_count);
+        for (uint8_t i = 0; i < mips.op_count; ++i) {
+            const cs_mips_op& op = mips.operands[i];
+            std::vector<std::unique_ptr<Scalar>>& out = di.operandScalars[i];
+            if (op.type == MIPS_OP_IMM) {
+                int scalarBits = (bitness >= 64) ? 64 : 32;
+                out.push_back(std::make_unique<Scalar>(scalarBits, static_cast<int64_t>(op.imm)));
+            } else if (op.type == MIPS_OP_MEM) {
+                bool hasBase = (op.mem.base != MIPS_REG_INVALID);
+                if (op.mem.base == MIPS_REG_PC) {
+                    // PC-relative (e.g. mips16/gp-relative variants resolve via
+                    // linker slots; plain PC-relative loads use this base).
+                    uint64_t target = insn->address + insn->size + static_cast<uint64_t>(op.mem.disp);
+                    out.push_back(std::make_unique<Scalar>(64, static_cast<int64_t>(target)));
+                } else if (!hasBase && op.mem.disp != 0) {
+                    int scalarBits = (bitness >= 64) ? 64 : 32;
+                    out.push_back(std::make_unique<Scalar>(scalarBits, static_cast<int64_t>(op.mem.disp)));
+                }
+            }
+        }
+        return;
+    }
+
+    if (arch == CS_ARCH_PPC) {
+        const cs_ppc& ppc = insn->detail->ppc;
+        di.operandScalars.resize(ppc.op_count);
+        for (uint8_t i = 0; i < ppc.op_count; ++i) {
+            const cs_ppc_op& op = ppc.operands[i];
+            std::vector<std::unique_ptr<Scalar>>& out = di.operandScalars[i];
+            if (op.type == PPC_OP_IMM) {
+                int scalarBits = (bitness >= 64) ? 64 : 32;
+                out.push_back(std::make_unique<Scalar>(scalarBits, static_cast<int64_t>(op.imm)));
+            } else if (op.type == PPC_OP_MEM) {
+                // [reg+disp] displacements are offsets, not addresses; absolute
+                // MEM operands carry no base/index so only disp is meaningful.
+                if (op.mem.base == PPC_REG_INVALID && op.mem.disp != 0) {
+                    int scalarBits = (bitness >= 64) ? 64 : 32;
+                    out.push_back(std::make_unique<Scalar>(scalarBits, static_cast<int64_t>(op.mem.disp)));
+                }
+            }
+        }
+        return;
+    }
+
     const cs_x86& x86 = insn->detail->x86;
     di.operandScalars.resize(x86.op_count);
 
@@ -172,16 +218,19 @@ public:
         } else if (architecture.find("arm") != std::string::npos || architecture.find("ARM") != std::string::npos) {
             csArch = (bitness == 64) ? CS_ARCH_ARM64 : CS_ARCH_ARM;
             csMode = CS_MODE_ARM;
+            if (bigEndian) csMode = static_cast<cs_mode>(csMode | CS_MODE_BIG_ENDIAN);
             alignment_ = 4;
             bitness_ = bitness;
         } else if (architecture.find("mips") != std::string::npos || architecture.find("MIPS") != std::string::npos) {
             csArch = CS_ARCH_MIPS;
             csMode = (bitness == 64) ? CS_MODE_MIPS64 : CS_MODE_MIPS32;
+            if (bigEndian) csMode = static_cast<cs_mode>(csMode | CS_MODE_BIG_ENDIAN);
             alignment_ = 4;
             bitness_ = bitness;
         } else if (architecture.find("ppc") != std::string::npos || architecture.find("PowerPC") != std::string::npos) {
             csArch = CS_ARCH_PPC;
             csMode = (bitness == 64) ? CS_MODE_64 : CS_MODE_32;
+            if (bigEndian) csMode = static_cast<cs_mode>(csMode | CS_MODE_BIG_ENDIAN);
             alignment_ = 4;
             bitness_ = bitness;
         } else {

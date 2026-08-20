@@ -202,8 +202,11 @@ void DisassemblyModel::buildIndex(ghidra::ProgramDB* program, ghidra::DecompInte
     }
 
     // --- Merge all rows in address order ---
+    std::vector<DisasmRow> dataRows;
+    buildDataSections(program, dataRows);
     rows_ = std::move(instructionAndHeaderRows);
     rows_.insert(rows_.end(), gapRows.begin(), gapRows.end());
+    rows_.insert(rows_.end(), dataRows.begin(), dataRows.end());
     std::stable_sort(rows_.begin(), rows_.end(),
         [](const DisasmRow& a, const DisasmRow& b) {
             if (a.address != b.address) return a.address < b.address;
@@ -217,6 +220,12 @@ void DisassemblyModel::buildIndex(ghidra::ProgramDB* program, ghidra::DecompInte
         if (rows_[i].kind == DisasmRow::Kind::Instruction) {
             addressToRow_[rows_[i].address] = static_cast<int>(i);
             ++instrCount_;
+        } else if (rows_[i].kind == DisasmRow::Kind::DataSection && rows_[i].length > 0) {
+            // Map every byte of the chunk so addressToRow() resolves data addresses
+            // (Hex → Disassembly sync lands precisely inside the byte dump).
+            uint64_t end = rows_[i].address + static_cast<uint64_t>(rows_[i].length);
+            for (uint64_t a = rows_[i].address; a < end; ++a)
+                addressToRow_[a] = static_cast<int>(i);
         }
     }
 
@@ -262,6 +271,68 @@ int DisassemblyModel::instructionLengthAt(uint64_t addr) const {
     if (it != lengthByAddress_.end())
         return it->second;
     return 0;
+}
+
+void DisassemblyModel::buildDataSections(ghidra::ProgramDB* program,
+                                         std::vector<DisasmRow>& outRows) {
+    auto* mem = program->getMemory();
+    auto* af = program->getAddressFactory();
+    if (!mem || !af) return;
+
+    auto allBlocks = mem->getBlocks();
+    for (auto* block : allBlocks) {
+        if (!block) continue;
+        if (block->getFlags() & ghidra::MemoryBlock::FLAG_EXECUTE) continue; // handled by code/gap paths
+        if (!block->isInitialized()) continue; // uninitialized (.bss) has no bytes to dump
+
+        uint64_t blockStart = block->getStart().getUnsignedOffset();
+        uint64_t blockSize = static_cast<uint64_t>(block->getSize());
+        if (blockSize == 0) continue;
+
+        DisasmRow header;
+        header.kind = DisasmRow::Kind::DataSection;
+        header.address = blockStart;
+        header.length = 0;
+        header.text = QString("; === %1 (0x%2 - 0x%3) ===")
+            .arg(QString::fromStdString(block->getName()))
+            .arg(blockStart, 0, 16)
+            .arg(blockStart + blockSize, 0, 16);
+        outRows.push_back(header);
+
+        // Byte dump in 16-byte rows (same granularity as the HexView).
+        constexpr uint64_t kChunk = 16;
+        std::vector<uint8_t> buf(static_cast<size_t>(kChunk));
+        for (uint64_t off = 0; off < blockSize; off += kChunk) {
+            uint64_t n = (std::min)(kChunk, blockSize - off);
+            uint64_t addr = blockStart + off;
+            int got = 0;
+            try {
+                got = mem->getBytes(af->oldGetAddressFromLong(addr), buf.data(),
+                                    static_cast<int>(n));
+            } catch (...) { got = 0; }
+            if (got <= 0) break;
+
+            DisasmRow row;
+            row.kind = DisasmRow::Kind::DataSection;
+            row.address = addr;
+            row.length = got;
+
+            QString hexPart;
+            QString asciiPart;
+            for (int i = 0; i < got; ++i) {
+                if (i) hexPart += QLatin1Char(' ');
+                hexPart += QStringLiteral("%1").arg(buf[i], 2, 16, QLatin1Char('0'));
+                uint8_t b = buf[i];
+                asciiPart += (b >= 0x20 && b < 0x7F) ? QChar(static_cast<char>(b))
+                                                     : QLatin1Char('.');
+            }
+            row.text = QString("0x%1  %2  %3")
+                .arg(addr, 12, 16, QLatin1Char('0'))
+                .arg(hexPart, -47, QLatin1Char(' '))
+                .arg(asciiPart);
+            outRows.push_back(std::move(row));
+        }
+    }
 }
 
 QString DisassemblyModel::analyzeGap(ghidra::ProgramDB* program, uint64_t gapStart, uint64_t gapEnd) const {
