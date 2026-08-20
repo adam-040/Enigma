@@ -38,8 +38,11 @@ std::string BinaryLoader::guessLanguageFromArch(const std::string& arch, int bit
         arch.find("i686") != std::string::npos) {
         return bitness == 64 ? "x86:LE:64:default" : "x86:LE:32:default";
     }
+    if (arch.find("AARCH64") != std::string::npos || arch.find("aarch64") != std::string::npos) {
+        return bitness == 64 ? "AARCH64:LE:64:v8A" : "ARM:LE:32:v8";
+    }
     if (arch.find("ARM") != std::string::npos || arch.find("arm") != std::string::npos) {
-        return bitness == 64 ? "AARCH64:LE:64:default" : "ARM:LE:32:v8";
+        return bitness == 64 ? "AARCH64:LE:64:v8A" : "ARM:LE:32:v8";
     }
     if (arch.find("MIPS") != std::string::npos || arch.find("mips") != std::string::npos) {
         return bitness == 64 ? "MIPS:BE:64:default" : "MIPS:BE:32:default";

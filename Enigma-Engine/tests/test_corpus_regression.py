@@ -89,6 +89,11 @@ for name, args in raw_tests:
     expected = os.path.join(EXPECTED, f"{name}.c")
     run_corpus_test(name, args, expected)
 
+# === AArch64 ELF binary test (real cross-compiled ELF, auto-detected language) ===
+aarch64_elf = corpus_bin("aarch64_fib.elf")
+expected = os.path.join(EXPECTED, "aarch64_fib.elf.c")
+run_corpus_test("aarch64_fib.elf", ["-max-func", "4", aarch64_elf], expected, timeout=60)
+
 # === PE binary corpus test ===
 ldr_exe = os.path.join(ENGINE_ROOT, "build-cmake", "enigma_test_loader.exe")
 if os.path.exists(ldr_exe):

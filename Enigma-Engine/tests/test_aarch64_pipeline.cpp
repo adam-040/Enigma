@@ -5,10 +5,13 @@
 #include <ghidra/PcodeOp.h>
 #include <ghidra/OpCode.h>
 #include <ghidra/LoadImage.h>
+#include <ghidra/BinaryLoader.h>
+#include <ghidra/ProgramDB.h>
 #include <iostream>
 #include <cstdint>
 #include <cstdio>
 #include <vector>
+#include <string>
 
 using ghidra::int4;
 static int passed = 0, total = 0;
@@ -188,6 +191,68 @@ int main() {
             if (op && op->getOpcode() == ghidra::PcodeOp::COPY) sawCopy = true;
         }
         TEST("mov x0, xzr emits COPY", sawCopy);
+    }
+
+    // ---- 4. Real AArch64 ELF end-to-end (cross-compiled corpus binary) ----
+    {
+        std::string elfPath = std::string(ENIGMA_SOURCE_DIR) + "/tests/corpus/aarch64_fib.elf";
+        auto loader = ghidra::createLoader();
+        TEST("createLoader succeeds", loader != nullptr);
+        if (loader && loader->load(elfPath)) {
+            TEST_MSG("ELF architecture detected as AARCH64", loader->getArchitecture() == "AARCH64",
+                     loader->getArchitecture());
+            TEST_MSG("ELF bitness 64", loader->getBitness() == 64, std::to_string(loader->getBitness()));
+            TEST_MSG("ELF language guessed", ghidra::BinaryLoader::guessLanguageFromArch(
+                         loader->getArchitecture(), loader->getBitness()) == "AARCH64:LE:64:v8A",
+                     ghidra::BinaryLoader::guessLanguageFromArch(
+                         loader->getArchitecture(), loader->getBitness()));
+            TEST("ELF entry point > 0", loader->getEntryPoint() > 0);
+
+            ghidra::GenericAddressSpace ramSpace("ram", 64, ghidra::AddressSpace::TYPE_RAM, 1);
+            ghidra::GenericAddressSpace constSpace("const", 64, ghidra::AddressSpace::TYPE_CONSTANT, 2);
+            ghidra::GenericAddressSpace uniqueSpace("unique", 64, ghidra::AddressSpace::TYPE_UNIQUE, 3);
+            ghidra::GenericAddressSpace regSpace("register", 64, ghidra::AddressSpace::TYPE_REGISTER, 4);
+            ghidra::GenericAddressSpace stackSpace("stack", 64, ghidra::AddressSpace::TYPE_STACK, 5);
+            ghidra::ProgramDB prog("aarch64_elf", nullptr, nullptr);
+            auto* addrFactory = dynamic_cast<ghidra::ProgramAddressFactory*>(prog.getAddressFactory());
+            if (addrFactory) {
+                addrFactory->addAddressSpace(&ramSpace);
+                addrFactory->setDefaultSpace(&ramSpace);
+                addrFactory->setConstantSpace(&constSpace);
+                addrFactory->setUniqueSpace(&uniqueSpace);
+                addrFactory->setRegisterSpace(&regSpace);
+                addrFactory->setStackSpace(&stackSpace);
+            }
+
+            TEST_MSG("ELF populateProgram", loader->populateProgram(&prog),
+                     "populateProgram failed");
+            TEST_MSG("ELF language ID = AARCH64:LE:64:v8A",
+                     prog.getLanguageID().getIdAsString() == "AARCH64:LE:64:v8A",
+                     prog.getLanguageID().getIdAsString());
+
+            auto dis = ghidra::createDisassembler("aarch64", 64, false);
+            TEST_MSG("createDisassembler(aarch64) for ELF", dis != nullptr,
+                     "failed for aarch64");
+            if (dis) {
+                auto* mem = prog.getMemory();
+                if (mem) {
+                    auto* defaultSpace = const_cast<ghidra::AddressSpace*>(
+                        prog.getAddressFactory()->getDefaultAddressSpace());
+                    ghidra::Address startAddr(defaultSpace, loader->getEntryPoint());
+                    std::vector<uint8_t> bytes(16, 0);
+                    mem->getBytes(startAddr, bytes.data(), 16);
+                    auto insns = dis->disassembleRange(bytes, loader->getEntryPoint(), 16, 4);
+                    TEST_MSG("ELF entry disassembles (>= 4 A64 insns)", insns.size() >= 4,
+                             "got " + std::to_string(insns.size()));
+                    if (insns.size() >= 1) {
+                        TEST_MSG("ELF entry insn is 4 bytes", insns[0].length == 4,
+                                 "len=" + std::to_string(insns[0].length));
+                    }
+                }
+            }
+        } else {
+            TEST_MSG("ELF load", false, "cannot load corpus ELF");
+        }
     }
 
     std::cout << "\n" << passed << "/" << total << " passed\n";

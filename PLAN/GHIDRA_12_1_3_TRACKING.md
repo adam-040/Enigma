@@ -489,26 +489,43 @@ mapper had no AArch64 path. Track 3 closes that gap (user-approved scope).
   SIMD d0/s0/v0 alias to the same 64+n base (approximation, consistent with
   the other per-arch tables).
 
-### A3.4 - Verification (synthetic only; 34/34 + full CTest 64/64)
+### A3.4 - Verification (34/34 synthetic + real-ELF end-to-end; full CTest 64/64)
 - New suite `tests/test_aarch64_pipeline.cpp` (registered as
-  `enigma_test_aarch64_pipeline`, 34 subtests, exit 0): 16-instruction A64
+  `enigma_test_aarch64_pipeline`, 44 subtests, exit 0): 16-instruction A64
   blob (stp/mov/sub/mov/add/bl/ldr/str/cmp/b.le/mov/ldp/ret/blr/cbz/adrp)
   decoded via the Sleigh pipeline (16/16, 4 bytes each, pcode categories
   CALL/CALLIND/RETURN/STORE/LOAD/INT_ADD/INT_SUB/CBRANCH), via
   CapstoneDisassembler (mnemonics + flow types: bl=CALL, b.le=CONDITIONAL_JUMP,
-  ret=TERMINATOR, cbz=CONDITIONAL_JUMP, adrp=FALL_THROUGH), and via the mapper
-  (mov x0, xzr -> COPY).
+  ret=TERMINATOR, cbz=CONDITIONAL_JUMP, adrp=FALL_THROUGH), via the mapper
+  (mov x0, xzr -> COPY), and end-to-end on a real cross-compiled AArch64 ELF
+  (`tests/corpus/aarch64_fib.elf`: load -> architecture AARCH64 -> language
+  `AARCH64:LE:64:v8A` -> populateProgram -> entry-point disassembly).
 - Crash fixed during verification: `extractOperandScalars` (A3.2) segfaulted
   on ARM64 (`detail->x86` read of `cs_arm64` data) - reproduced under gdb,
   fixed by the arch-aware branch.
+- **Real-ELF gap found by the end-to-end run** (a second instance of the
+  "AARCH64 lacks the ARM substring" bug class): `BinaryLoader::guessLanguageFromArch`
+  tested `find("ARM")`, which never matches "AARCH64" - so the AARCH64 ELF's
+  program language stayed "unknown" and every analyzer that calls
+  `createDisassembler` received an empty architecture string. Fixed by adding
+  an explicit AARCH64 branch returning `AARCH64:LE:64:v8A` (the variant tag
+  that actually exists in the distro `.ldefs`; `:default` is not a real
+  AARCH64 variant). Verified on the real ELF: `_start` and `fib` both decompile
+  to correct C (global write via `adrp/add/str` resolves to `ptr_0x220230`,
+  recursion + tail structure correct).
+- Corpus regression extended: `tests/corpus/aarch64_fib.elf` (1640-byte
+  freestanding A64 ELF cross-compiled with clang `-target aarch64-linux-gnu`
+  + lld) + `tests/corpus/expected/aarch64_fib.elf.c` baseline; Python
+  `test_corpus_regression.py` runs it (16/16 raw+ELF tests pass).
 - Full CTest **64/64, exit 0** with the Track 2 env (`ENIGMA_CORPUS_DIR` +
   `ENIGMA_EXTRA_CORPUS` = 7 x `~0000000N.db\db.1.gbf`); determinism regression
-  green (35.5s). No regression in Track 1 guard (fidelity/import/rebase).
-- Known limitation (documented in tracking doc): no real AARCH64/ELF binary
-  corpus exists on this machine (`ghidra_1213_proj` holds PE only), so
-  verification is synthetic. Re-verify against an ELF/COFF-ARM64/Mach-O corpus
-  when binaries become available.
-- Commit: `TBD` (single change set: 7 source files + 1 new test + 1 tracking
-  doc + PROGRESS.md).
+  green (38.0s). No regression in Track 1 guard (fidelity/import/rebase) or
+  the corpus regression.
+- Known limitation lifted: verification now covers a real AArch64 ELF
+  (single-function freestanding binary). A larger ELF/COFF-ARM64/Mach-O
+  corpus would broaden coverage; the mapper table's ~110 entries are exercised
+  only partially by the synthetic blob + this binary.
+- Commits: `6bdae421` (Track 3 initial: mapper + pipeline + synthetic test) +
+  follow-up real-ELF verification commit.
 
 - Updated: 2026-08-20

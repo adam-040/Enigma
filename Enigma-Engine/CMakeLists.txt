@@ -227,7 +227,7 @@ add_executable(enigma_test_pipeline_comprehensive tests/test_pipeline_comprehens
 
   add_executable(enigma_test_aarch64_pipeline tests/test_aarch64_pipeline.cpp)
   target_link_libraries(enigma_test_aarch64_pipeline PRIVATE enigma_engine)
-  target_compile_definitions(enigma_test_aarch64_pipeline PRIVATE ENIGMA_SLEIGH_DIR="${ENIGMA_SLEIGH_DIR}")
+  target_compile_definitions(enigma_test_aarch64_pipeline PRIVATE ENIGMA_SLEIGH_DIR="${ENIGMA_SLEIGH_DIR}" ENIGMA_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
   enigma_apply_warning_policy(enigma_test_aarch64_pipeline)
   add_test(NAME enigma_test_aarch64_pipeline COMMAND enigma_test_aarch64_pipeline)
 
