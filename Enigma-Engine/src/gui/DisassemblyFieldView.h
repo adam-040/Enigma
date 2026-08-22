@@ -111,6 +111,7 @@ private:
         std::vector<uint8_t> rawBytes;
         std::vector<Token> tokens;
         int totalCols = 0;
+        bool isMips16e = false;  // GP-6766: true if instruction is MIPS16e (16-bit encoding)
     };
 
     struct FallbackLine {
@@ -304,4 +305,8 @@ private:
     QString searchQuery_;
     bool searchMatchCase_ = false;
     int searchActiveRow_ = -1;
+
+    // G3: Guard CFG target addresses (shield badge)
+    std::unordered_set<uint64_t> guardCfgTargets_;
+    void buildGuardCfgSet();
 };

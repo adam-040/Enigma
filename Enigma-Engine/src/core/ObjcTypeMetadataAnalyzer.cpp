@@ -199,11 +199,165 @@ bool ObjcTypeMetadataAnalyzer::added(Program* program, const AddressSetView& set
                     symTable->createLabel(targetAddr, label, SourceType::ANALYSIS);
                 }
             } else if (isProtoList) {
-                std::string label = "OBJC_PROTOCOL_$_" + std::to_string(totalProtocols);
+                // Try to resolve protocol name from protocol_t structure
+                std::string protoName;
+                int protoStructSize = is64 ? 48 : 32;
+                std::vector<uint8_t> protoBuf(static_cast<size_t>(protoStructSize));
+                if (memory->getBytes(targetAddr, protoBuf.data(), protoStructSize) == protoStructSize) {
+                    // protocol_t->mangledName is at offset ptrSize*2 (after isa, flags)
+                    int nameOff = is64 ? 16 : 8;
+                    uint64_t namePtr;
+                    if (is64) {
+                        namePtr = readU64LE(&protoBuf[nameOff]);
+                    } else {
+                        namePtr = readU32LE(&protoBuf[nameOff]);
+                    }
+                    if (namePtr != 0) {
+                        Address nameAddr(defaultSpace, static_cast<int64_t>(namePtr));
+                        if (memory->getBlock(nameAddr)) {
+                            uint8_t nameBuf[128];
+                            int nameMax = static_cast<int>(std::min(static_cast<int64_t>(sizeof(nameBuf) - 1),
+                                                        nameAddr.getOffset() < memory->getBlock(nameAddr)->getEnd().getOffset()
+                                                        ? memory->getBlock(nameAddr)->getEnd().getOffset() - nameAddr.getOffset() + 1
+                                                        : static_cast<int64_t>(0)));
+                            if (nameMax >= 2) {
+                                if (memory->getBytes(nameAddr, nameBuf, nameMax) == nameMax) {
+                                    bool validName = true;
+                                    int nameLen = 0;
+                                    for (int ni = 0; ni < nameMax; ++ni) {
+                                        if (nameBuf[ni] == 0) break;
+                                        ++nameLen;
+                                        if (!std::isalnum(nameBuf[ni]) && nameBuf[ni] != '_' && nameBuf[ni] != ' ') {
+                                            validName = false;
+                                            break;
+                                        }
+                                    }
+                                    if (validName && nameLen >= 2 && nameLen < 100) {
+                                        protoName.assign(reinterpret_cast<char*>(nameBuf), static_cast<size_t>(nameLen));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                std::string label = protoName.empty()
+                    ? ("OBJC_PROTOCOL_$_" + std::to_string(totalProtocols))
+                    : ("OBJC_PROTOCOL_$_" + protoName);
                 symTable->createLabel(targetAddr, label, SourceType::ANALYSIS);
                 ++totalProtocols;
             } else if (isCatList) {
-                std::string label = "OBJC_CATEGORY_$_" + std::to_string(totalCategories);
+                // Try to resolve category name from category_t structure
+                std::string catName;
+                std::string catClassName;
+                int catStructSize = is64 ? 40 : 24;
+                std::vector<uint8_t> catBuf(static_cast<size_t>(catStructSize));
+                if (memory->getBytes(targetAddr, catBuf.data(), catStructSize) == catStructSize) {
+                    // category_t layout:
+                    // offset 0: name (char*)
+                    // offset ptrSize: cls (classref_t)
+                    // offset ptrSize*2: instanceMethods
+                    // offset ptrSize*3: classMethods
+                    // offset ptrSize*4: protocols (32-bit) or protocols+instanceProperties (64-bit)
+                    int nameOff = 0;
+                    int clsOff = is64 ? 8 : 4;
+
+                    // Read category name
+                    uint64_t catNamePtr;
+                    if (is64) {
+                        catNamePtr = readU64LE(&catBuf[nameOff]);
+                    } else {
+                        catNamePtr = readU32LE(&catBuf[nameOff]);
+                    }
+                    if (catNamePtr != 0) {
+                        Address nameAddr(defaultSpace, static_cast<int64_t>(catNamePtr));
+                        if (memory->getBlock(nameAddr)) {
+                            uint8_t nameBuf[128];
+                            int nameMax = 128;
+                            if (memory->getBytes(nameAddr, nameBuf, nameMax) > 0) {
+                                bool validName = true;
+                                int nameLen = 0;
+                                for (int ni = 0; ni < nameMax; ++ni) {
+                                    if (nameBuf[ni] == 0) break;
+                                    ++nameLen;
+                                    if (!std::isalnum(nameBuf[ni]) && nameBuf[ni] != '_' && nameBuf[ni] != ' ') {
+                                        validName = false;
+                                        break;
+                                    }
+                                }
+                                if (validName && nameLen >= 1 && nameLen < 100) {
+                                    catName.assign(reinterpret_cast<char*>(nameBuf), static_cast<size_t>(nameLen));
+                                }
+                            }
+                        }
+                    }
+
+                    // Read class reference
+                    uint64_t clsPtr;
+                    if (is64) {
+                        clsPtr = readU64LE(&catBuf[clsOff]);
+                    } else {
+                        clsPtr = readU32LE(&catBuf[clsOff]);
+                    }
+                    if (clsPtr != 0) {
+                        Address clsAddr(defaultSpace, static_cast<int64_t>(clsPtr));
+                        if (memory->getBlock(clsAddr)) {
+                            // Try to resolve class name from the class reference
+                            std::vector<uint8_t> clsRefBuf(static_cast<size_t>(classStructSize));
+                            if (memory->getBytes(clsAddr, clsRefBuf.data(), classStructSize) == classStructSize) {
+                                uint64_t dataPtr;
+                                if (is64) {
+                                    dataPtr = readU64LE(&clsRefBuf[ptrSize * 4]);
+                                } else {
+                                    dataPtr = readU32LE(&clsRefBuf[ptrSize * 4]);
+                                }
+                                if (dataPtr != 0) {
+                                    Address roAddr(defaultSpace, static_cast<int64_t>(dataPtr));
+                                    if (memory->getBlock(roAddr)) {
+                                        std::vector<uint8_t> roData(64);
+                                        if (memory->getBytes(roAddr, roData.data(), 64) == 64) {
+                                            int nameFieldStart = is64 ? 16 : 12;
+                                            for (int checkOff = nameFieldStart; checkOff < (is64 ? 40 : 28); checkOff += (is64 ? 8 : 4)) {
+                                                uint64_t candidateName;
+                                                if (is64) {
+                                                    candidateName = readU64LE(&roData[checkOff]);
+                                                } else {
+                                                    candidateName = readU32LE(&roData[checkOff]);
+                                                }
+                                                if (candidateName == 0) continue;
+                                                Address nameAddr2(defaultSpace, static_cast<int64_t>(candidateName));
+                                                if (!memory->getBlock(nameAddr2)) continue;
+                                                uint8_t nameBuf2[128];
+                                                if (memory->getBytes(nameAddr2, nameBuf2, sizeof(nameBuf2) - 1) <= 0) continue;
+                                                bool validName = true;
+                                                int nameLen = 0;
+                                                for (int ni = 0; ni < 127; ++ni) {
+                                                    if (nameBuf2[ni] == 0) break;
+                                                    ++nameLen;
+                                                    if (!std::isalnum(nameBuf2[ni]) && nameBuf2[ni] != '_') {
+                                                        validName = false;
+                                                        break;
+                                                    }
+                                                }
+                                                if (validName && nameLen >= 2 && nameLen < 100) {
+                                                    catClassName.assign(reinterpret_cast<char*>(nameBuf2), static_cast<size_t>(nameLen));
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                std::string label;
+                if (!catClassName.empty() && !catName.empty()) {
+                    label = "OBJC_CATEGORY_$_" + catClassName + "(" + catName + ")";
+                } else if (!catName.empty()) {
+                    label = "OBJC_CATEGORY_$_" + catName;
+                } else {
+                    label = "OBJC_CATEGORY_$_" + std::to_string(totalCategories);
+                }
                 symTable->createLabel(targetAddr, label, SourceType::ANALYSIS);
                 ++totalCategories;
             }

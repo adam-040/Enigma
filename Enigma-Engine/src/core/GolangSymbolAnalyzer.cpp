@@ -11,6 +11,8 @@
 #include <ghidra/MessageLog.h>
 #include <ghidra/Options.h>
 #include <ghidra/Msg.h>
+#include <ghidra/GoBuildInfoParser.h>
+#include <ghidra/GoRttiParser.h>
 
 #include <cstdint>
 #include <string>
@@ -497,6 +499,21 @@ bool GolangSymbolAnalyzer::added(Program* program, const AddressSetView& set, Ta
                 }
                 off += static_cast<int64_t>(candidate.size() + 1);
             }
+        }
+    }
+
+    // Use GoBuildInfoParser to extract build metadata
+    auto buildInfo = GoBuildInfoParser::findAndParse(memory);
+    if (buildInfo.valid) {
+        Msg::info(getName(), "Go build info: version=" + buildInfo.goVersion +
+                  " module=" + buildInfo.modulePath);
+        if (!buildInfo.dependencies.empty()) {
+            std::string deps;
+            for (const auto& d : buildInfo.dependencies) {
+                if (!deps.empty()) deps += ", ";
+                deps += d;
+            }
+            Msg::info(getName(), "Go dependencies: " + deps);
         }
     }
 

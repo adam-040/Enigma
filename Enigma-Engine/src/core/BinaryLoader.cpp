@@ -15,6 +15,9 @@
 #include "ghidra/SymbolTable.h"
 #include "ghidra/FunctionManager.h"
 #include "ghidra/AddressFactory.h"
+#include "ghidra/AddressSpace.h"
+#include "ghidra/ExternalManager.h"
+#include "ghidra/Namespace.h"
 #include "ghidra/Msg.h"
 #include "ghidra/ProgramAddressFactory.h"
 #include "ghidra/LanguageID.h"
@@ -101,6 +104,31 @@ public:
             if (magic == 0xBEBAFECA) {
                 return parseFatMachO();
             }
+            // dyld shared cache: 0x646C7964 ('dyld') classic header,
+            // 0x6A1A64A9 arm64e ("new") header
+            if (magic == 0x646C7964 || magic == 0x6A1A64A9) {
+                return parseDyldCache();
+            }
+        }
+        if (rawData_.size() >= 8 && std::memcmp(rawData_.data(), "!<arch>\n", 8) == 0) {
+            return parseCOFFArchive();
+        }
+        if (rawData_.size() >= 20 + 40) {
+            uint16_t machine = coff16(0);
+            uint16_t numSecs = coff16(2);
+            uint16_t optSize = coff16(16);
+            if (isCoffMachine(machine) && numSecs > 0 && numSecs < 0x100 && optSize == 0 &&
+                rawData_.size() >= 20 + static_cast<uint16_t>(numSecs) * 40) {
+                return parseCOFF();
+            }
+        }
+        // Intel HEX detection: first character is ':'
+        if (!rawData_.empty() && rawData_[0] == ':') {
+            return parseIntelHex();
+        }
+        // Motorola S-Record detection: first line starts with 'S'
+        if (!rawData_.empty() && rawData_[0] == 'S') {
+            return parseSRecord();
         }
         return false;
     }
@@ -140,6 +168,9 @@ public:
     std::vector<ExportInfo> getExports() const override { return exports_; }
     std::vector<RelocationInfo> getRelocations() const override { return relocations_; }
     std::vector<DelayLoadInfo> getDelayLoads() const override { return {}; }
+
+    bool isDyldCache() const override { return isDyldCache_; }
+    std::vector<DyldCacheImageInfo> getDyldCacheImages() const override { return dyldCacheImages_; }
 
     std::vector<uint8_t> getBytes(uint64_t address, size_t size) const override {
         std::vector<uint8_t> result;
@@ -418,6 +449,15 @@ public:
             }
         }
 
+        // Defined non-function symbols become labels at their mapped address.
+        for (const auto& sym : symbols_) {
+            if (sym.isFunction || sym.address == 0) continue;
+            Address symAddr(ramSpace, static_cast<int64_t>(sym.address));
+            if (mem->getBlock(symAddr) && formatName_ == "COFF") {
+                symTable->createLabel(symAddr, sym.name, SourceType::IMPORTED);
+            }
+        }
+
         for (const auto& imp : imports_) {
             if (imp.address > 0) {
                 Address impAddr(ramSpace, static_cast<int64_t>(imp.address));
@@ -425,10 +465,96 @@ public:
             }
         }
 
+        // GP-5900: normal exports become labels at their image address;
+        // forwarded exports (RVA inside the export directory) become an
+        // external target function plus a thunk function in EXTERNAL space.
+        AddressSpace* externalSpace = nullptr;
+        long nextExternalSymbolId = 0;
+        uint64_t nextExternalOffset = 0;
         for (const auto& exp : exports_) {
             if (exp.address > 0) {
                 Address expAddr(ramSpace, static_cast<int64_t>(exp.address));
                 symTable->createLabel(expAddr, exp.name, SourceType::IMPORTED);
+                continue;
+            }
+            if (!exp.isForwarder || exp.forwarderString.empty()) continue;
+
+            std::string libName, symName;
+            size_t dot = exp.forwarderString.find('.');
+            if (dot != std::string::npos) {
+                libName = exp.forwarderString.substr(0, dot);
+                symName = exp.forwarderString.substr(dot + 1);
+            } else {
+                libName = exp.forwarderString;
+                symName = exp.forwarderString;
+            }
+            if (libName.empty() || symName.empty()) continue;
+
+            if (!externalSpace) {
+                externalSpace =
+                    const_cast<AddressSpace*>(addrFactory->getAddressSpace("EXTERNAL"));
+                if (!externalSpace) {
+                    externalSpace = new GenericAddressSpace("EXTERNAL", 64,
+                                                            AddressSpace::TYPE_EXTERNAL, 0,
+                                                            0, 0x7FFFFFFFLL);
+                    addrFactory->addAddressSpace(externalSpace);
+                }
+            }
+
+            ExternalManager* externals = program->getExternalManager();
+            auto ensureLibrary = [&](const std::string& lib) -> Namespace* {
+                Namespace* global = symTable->getGlobalNamespace();
+                if (Namespace* ns = symTable->getNamespace(lib, global)) return ns;
+                if (externals) externals->addExternalLibrary(lib, "");
+                return symTable->createNameSpace(global, lib, SourceType::IMPORTED);
+            };
+
+            // Target: external function in the forwarded library.
+            Function* target = nullptr;
+            if (externals) {
+                if (ExternalLocation* el = externals->getExternalLocation(libName, symName)) {
+                    target = funcMgr->getFunctionAt(el->getAddress());
+                }
+            }
+            if (!target) {
+                Address targetAddr(externalSpace, static_cast<int64_t>(nextExternalOffset++));
+                Namespace* libNs = ensureLibrary(libName);
+                long targetSymId = nextExternalSymbolId++;
+                symTable->createExternalSymbol(targetSymId, symName, targetAddr, libNs,
+                                               SourceType::IMPORTED, true);
+                if (externals) {
+                    externals->addExternalLocation(libName, symName, targetAddr, targetSymId,
+                                                   "", true);
+                }
+                AddressSet body(targetAddr, targetAddr);
+                target = funcMgr->createFunction(symName, targetAddr, body, SourceType::IMPORTED);
+                if (target) target->setExternal(true);
+            }
+            if (!target) continue;
+
+            // Thunk: the forwarded export itself, in the exporting DLL's library.
+            std::string thunkLib = exp.dllName.empty() ? "UNKNOWN" : exp.dllName;
+            if (externals) {
+                if (ExternalLocation* el = externals->getExternalLocation(thunkLib, exp.name)) {
+                    if (funcMgr->getFunctionAt(el->getAddress())) continue;
+                }
+            }
+            Address thunkAddr(externalSpace, static_cast<int64_t>(nextExternalOffset++));
+            Namespace* thunkNs = ensureLibrary(thunkLib);
+            long thunkSymId = nextExternalSymbolId++;
+            symTable->createExternalSymbol(thunkSymId, exp.name, thunkAddr, thunkNs,
+                                           SourceType::IMPORTED, true);
+            if (externals) {
+                externals->addExternalLocation(thunkLib, exp.name, thunkAddr, thunkSymId,
+                                               exp.forwarderString, true);
+            }
+            AddressSet body(thunkAddr, thunkAddr);
+            Function* thunk = funcMgr->createFunction(exp.name, thunkAddr, body,
+                                                      SourceType::IMPORTED);
+            if (thunk) {
+                thunk->setExternal(true);
+                thunk->setThunk(true);
+                thunk->setThunkedFunction(target);
             }
         }
 
@@ -481,6 +607,13 @@ private:
         dysymtabIndirectSymOffset_ = 0;
         dysymtabIndirectSymCount_ = 0;
         machONlistNames_.clear();
+        machoDylibNames_.clear();
+        machoSegments_.clear();
+        machoTextAddr_ = 0;
+        chainedFixupsOff_ = 0;
+        chainedFixupsSize_ = 0;
+        dyldCacheImages_.clear();
+        isDyldCache_ = false;
     }
 
     static uint64_t getSectionSpan(const SectionInfo& section) {
@@ -622,6 +755,41 @@ private:
 
     int64_t elfs64(size_t off) const { return static_cast<int64_t>(elf64(off)); }
 
+    // COFF is always little-endian.
+    uint16_t coff16(size_t off) const {
+        if (off + 2 > rawData_.size()) return 0;
+        return static_cast<uint16_t>(rawData_[off]) |
+               (static_cast<uint16_t>(rawData_[off + 1]) << 8);
+    }
+
+    uint32_t coff32(size_t off) const {
+        if (off + 4 > rawData_.size()) return 0;
+        return static_cast<uint32_t>(rawData_[off]) |
+               (static_cast<uint32_t>(rawData_[off + 1]) << 8) |
+               (static_cast<uint32_t>(rawData_[off + 2]) << 16) |
+               (static_cast<uint32_t>(rawData_[off + 3]) << 24);
+    }
+
+    uint64_t coff64(size_t off) const {
+        uint64_t v = 0;
+        for (int i = 0; i < 8; ++i) v |= static_cast<uint64_t>(rawData_[off + i]) << (8 * i);
+        return v;
+    }
+
+    bool isCoffMachine(uint16_t machine) const {
+        switch (machine) {
+            case 0x8664:  // AMD64
+            case 0xAA64:  // ARM64
+            case 0x14C:   // I386
+            case 0x1C0:   // ARM
+            case 0x1C4:   // ARMNT
+            case 0x1C2:   // THUMB
+                return true;
+            default:
+                return false;
+        }
+    }
+
     bool parseELF() {
         formatName_ = "ELF";
         bitness_ = (rawData_[4] == 2) ? 64 : 32;
@@ -657,6 +825,11 @@ private:
         parseELFSymbols();
         parseELFImports();
         parseELFRelocations();
+
+        // GP-7056: with section headers stripped (e_shoff == 0) the passes
+        // above find nothing; recover segments + dynamic imports from the
+        // PT_DYNAMIC program header instead.
+        if (sections_.empty()) parseELFStripped();
 
         return true;
     }
@@ -774,19 +947,24 @@ private:
         uint32_t optHeaderOffset = e_lfanew + 24;
 
         uint32_t exportDirRVA = 0;
+        uint32_t exportDirSize = 0;
         if (bitness_ == 32) {
             if (optHeaderOffset + 104 > rawData_.size()) return;
             exportDirRVA = *reinterpret_cast<uint32_t*>(rawData_.data() + optHeaderOffset + 96);
+            exportDirSize = *reinterpret_cast<uint32_t*>(rawData_.data() + optHeaderOffset + 100);
         } else {
             if (optHeaderOffset + 120 > rawData_.size()) return;
             exportDirRVA = *reinterpret_cast<uint32_t*>(rawData_.data() + optHeaderOffset + 112);
+            exportDirSize = *reinterpret_cast<uint32_t*>(rawData_.data() + optHeaderOffset + 116);
         }
 
         if (exportDirRVA == 0) return;
+        if (exportDirSize == 0) exportDirSize = 40; // fall back to the struct itself
 
         uint64_t exportOffset = rvaToFileOffset(exportDirRVA);
         if (!isValidFileOffset(exportOffset) || exportOffset + 40 > rawData_.size()) return;
 
+        uint32_t dllNameRVA = *reinterpret_cast<uint32_t*>(rawData_.data() + exportOffset + 12);
         uint32_t numNames = *reinterpret_cast<uint32_t*>(rawData_.data() + exportOffset + 24);
         uint32_t namesRVA = *reinterpret_cast<uint32_t*>(rawData_.data() + exportOffset + 32);
         uint32_t ordinalsRVA = *reinterpret_cast<uint32_t*>(rawData_.data() + exportOffset + 36);
@@ -810,20 +988,30 @@ private:
             uint32_t funcRVA = *reinterpret_cast<uint32_t*>(rawData_.data() + functionsOffset + ordinal * 4);
 
             std::string name = readStringAtRVA(nameRVA);
-            if (!name.empty()) {
-                ExportInfo exp{};
-                exp.name = name;
-                exp.address = imageBase_ + funcRVA;
-                exports_.push_back(exp);
+            if (name.empty()) continue;
 
-                SymbolInfo sym{};
-                sym.name = name;
-                sym.address = exp.address;
-                sym.size = 0;
-                sym.isFunction = true;
-                sym.isExternal = false;
-                symbols_.push_back(sym);
+            ExportInfo exp{};
+            exp.name = name;
+            exp.dllName = readStringAtRVA(dllNameRVA);
+            // GP-5900: a function RVA that falls inside the export directory is
+            // a forwarder: the bytes there are "DLL.SymbolName", not code.
+            if (funcRVA >= exportDirRVA && funcRVA < exportDirRVA + exportDirSize) {
+                exp.isForwarder = true;
+                exp.forwarderString = readStringAtRVA(funcRVA);
+                exp.address = 0;
+                exports_.push_back(exp);
+                continue;
             }
+            exp.address = imageBase_ + funcRVA;
+            exports_.push_back(exp);
+
+            SymbolInfo sym{};
+            sym.name = name;
+            sym.address = exp.address;
+            sym.size = 0;
+            sym.isFunction = true;
+            sym.isExternal = false;
+            symbols_.push_back(sym);
         }
     }
 
@@ -1438,6 +1626,459 @@ private:
         }
     }
 
+    // GP-7056: stripped ELF recovery. With section headers absent (e_shoff ==
+    // 0) the section-based passes (parseELFSymbols / parseELFImports /
+    // parseELFRelocations) find nothing, so recover the loadable segments and
+    // the dynamic imports from the program headers instead: PT_LOAD segments
+    // become memory sections, PT_DYNAMIC yields DT_JMPREL / DT_RELA / DT_REL
+    // relocation tables, the dynamic symbol table (DT_SYMTAB + DT_STRTAB)
+    // names each relocated GOT slot, and the PLT stubs are located by
+    // scanning the executable segments for the per-arch stub instruction
+    // patterns.
+    struct ElfPhdr {
+        uint32_t type = 0;
+        uint64_t vaddr = 0;
+        uint64_t offset = 0;
+        uint64_t filesz = 0;
+        uint64_t memsz = 0;
+        uint32_t flags = 0;
+    };
+
+    void parseELFProgramHeaders() {
+        phdrs_.clear();
+        if (bitness_ == 32) {
+            uint32_t phoff = elf32(28);
+            uint16_t phnum = elf16(44);
+            uint16_t phentsize = elf16(42);
+            if (phentsize == 0) phentsize = 32;
+            for (uint16_t i = 0; i < phnum; ++i) {
+                uint32_t o = phoff + i * phentsize;
+                if (o + 32 > rawData_.size()) break;
+                ElfPhdr p{};
+                p.type = elf32(o);
+                p.offset = elf32(o + 4);
+                p.vaddr = elf32(o + 8);
+                p.filesz = elf32(o + 16);
+                p.memsz = elf32(o + 20);
+                p.flags = elf32(o + 24);
+                phdrs_.push_back(p);
+            }
+        } else {
+            uint64_t phoff = elf64(32);
+            uint16_t phnum = elf16(56);
+            uint16_t phentsize = elf16(54);
+            if (phentsize == 0) phentsize = 56;
+            for (uint16_t i = 0; i < phnum; ++i) {
+                uint64_t o = phoff + i * phentsize;
+                if (o + 56 > rawData_.size()) break;
+                ElfPhdr p{};
+                p.type = elf32(o);
+                p.flags = elf32(o + 4);
+                p.offset = elf64(o + 8);
+                p.vaddr = elf64(o + 16);
+                p.filesz = elf64(o + 32);
+                p.memsz = elf64(o + 40);
+                phdrs_.push_back(p);
+            }
+        }
+    }
+
+    uint64_t phdrVaToFileOffset(uint64_t va) const {
+        for (const auto& p : phdrs_) {
+            if (p.type != 1) continue; // PT_LOAD
+            if (va >= p.vaddr && va - p.vaddr < p.filesz) {
+                return p.offset + (va - p.vaddr);
+            }
+        }
+        return INVALID_FILE_OFFSET;
+    }
+
+    // x86/x86-64: locate the PLT stub whose `jmp [rip+disp32]` (FF 25, x86-64)
+    // or `jmp [disp32]` (FF 25, x86) targets exactly this GOT slot.
+    uint64_t findX86PltStub(uint64_t gotSlot) const {
+        for (const auto& s : sections_) {
+            if (!s.isExecutable || s.fileSize == 0 || s.fileOffset >= rawData_.size()) continue;
+            const uint8_t* p = rawData_.data() + s.fileOffset;
+            uint64_t n = std::min<uint64_t>(s.fileSize, rawData_.size() - s.fileOffset);
+            for (uint64_t i = 0; i + 6 <= n; ++i) {
+                if (p[i] != 0xFF || p[i + 1] != 0x25) continue;
+                uint32_t u = static_cast<uint32_t>(p[i + 2]) |
+                             (static_cast<uint32_t>(p[i + 3]) << 8) |
+                             (static_cast<uint32_t>(p[i + 4]) << 16) |
+                             (static_cast<uint32_t>(p[i + 5]) << 24);
+                if (bitness_ == 32) {
+                    if (u == gotSlot) return s.virtualAddress + i;
+                } else {
+                    int64_t target = s.virtualAddress + i + 6 +
+                                     static_cast<int64_t>(static_cast<int32_t>(u));
+                    if (static_cast<uint64_t>(target) == gotSlot) return s.virtualAddress + i;
+                }
+            }
+        }
+        return 0;
+    }
+
+    // ARM: every PLT stub starts with `add ip, pc, #imm` (0xe28fc600); the
+    // first two matches in the executable segments give base + stride.
+    std::pair<uint64_t, uint64_t> scanArmPlt() const {
+        for (const auto& s : sections_) {
+            if (!s.isExecutable || s.fileSize < 16 || s.fileOffset >= rawData_.size()) continue;
+            std::vector<uint64_t> starts;
+            const uint8_t* p = rawData_.data() + s.fileOffset;
+            uint64_t n = std::min<uint64_t>(s.fileSize, rawData_.size() - s.fileOffset);
+            for (uint64_t i = 4; i + 4 <= n; ++i) {
+                bool match = elfBigEndian_
+                    ? (p[i] == 0xe2 && p[i + 1] == 0x8f && p[i + 2] == 0xc6 && p[i + 3] == 0x00)
+                    : (p[i] == 0x00 && p[i + 1] == 0xc6 && p[i + 2] == 0x8f && p[i + 3] == 0xe2);
+                if (match) {
+                    starts.push_back(s.virtualAddress + i);
+                    if (starts.size() == 2) break;
+                }
+            }
+            if (starts.size() >= 1)
+                return {starts[0], starts.size() >= 2 ? starts[1] - starts[0] : 12};
+        }
+        return {0, 0};
+    }
+
+    // AARCH64: PLT stubs are 16-byte `adrp x16; ldr x17,[x16,#imm]; add
+    // x16,x16,#imm; br x17` sequences. PLT0 itself starts with stp then the
+    // same adrp/ldr/add/br at +4, so accept a base only when the next two
+    // matches follow at 16-byte strides.
+    std::pair<uint64_t, uint64_t> scanAarch64Plt() const {
+        for (const auto& s : sections_) {
+            if (!s.isExecutable || s.fileSize < 16 || s.fileOffset >= rawData_.size()) continue;
+            std::vector<uint64_t> starts;
+            const uint8_t* p = rawData_.data() + s.fileOffset;
+            uint64_t n = std::min<uint64_t>(s.fileSize, rawData_.size() - s.fileOffset);
+            for (uint64_t i = 0; i + 16 <= n; ++i) {
+                uint32_t adrp = static_cast<uint32_t>(p[i]) |
+                                (static_cast<uint32_t>(p[i + 1]) << 8) |
+                                (static_cast<uint32_t>(p[i + 2]) << 16) |
+                                (static_cast<uint32_t>(p[i + 3]) << 24);
+                uint32_t ldr = static_cast<uint32_t>(p[i + 4]) |
+                               (static_cast<uint32_t>(p[i + 5]) << 8) |
+                               (static_cast<uint32_t>(p[i + 6]) << 16) |
+                               (static_cast<uint32_t>(p[i + 7]) << 24);
+                uint32_t br = static_cast<uint32_t>(p[i + 12]) |
+                              (static_cast<uint32_t>(p[i + 13]) << 8) |
+                              (static_cast<uint32_t>(p[i + 14]) << 16) |
+                              (static_cast<uint32_t>(p[i + 15]) << 24);
+                if ((adrp & 0x9F000000) != 0x90000000) continue; // adrp
+                if ((adrp & 0x1F) != 0x10) continue;             // x16
+                if ((ldr & 0x3B000000) != 0x39000000) continue;  // ldr (immediate), unsigned offset
+                if ((ldr & 0xC0000000) != 0xC0000000) continue;  // 64-bit (x17)
+                if ((ldr & 0x1F) != 0x11) continue;              // x17
+                if (((ldr >> 5) & 0x1F) != 0x10) continue;       // [x16]
+                if (br != 0xD61F0220) continue;                  // br x17
+                starts.push_back(s.virtualAddress + i);
+                if (starts.size() > 64) break;
+            }
+            for (size_t k = 0; k + 2 < starts.size(); ++k) {
+                if (starts[k + 1] - starts[k] == 16 && starts[k + 2] - starts[k + 1] == 16)
+                    return {starts[k], 16};
+            }
+            if (starts.size() >= 2) return {starts[0], starts[1] - starts[0]};
+            if (starts.size() == 1) return {starts[0], 16};
+        }
+        return {0, 0};
+    }
+
+    // Task 2.3 / GP-7061: the GNU hash table (DT_GNU_HASH) is the modern
+    // linker default and carries no explicit symbol count. Its header is
+    // nbuckets, symoffset, bloom_size, bloom_shift followed by the bloom
+    // filter (word-sized), the bucket table and the symbol-index chains
+    // (terminated by a chain word with the low bit set). The exact dynamic
+    // symbol count is the highest reachable symbol index plus one.
+    uint64_t parseGnuHashSymCount(uint64_t hashOff) const {
+        if (hashOff + 16 > rawData_.size()) return 0;
+        uint32_t nbuckets = elf32(hashOff);
+        uint32_t symoffset = elf32(hashOff + 4);
+        uint32_t bloomSize = elf32(hashOff + 8);
+        if (nbuckets == 0 || nbuckets > (1u << 22)) return 0;
+        if (symoffset == 0 || symoffset > (1u << 22)) return 0;
+        if (bloomSize > (1u << 20)) return 0;
+        uint64_t wordSize = bitness_ == 32 ? 4 : 8;
+        uint64_t bucketsOff = hashOff + 16 + static_cast<uint64_t>(bloomSize) * wordSize;
+        uint64_t chainsOff = bucketsOff + static_cast<uint64_t>(nbuckets) * 4;
+        uint64_t maxPos = 0;
+        bool any = false;
+        for (uint32_t b = 0; b < nbuckets; ++b) {
+            if (bucketsOff + (static_cast<uint64_t>(b) + 1) * 4 > rawData_.size()) break;
+            uint32_t bucket = elf32(bucketsOff + static_cast<uint64_t>(b) * 4);
+            if (bucket < symoffset) continue;
+            uint64_t pos = bucket - symoffset;
+            for (uint64_t guard = 0; guard < (1u << 20); ++guard) {
+                uint64_t co = chainsOff + pos * 4;
+                if (co + 4 > rawData_.size()) break;
+                if (pos > maxPos) maxPos = pos;
+                any = true;
+                if (elf32(co) & 1) break;
+                ++pos;
+            }
+        }
+        if (!any) return 0;
+        uint64_t count = static_cast<uint64_t>(symoffset) + maxPos + 1;
+        return count <= (1u << 22) ? count : 0;
+    }
+
+    void parseELFStripped() {
+        parseELFProgramHeaders();
+        if (phdrs_.empty()) return;
+
+        // PT_LOAD segments become memory sections so populateProgram maps the
+        // stripped image (readable unless a real R flag is known).
+        int segIdx = 0;
+        for (const auto& p : phdrs_) {
+            if (p.type != 1 || p.memsz == 0) continue;
+            SectionInfo sec{};
+            sec.name = "seg_" + std::to_string(segIdx++);
+            sec.virtualAddress = p.vaddr;
+            sec.fileOffset = p.offset;
+            sec.fileSize = p.filesz;
+            sec.virtualSize = p.memsz;
+            sec.isReadable = (p.flags & 0x4) != 0;
+            sec.isWritable = (p.flags & 0x2) != 0;
+            sec.isExecutable = (p.flags & 0x1) != 0;
+            sections_.push_back(sec);
+        }
+        if (sections_.empty()) return;
+
+        uint64_t dynVaddr = 0, dynSize = 0;
+        for (const auto& p : phdrs_) {
+            if (p.type == 2) { dynVaddr = p.vaddr; dynSize = p.filesz; break; }
+        }
+        if (dynVaddr == 0 || dynSize == 0) return;
+
+        uint64_t dynOff = phdrVaToFileOffset(dynVaddr);
+        if (dynOff == INVALID_FILE_OFFSET) return;
+
+        struct DynTags {
+            uint64_t strtab = 0, symtab = 0, syment = 0;
+            uint64_t jmprel = 0, pltrelsz = 0, pltrel = 0;
+            uint64_t rela = 0, relasz = 0, relaent = 0;
+            uint64_t rel = 0, relsz = 0, relent = 0;
+            uint64_t hash = 0, gnuhash = 0;   // DT_HASH / DT_GNU_HASH
+            std::vector<uint64_t> needed;
+        };
+        DynTags tags;
+        uint64_t ent = bitness_ == 32 ? 8 : 16;
+        for (uint64_t i = 0; i + ent <= dynSize; i += ent) {
+            uint64_t e = dynOff + i;
+            if (e + ent > rawData_.size()) break;
+            int64_t tag = bitness_ == 32 ? elfs32(e) : elfs64(e);
+            uint64_t val = bitness_ == 32 ? elf32(e + 4) : elf64(e + 8);
+            if (tag == 0) break;
+            switch (tag) {
+                case 1: tags.needed.push_back(val); break;   // DT_NEEDED
+                case 2: tags.pltrelsz = val; break;          // DT_PLTRELSZ
+                case 4: tags.hash = val; break;              // DT_HASH
+                case 5: tags.strtab = val; break;            // DT_STRTAB
+                case 6: tags.symtab = val; break;            // DT_SYMTAB
+                case 7: tags.rela = val; break;              // DT_RELA
+                case 8: tags.relasz = val; break;            // DT_RELASZ
+                case 9: tags.relaent = val; break;           // DT_RELAENT
+                case 11: tags.syment = val; break;           // DT_SYMENT
+                case 17: tags.rel = val; break;              // DT_REL
+                case 18: tags.relsz = val; break;            // DT_RELSZ
+                case 19: tags.relent = val; break;           // DT_RELENT
+                case 20: tags.pltrel = val; break;           // DT_PLTREL (7=RELA,17=REL)
+                case 23: tags.jmprel = val; break;           // DT_JMPREL
+                case 0x6FFFFEF5: tags.gnuhash = val; break;  // DT_GNU_HASH
+            }
+        }
+        if (tags.strtab == 0 || tags.symtab == 0) return;
+        if (tags.syment == 0) tags.syment = bitness_ == 32 ? 16 : 24;
+        if (tags.relaent == 0) tags.relaent = bitness_ == 32 ? 12 : 24;
+        if (tags.relent == 0) tags.relent = bitness_ == 32 ? 8 : 16;
+
+        uint64_t strOff = phdrVaToFileOffset(tags.strtab);
+        uint64_t symOff = phdrVaToFileOffset(tags.symtab);
+        if (strOff == INVALID_FILE_OFFSET || symOff == INVALID_FILE_OFFSET) return;
+
+        // Dynamic libraries (DT_NEEDED), same shape as the section path.
+        for (uint64_t nIdx : tags.needed) {
+            std::string libName;
+            if (nIdx != 0 && strOff + nIdx < rawData_.size()) {
+                libName = reinterpret_cast<const char*>(rawData_.data() + strOff + nIdx);
+            }
+            if (libName.empty()) continue;
+            ImportInfo imp{};
+            imp.libraryName = libName;
+            imp.functionName = "(dynamic)";
+            imp.address = 0;
+            imports_.push_back(imp);
+        }
+
+        // Dynamic symbol table: size it from the largest relocation symbol
+        // index (there is no DT_SYMSZ tag).
+        uint64_t maxSymIdx = 0;
+        auto scanForMaxSym = [&](uint64_t rva, uint64_t size, uint64_t rEnt) {
+            uint64_t off = phdrVaToFileOffset(rva);
+            if (off == INVALID_FILE_OFFSET || rEnt == 0) return;
+            uint64_t cnt = size / rEnt;
+            for (uint64_t j = 0; j < cnt; ++j) {
+                uint64_t e = off + j * rEnt;
+                if (e + (bitness_ == 32 ? 8 : 16) > rawData_.size()) break;
+                if (bitness_ == 32) {
+                    maxSymIdx = std::max<uint64_t>(maxSymIdx, elf32(e + 4) >> 8);
+                } else {
+                    maxSymIdx = std::max<uint64_t>(maxSymIdx, elf64(e + 8) >> 32);
+                }
+            }
+        };
+        if (tags.jmprel != 0 && tags.pltrelsz != 0) {
+            scanForMaxSym(tags.jmprel, tags.pltrelsz,
+                          tags.pltrel == 7 ? tags.relaent : tags.relent);
+        }
+        if (tags.rela != 0 && tags.relasz != 0) scanForMaxSym(tags.rela, tags.relasz, tags.relaent);
+        if (tags.rel != 0 && tags.relsz != 0) scanForMaxSym(tags.rel, tags.relsz, tags.relent);
+
+        // Task 2.3 / GP-7061: size the dynamic symbol table exactly from the
+        // GNU hash table (DT_GNU_HASH, the default for modern Linux linkers)
+        // or the SYSV hash table (DT_HASH, nchain at +4) when present, so
+        // symbols not referenced by any relocation are included; otherwise
+        // fall back to the largest relocation symbol index.
+        uint64_t dynSymCount = 0;
+        if (tags.gnuhash != 0) {
+            uint64_t hashOff = phdrVaToFileOffset(tags.gnuhash);
+            if (hashOff != INVALID_FILE_OFFSET) dynSymCount = parseGnuHashSymCount(hashOff);
+        }
+        if (dynSymCount == 0 && tags.hash != 0) {
+            uint64_t hashOff = phdrVaToFileOffset(tags.hash);
+            if (hashOff != INVALID_FILE_OFFSET && hashOff + 8 <= rawData_.size()) {
+                uint32_t nchain = elf32(hashOff + 4);
+                if (nchain > 0 && nchain <= (1u << 22)) dynSymCount = nchain;
+            }
+        }
+        if (dynSymCount == 0) dynSymCount = maxSymIdx + 1;
+
+        std::vector<std::string> symNames(dynSymCount);
+        for (uint64_t j = 0; j < dynSymCount; ++j) {
+            uint64_t e = symOff + j * tags.syment;
+            if (e + (bitness_ == 32 ? 16 : 24) > rawData_.size()) break;
+            uint32_t nameIdx = elf32(e);
+            if (nameIdx != 0 && strOff + nameIdx < rawData_.size()) {
+                symNames[j] = reinterpret_cast<const char*>(rawData_.data() + strOff + nameIdx);
+            }
+        }
+
+        // Task 2.3 / GP-6887: populate the defined dynamic symbols (mirrors
+        // parseELF64Symbols / parseELF32Symbols: skip name-less and value-0
+        // entries; external iff GLOBAL/WEAK binding and SHN_UNDEF).
+        for (uint64_t j = 1; j < dynSymCount; ++j) {
+            uint64_t e = symOff + j * tags.syment;
+            if (e + (bitness_ == 32 ? 16 : 24) > rawData_.size()) break;
+            uint32_t nameIdx = elf32(e);
+            uint64_t value, size;
+            uint8_t bind, stype;
+            uint16_t shndx;
+            if (bitness_ == 32) {
+                value = elf32(e + 4);
+                size = elf32(e + 8);
+                uint8_t info = rawData_[e + 12];
+                bind = info >> 4;
+                stype = info & 0xF;
+                shndx = elf16(e + 14);
+            } else {
+                uint8_t info = rawData_[e + 4];
+                bind = info >> 4;
+                stype = info & 0xF;
+                shndx = elf16(e + 6);
+                value = elf64(e + 8);
+                size = elf64(e + 16);
+            }
+            if (nameIdx == 0 || value == 0) continue;
+            if (strOff + nameIdx >= rawData_.size()) continue;
+            std::string name =
+                reinterpret_cast<const char*>(rawData_.data() + strOff + nameIdx);
+            if (name.empty()) continue;
+            SymbolInfo sym{};
+            sym.name = name;
+            sym.address = value;
+            sym.size = size;
+            sym.isFunction = (stype == 2);
+            sym.isExternal = (bind == 1 || bind == 2) && shndx == 0;
+            symbols_.push_back(sym);
+        }
+
+        // Relocations: JUMP_SLOT names the GOT slot + PLT stub, GLOB_DAT and
+        // friends name the GOT slot only (mirrors the section-based passes).
+        uint32_t jsType = jumpSlotRelocType(arch_);
+        uint64_t stubIdx = 0;
+        bool pltScanned = false;
+        uint64_t pltStubBase = 0, pltStubSize = 0;
+        auto findPltStub = [&](uint64_t gotSlot, uint64_t idx) -> uint64_t {
+            if (arch_ == "x86") return findX86PltStub(gotSlot);
+            if (!pltScanned) {
+                pltScanned = true;
+                if (arch_ == "ARM") {
+                    std::tie(pltStubBase, pltStubSize) = scanArmPlt();
+                } else if (arch_ == "AARCH64") {
+                    std::tie(pltStubBase, pltStubSize) = scanAarch64Plt();
+                }
+            }
+            if (pltStubBase == 0 || pltStubSize == 0) return 0;
+            return pltStubBase + idx * pltStubSize;
+        };
+        auto isGlobDat = [&](uint32_t t) {
+            if (t == 6 || t == 1 || t == 20 || t == 21) return true; // GLOB_DAT / ABS / PPC / ARM
+            return bitness_ == 64 && t == 0x401;                     // AARCH64 GLOB_DAT
+        };
+        auto emitRelocs = [&](uint64_t rva, uint64_t size, uint64_t rEnt, bool rela) {
+            uint64_t off = phdrVaToFileOffset(rva);
+            if (off == INVALID_FILE_OFFSET || rEnt == 0) return;
+            uint64_t cnt = size / rEnt;
+            for (uint64_t j = 0; j < cnt; ++j) {
+                uint64_t e = off + j * rEnt;
+                if (e + (bitness_ == 32 ? 8 : 16) > rawData_.size()) break;
+                uint64_t rOffset;
+                uint64_t symIdx;
+                uint32_t rType;
+                if (bitness_ == 32) {
+                    rOffset = elf32(e);
+                    uint32_t info = elf32(e + 4);
+                    symIdx = info >> 8;
+                    rType = info & 0xFF;
+                } else {
+                    rOffset = elf64(e);
+                    uint64_t info = elf64(e + 8);
+                    symIdx = info >> 32;
+                    rType = static_cast<uint32_t>(info & 0xFFFFFFFF);
+                }
+                if (symIdx >= symNames.size()) continue;
+                const std::string& symName = symNames[symIdx];
+                if (symName.empty() || symName == "(dynamic)") continue;
+                if (rType == jsType) {
+                    ImportInfo imp{};
+                    imp.functionName = symName;
+                    imp.address = rOffset;
+                    imports_.push_back(imp);
+                    uint64_t stub = findPltStub(rOffset, stubIdx);
+                    if (stub != 0) {
+                        ImportInfo s{};
+                        s.functionName = symName;
+                        s.address = stub;
+                        imports_.push_back(s);
+                    }
+                    stubIdx++;
+                } else if (isGlobDat(rType)) {
+                    ImportInfo imp{};
+                    imp.functionName = symName;
+                    imp.address = rOffset;
+                    imports_.push_back(imp);
+                }
+            }
+        };
+        if (tags.jmprel != 0 && tags.pltrelsz != 0) {
+            emitRelocs(tags.jmprel, tags.pltrelsz,
+                       tags.pltrel == 7 ? tags.relaent : tags.relent,
+                       tags.pltrel == 7);
+        }
+        if (tags.rela != 0 && tags.relasz != 0) emitRelocs(tags.rela, tags.relasz, tags.relaent, true);
+        if (tags.rel != 0 && tags.relsz != 0) emitRelocs(tags.rel, tags.relsz, tags.relent, false);
+    }
+
     bool parseFatMachO() {
         if (rawData_.size() < 12) return false;
 
@@ -1501,6 +2142,138 @@ private:
         return parseMachO();
     }
 
+    // Task 2.5 / GP-7079: dyld shared cache support.  The cache is parsed as
+    // one section per mapping plus an image table (dyld_cache_image_info);
+    // loadDyldCacheImage() then re-parses a single dylib's embedded Mach-O so
+    // analysis can target individual images (GUI picker deferred to G2).
+    bool parseDyldCache() {
+        const size_t sz = rawData_.size();
+        if (sz < 0x50) return false;
+        const uint32_t magic = *reinterpret_cast<uint32_t*>(rawData_.data());
+        const bool isNewHeader = (magic == 0x6A1A64A9);
+        const uint32_t mappingOffset = *reinterpret_cast<uint32_t*>(rawData_.data() + 4);
+        const uint32_t mappingCount = *reinterpret_cast<uint32_t*>(rawData_.data() + 8);
+        const uint32_t imagesOffset = isNewHeader
+            ? *reinterpret_cast<uint32_t*>(rawData_.data() + 0x40)
+            : *reinterpret_cast<uint32_t*>(rawData_.data() + 0x0C);
+        const uint32_t imagesCount = isNewHeader
+            ? *reinterpret_cast<uint32_t*>(rawData_.data() + 0x44)
+            : *reinterpret_cast<uint32_t*>(rawData_.data() + 0x10);
+        const uint64_t dyldBase = *reinterpret_cast<uint64_t*>(rawData_.data() + 0x18);
+
+        if (mappingOffset == 0 || mappingCount == 0 || mappingCount > 1024) return false;
+        if (static_cast<uint64_t>(mappingOffset) + mappingCount * 32ULL > sz) return false;
+
+        formatName_ = "Mach-O dyld Shared Cache";
+        bitness_ = 64;
+        isDyldCache_ = true;
+        imageBase_ = dyldBase;
+        arch_ = "AARCH64";
+
+        for (uint32_t i = 0; i < mappingCount; i++) {
+            const uint32_t m = mappingOffset + i * 32;
+            const uint64_t addr = *reinterpret_cast<uint64_t*>(rawData_.data() + m);
+            const uint64_t size = *reinterpret_cast<uint64_t*>(rawData_.data() + m + 8);
+            const uint64_t foff = *reinterpret_cast<uint64_t*>(rawData_.data() + m + 16);
+            const uint32_t prot = *reinterpret_cast<uint32_t*>(rawData_.data() + m + 28);
+            if (size == 0) continue;
+            SectionInfo sec{};
+            sec.name = "mapping_" + std::to_string(i);
+            sec.virtualAddress = addr;
+            sec.virtualSize = size;
+            sec.fileOffset = foff;
+            sec.fileSize = (foff < sz) ? std::min<uint64_t>(size, sz - foff) : 0;
+            sec.isReadable = true;
+            sec.isWritable = (prot & 0x02) != 0;
+            sec.isExecutable = (prot & 0x04) != 0;
+            sections_.push_back(sec);
+        }
+        if (sections_.empty()) return false;
+
+        // Cache vm address -> file offset via the mapping table
+        auto cacheAddrToFileOffset = [&](uint64_t addr) -> uint64_t {
+            for (const auto& sec : sections_) {
+                if (addr >= sec.virtualAddress && addr < sec.virtualAddress + sec.virtualSize)
+                    return sec.fileOffset + (addr - sec.virtualAddress);
+            }
+            return 0;
+        };
+
+        if (imagesOffset != 0 && imagesCount != 0 && imagesCount < 0x10000) {
+            for (uint32_t i = 0; i < imagesCount; i++) {
+                if (static_cast<uint64_t>(imagesOffset) + (i + 1ULL) * 32 > sz) break;
+                const uint32_t im = imagesOffset + i * 32;
+                const uint64_t addr = *reinterpret_cast<uint64_t*>(rawData_.data() + im);
+                const uint32_t pathOff = *reinterpret_cast<uint32_t*>(rawData_.data() + im + 24);
+                if (pathOff >= sz) continue;
+                std::string name = reinterpret_cast<const char*>(rawData_.data() + pathOff);
+                size_t n = name.find('\0');
+                if (n != std::string::npos) name.resize(n);
+                if (name.empty()) continue;
+                DyldCacheImageInfo img{};
+                img.name = name;
+                img.address = addr;
+                img.fileOffset = cacheAddrToFileOffset(addr);
+                dyldCacheImages_.push_back(img);
+            }
+        }
+
+        // Refine the architecture from the first image's Mach-O header
+        if (!dyldCacheImages_.empty() &&
+            dyldCacheImages_[0].fileOffset + 8 <= sz) {
+            const uint32_t cputype = *reinterpret_cast<uint32_t*>(
+                rawData_.data() + dyldCacheImages_[0].fileOffset + 4);
+            if (cputype == 0x01000007 || cputype == 7) arch_ = "x86";
+            else if (cputype == 0x0100000C || cputype == 12) arch_ = "AARCH64";
+        }
+
+        return true;
+    }
+
+    bool loadDyldCacheImage(const std::string& name) override {
+        if (!isDyldCache_) return false;
+        const DyldCacheImageInfo* img = nullptr;
+        for (const auto& i : dyldCacheImages_) {
+            if (i.name == name) { img = &i; break; }
+        }
+        if (!img || img->fileOffset >= rawData_.size()) return false;
+
+        // Size the carve-out to the end of the containing mapping
+        uint64_t endOff = rawData_.size();
+        for (const auto& sec : sections_) {
+            if (img->fileOffset >= sec.fileOffset &&
+                img->fileOffset < sec.fileOffset + sec.fileSize)
+                endOff = sec.fileOffset + sec.fileSize;
+        }
+        if (endOff <= img->fileOffset) return false;
+
+        std::vector<uint8_t> sub(rawData_.begin() + static_cast<size_t>(img->fileOffset),
+                                 rawData_.begin() + static_cast<size_t>(endOff));
+        std::vector<uint8_t> saved = std::move(rawData_);
+        rawData_ = std::move(sub);
+
+        sections_.clear();
+        symbols_.clear();
+        imports_.clear();
+        exports_.clear();
+        relocations_.clear();
+        machoSegments_.clear();
+        machoDylibNames_.clear();
+        machONlistNames_.clear();
+        entryPoint_ = 0;
+        imageBase_ = 0;
+        cpusubtype_ = 0;
+        dysymtabIndirectSymOffset_ = 0;
+        dysymtabIndirectSymCount_ = 0;
+        chainedFixupsOff_ = 0;
+        chainedFixupsSize_ = 0;
+        machoTextAddr_ = 0;
+
+        bool ok = parseMachO();
+        rawData_ = std::move(saved);
+        return ok;
+    }
+
     bool parseMachO() {
         uint32_t magic = *reinterpret_cast<uint32_t*>(rawData_.data());
         bool is64 = (magic == 0xCFFAEDFE);
@@ -1546,6 +2319,16 @@ private:
                     // First segment's vmaddr is usually the image base
                     if (imageBase_ == 0) imageBase_ = segVMAddr;
 
+                    {
+                        MachOSegInfo segInfo{};
+                        char segNameBuf[17] = {};
+                        std::memcpy(segNameBuf, rawData_.data() + cmdOffset + 8, 16);
+                        segInfo.name = segNameBuf;
+                        segInfo.vmaddr = segVMAddr;
+                        segInfo.fileoff = segFileOff;
+                        machoSegments_.push_back(segInfo);
+                    }
+
                     uint32_t sectionOffset = cmdOffset + 56; // after segment_command (56 bytes)
                     for (uint32_t i = 0; i < nsects; i++) {
                         if (sectionOffset + 68 > rawData_.size()) break;
@@ -1576,6 +2359,7 @@ private:
                         size_t libLen = libName.find('\0');
                         if (libLen != std::string::npos) libName.resize(libLen);
                         if (!libName.empty()) {
+                            machoDylibNames_.push_back(libName);
                             ImportInfo imp{};
                             imp.libraryName = libName;
                             imp.functionName = "(dynamic)";
@@ -1592,9 +2376,25 @@ private:
                     }
                     break;
                 }
+                case 0x34: { // LC_DYLD_CHAINED_FIXUPS
+                    if (cmdOffset + 24 <= rawData_.size()) {
+                        chainedFixupsOff_ = *reinterpret_cast<uint32_t*>(rawData_.data() + cmdOffset + 8);
+                        chainedFixupsSize_ = *reinterpret_cast<uint32_t*>(rawData_.data() + cmdOffset + 16);
+                    }
+                    break;
+                }
             }
             cmdOffset += cmdsize;
         }
+
+        // Chained fixup rebases are relative to the image start (__TEXT).
+        machoTextAddr_ = 0;
+        for (const auto& mseg : machoSegments_) {
+            if (mseg.name == "__TEXT") { machoTextAddr_ = mseg.vmaddr; break; }
+        }
+
+        if (chainedFixupsOff_ != 0 && chainedFixupsSize_ != 0)
+            parseMachOChainedFixups(4);
 
         resolveMachOImports(bitness_ == 64 ? 8 : 4);
 
@@ -1653,6 +2453,16 @@ private:
 
                     if (imageBase_ == 0) imageBase_ = segVMAddr;
 
+                    {
+                        MachOSegInfo segInfo{};
+                        char segNameBuf[17] = {};
+                        std::memcpy(segNameBuf, rawData_.data() + cmdOffset + 8, 16);
+                        segInfo.name = segNameBuf;
+                        segInfo.vmaddr = segVMAddr;
+                        segInfo.fileoff = segFileOff;
+                        machoSegments_.push_back(segInfo);
+                    }
+
                     uint32_t sectionOffset = cmdOffset + 72; // after segment_command_64
                     for (uint32_t i = 0; i < nsects; i++) {
                         if (sectionOffset + 80 > rawData_.size()) break;
@@ -1683,6 +2493,7 @@ private:
                         size_t libLen = libName.find('\0');
                         if (libLen != std::string::npos) libName.resize(libLen);
                         if (!libName.empty()) {
+                            machoDylibNames_.push_back(libName);
                             ImportInfo imp{};
                             imp.libraryName = libName;
                             imp.functionName = "(dynamic)";
@@ -1699,9 +2510,25 @@ private:
                     }
                     break;
                 }
+                case 0x34: { // LC_DYLD_CHAINED_FIXUPS
+                    if (cmdOffset + 24 <= rawData_.size()) {
+                        chainedFixupsOff_ = *reinterpret_cast<uint32_t*>(rawData_.data() + cmdOffset + 8);
+                        chainedFixupsSize_ = *reinterpret_cast<uint32_t*>(rawData_.data() + cmdOffset + 16);
+                    }
+                    break;
+                }
             }
             cmdOffset += cmdsize;
         }
+
+        // Chained fixup rebases are relative to the image start (__TEXT).
+        machoTextAddr_ = 0;
+        for (const auto& mseg : machoSegments_) {
+            if (mseg.name == "__TEXT") { machoTextAddr_ = mseg.vmaddr; break; }
+        }
+
+        if (chainedFixupsOff_ != 0 && chainedFixupsSize_ != 0)
+            parseMachOChainedFixups(8);
 
         resolveMachOImports(bitness_ == 64 ? 8 : 4);
 
@@ -1729,11 +2556,16 @@ private:
 
     void resolveMachOImports(int ptrSize) {
         if (dysymtabIndirectSymCount_ == 0 || machONlistNames_.empty()) return;
+        if (dysymtabIndirectSymOffset_ >= rawData_.size()) return;
 
-        // Read indirect symbol table
+        // Read indirect symbol table (clamped to the file, GP-7046)
         const uint32_t* indirectTable = reinterpret_cast<const uint32_t*>(
             rawData_.data() + dysymtabIndirectSymOffset_);
         uint32_t tableCount = dysymtabIndirectSymCount_;
+        uint64_t tableBytes = static_cast<uint64_t>(tableCount) * 4;
+        if (tableBytes > rawData_.size() - dysymtabIndirectSymOffset_)
+            tableCount = static_cast<uint32_t>((rawData_.size() - dysymtabIndirectSymOffset_) / 4);
+        if (tableCount == 0) return;
 
         for (const auto& sec : sections_) {
             if (!isIndirectSymbolSection(sec.name)) continue;
@@ -1770,6 +2602,261 @@ private:
                 imp.functionName = funcName;
                 imp.address = stubAddr;
                 imports_.push_back(imp);
+            }
+        }
+    }
+
+    // Task 2.5 / GP-7046: Apple chained fixups (LC_DYLD_CHAINED_FIXUPS, 0x34).
+    // Decodes the dyld_chained_fixups_header blob and walks every chained
+    // pointer chain in each segment's pages:
+    //   - rebases resolve to the unslid vm address and are patched into the
+    //     in-memory bytes (mirrors the COFF reloc-patch approach) so
+    //     disassembly sees real pointer values;
+    //   - binds resolve through dyld_chained_import entries to symbol names
+    //     and surface as imports addressed at their chain location (the
+    //     slot is nulled since the foreign symbol's address is unknown).
+    // Pointer formats: DYLD_CHAINED_PTR_64 (1), _64_OFFSET (2),
+    // _ARM64E (7), _ARM64E_USERLAND (8), _ARM64E_USERLAND24 (12).
+    // Field layouts follow Apple's fixup-chains.h: bind = MSB, next is a
+    // stride count (4-byte units for 64/64_OFFSET, 8-byte for ARM64E).
+    void parseMachOChainedFixups(int ptrSize) {
+        const size_t sz = rawData_.size();
+        const uint32_t base = chainedFixupsOff_;
+        if (base == 0 || base + 28 > sz) return;
+
+        auto rd16 = [&](size_t o) -> uint16_t {
+            if (o + 2 > sz) return 0;
+            return *reinterpret_cast<const uint16_t*>(rawData_.data() + o);
+        };
+        auto rd32 = [&](size_t o) -> uint32_t {
+            if (o + 4 > sz) return 0;
+            return *reinterpret_cast<const uint32_t*>(rawData_.data() + o);
+        };
+        auto rd64 = [&](size_t o) -> uint64_t {
+            if (o + 8 > sz) return 0;
+            return *reinterpret_cast<const uint64_t*>(rawData_.data() + o);
+        };
+
+        const uint32_t startsOff = rd32(base + 4);
+        const uint32_t importsOff = rd32(base + 8);
+        const uint32_t symbolsOff = rd32(base + 12);
+        const uint32_t importsCount = rd32(base + 16);
+        const uint32_t importsFormat = rd32(base + 20);
+        if (startsOff == 0 || importsFormat == 0 || importsFormat > 3) return;
+
+        // dyld_chained_import / _addend / _addend64 table
+        struct ChainImport {
+            uint32_t nameOffset; // into the fixups blob's symbol strings
+            int32_t libraryOrdinal; // 1-based positive, -1 self, -2 flat
+        };
+        std::vector<ChainImport> chImports;
+        {
+            size_t entrySize = (importsFormat == 1) ? 4 : (importsFormat == 2) ? 8 : 16;
+            uint32_t impBase = base + importsOff;
+            for (uint32_t i = 0; i < importsCount && importsCount < 0x10000; i++) {
+                if (static_cast<uint64_t>(impBase) + (i + 1ULL) * entrySize > sz) break;
+                ChainImport ci{};
+                if (importsFormat == 1 || importsFormat == 2) {
+                    uint32_t v = importsFormat == 1 ? rd32(impBase + i * 4)
+                                                    : static_cast<uint32_t>(rd64(impBase + i * 8));
+                    ci.libraryOrdinal = static_cast<int8_t>(v & 0xFF);
+                    ci.nameOffset = (v >> 9) & 0x7FFFFF;
+                } else {
+                    uint64_t v = rd64(impBase + i * 16);
+                    ci.libraryOrdinal = static_cast<int16_t>(v & 0xFFFF);
+                    ci.nameOffset = rd32(impBase + i * 16 + 4);
+                }
+                chImports.push_back(ci);
+            }
+        }
+
+        // dyld_chained_starts_in_image: seg_count + per-segment offsets
+        const uint32_t starts = base + startsOff;
+        if (starts + 4 > sz) return;
+        const uint32_t segCount = rd32(starts);
+        if (segCount == 0 || segCount > 64) return;
+        if (static_cast<uint64_t>(starts) + 4 + segCount * 4ULL > sz) return;
+
+        // vm address of the image start (__TEXT segment), used for rebasing
+        uint64_t textAddr = machoTextAddr_;
+        if (textAddr == 0) {
+            if (!machoSegments_.empty()) textAddr = machoSegments_[0].vmaddr;
+            else textAddr = imageBase_;
+        }
+        if (textAddr == 0) return;
+
+        auto processChainPointer = [&](uint64_t locOff, uint16_t pointerFormat,
+                                       uint64_t segVmaddr, uint64_t segFileoff) -> uint64_t {
+            // locOff: file offset of the encoded pointer; returns the file
+            // offset of the next pointer in the chain (0 = chain ended)
+            if (locOff + static_cast<uint64_t>(ptrSize) > sz) return 0;
+            const uint64_t raw = rd64(locOff);
+            uint64_t next = 0;
+
+            if (pointerFormat == 1 || pointerFormat == 2) {
+                const bool bind = (raw >> 63) & 1;
+                next = (raw >> 51) & 0xFFF;
+                if (bind) {
+                    const uint32_t ordinal = raw & 0xFFFFFF;
+                    if (ordinal < chImports.size()) {
+                        const ChainImport& ci = chImports[ordinal];
+                        std::string symName;
+                        size_t symOff = static_cast<size_t>(base) + symbolsOff + ci.nameOffset;
+                        if (symbolsOff != 0 && symOff < sz) {
+                            symName = reinterpret_cast<const char*>(rawData_.data() + symOff);
+                            size_t n = symName.find('\0');
+                            if (n != std::string::npos) symName.resize(n);
+                        }
+                        std::string libName;
+                        if (ci.libraryOrdinal > 0 &&
+                            ci.libraryOrdinal <= static_cast<int32_t>(machoDylibNames_.size()))
+                            libName = machoDylibNames_[ci.libraryOrdinal - 1];
+                        else if (ci.libraryOrdinal == -1) libName = "(self)";
+                        else if (ci.libraryOrdinal == -2) libName = "(flat)";
+
+                        if (!symName.empty()) {
+                            const uint64_t chainVm = segVmaddr + (locOff - segFileoff);
+                            bool exists = false;
+                            for (auto& imp : imports_) {
+                                if (imp.functionName == symName && imp.address == 0) {
+                                    imp.address = chainVm;
+                                    if (imp.libraryName.empty()) imp.libraryName = libName;
+                                    exists = true;
+                                    break;
+                                }
+                            }
+                            if (!exists) {
+                                ImportInfo imp{};
+                                imp.libraryName = libName;
+                                imp.functionName = symName;
+                                imp.address = chainVm;
+                                imports_.push_back(imp);
+                            }
+                        }
+                    }
+                    // foreign symbol address unknown: null the slot
+                    std::memset(rawData_.data() + locOff, 0, static_cast<size_t>(ptrSize));
+                } else {
+                    // rebase: target:36 | high8:8 -> pointer value
+                    uint64_t value = (raw & 0xFFFFFFFFFULL) | ((raw >> 36 & 0xFF) << 56);
+                    if (pointerFormat == 2) value += textAddr; // runtimeOffset
+                    std::memcpy(rawData_.data() + locOff, &value, ptrSize);
+                }
+                return next == 0 ? 0 : locOff + next * 4;
+            }
+
+            if (pointerFormat == 7 || pointerFormat == 8 || pointerFormat == 12) {
+                const bool bind = (raw >> 62) & 1;
+                const bool auth = (raw >> 63) & 1;
+                next = (raw >> 51) & 0x7FF;
+                if (bind) {
+                    const uint32_t ordinal =
+                        (pointerFormat == 12) ? (raw & 0xFFFFFF) : (raw & 0xFFFF);
+                    if (ordinal < chImports.size()) {
+                        const ChainImport& ci = chImports[ordinal];
+                        std::string symName;
+                        size_t symOff = static_cast<size_t>(base) + symbolsOff + ci.nameOffset;
+                        if (symbolsOff != 0 && symOff < sz) {
+                            symName = reinterpret_cast<const char*>(rawData_.data() + symOff);
+                            size_t n = symName.find('\0');
+                            if (n != std::string::npos) symName.resize(n);
+                        }
+                        std::string libName;
+                        if (ci.libraryOrdinal > 0 &&
+                            ci.libraryOrdinal <= static_cast<int32_t>(machoDylibNames_.size()))
+                            libName = machoDylibNames_[ci.libraryOrdinal - 1];
+                        else if (ci.libraryOrdinal == -1) libName = "(self)";
+                        else if (ci.libraryOrdinal == -2) libName = "(flat)";
+
+                        if (!symName.empty()) {
+                            const uint64_t chainVm = segVmaddr + (locOff - segFileoff);
+                            bool exists = false;
+                            for (auto& imp : imports_) {
+                                if (imp.functionName == symName && imp.address == 0) {
+                                    imp.address = chainVm;
+                                    if (imp.libraryName.empty()) imp.libraryName = libName;
+                                    exists = true;
+                                    break;
+                                }
+                            }
+                            if (!exists) {
+                                ImportInfo imp{};
+                                imp.libraryName = libName;
+                                imp.functionName = symName;
+                                imp.address = chainVm;
+                                imports_.push_back(imp);
+                            }
+                        }
+                    }
+                    std::memset(rawData_.data() + locOff, 0, static_cast<size_t>(ptrSize));
+                } else if (!auth) {
+                    // rebase: 43-bit vm offset, sign extended, image-relative
+                    uint64_t target = raw & 0x7FFFFFFFFFFFULL;
+                    if (target & 0x40000000000ULL) target |= 0xFFFFF80000000000ULL;
+                    const uint64_t value = textAddr + target;
+                    std::memcpy(rawData_.data() + locOff, &value, ptrSize);
+                }
+                // authenticated pointers cannot be reconstructed; leave as-is
+                return next == 0 ? 0 : locOff + next * 8;
+            }
+
+            return 0;
+        };
+
+        for (uint32_t s = 0; s < segCount; s++) {
+            const uint32_t segInfoOff = rd32(starts + 4 + s * 4);
+            if (segInfoOff == 0) continue;
+            const uint32_t seg = base + segInfoOff;
+            if (seg + 24 > sz) continue;
+            const uint16_t pageSize = rd16(seg + 4);
+            const uint16_t pointerFormat = rd16(seg + 6);
+            const uint16_t pageCount = rd16(seg + 20);
+            if (pageSize == 0 || pageCount == 0) continue;
+            if (static_cast<uint64_t>(seg) + 24 + pageCount * 2ULL > sz) continue;
+            if (pointerFormat != 1 && pointerFormat != 2 &&
+                pointerFormat != 7 && pointerFormat != 8 && pointerFormat != 12)
+                continue;
+
+            // starts_in_image segment i corresponds to the i-th segment load
+            // command (LLVM matches them in command order)
+            uint64_t segVmaddr = imageBase_;
+            uint64_t segFileoff = 0;
+            if (s < machoSegments_.size()) {
+                segVmaddr = machoSegments_[s].vmaddr;
+                segFileoff = machoSegments_[s].fileoff;
+            }
+
+            for (uint32_t p = 0; p < pageCount; p++) {
+                const uint16_t pageStart = rd16(seg + 24 + p * 2);
+                if (pageStart == 0xFFFF) continue; // DYLD_CHAINED_PTR_START_NONE
+
+                if ((pageStart & 0x8000) != 0) {
+                    // DYLD_CHAINED_PTR_START_MULTI: dyld_chained_ptr_overflow
+                    // records (start, count) placed after the page_start array,
+                    // one record per MULTI page in page order (best-effort).
+                    const uint32_t overflowBase = seg + 24 + pageCount * 2;
+                    uint32_t overflowIndex = 0;
+                    for (uint32_t q = 0; q < p; q++) {
+                        if ((rd16(seg + 24 + q * 2) & 0x8000) != 0) overflowIndex++;
+                    }
+                    const uint32_t rec = overflowBase + overflowIndex * 4;
+                    if (rec + 4 > sz) continue;
+                    const uint16_t chainStart = rd16(rec);
+                    const uint16_t chainCount = rd16(rec + 2);
+                    uint64_t locOff = segFileoff + static_cast<uint64_t>(p) * pageSize + chainStart;
+                    for (uint16_t c = 0; c < chainCount; c++) {
+                        locOff = processChainPointer(locOff, pointerFormat, segVmaddr, segFileoff);
+                        if (locOff == 0) break;
+                    }
+                    continue;
+                }
+
+                // single chain starting at pageStart bytes into the page
+                uint64_t locOff = segFileoff + static_cast<uint64_t>(p) * pageSize + pageStart;
+                for (int guard = 0; guard < 65536; guard++) {
+                    locOff = processChainPointer(locOff, pointerFormat, segVmaddr, segFileoff);
+                    if (locOff == 0) break;
+                }
             }
         }
     }
@@ -1817,6 +2904,14 @@ private:
     }
 
     void parseMachONlist32(uint32_t symoff, uint32_t nsyms, uint32_t stroff, uint32_t strsize) {
+        // GP-7046: a corrupt or truncated LC_SYMTAB must never allocate on
+        // garbage nsyms nor read out of bounds; clamp to what the file holds.
+        if (nsyms == 0) return;
+        if (symoff >= rawData_.size() || rawData_.size() - symoff < 12) return;
+        uint64_t tableBytes = static_cast<uint64_t>(nsyms) * 12;
+        if (tableBytes > rawData_.size() - symoff)
+            nsyms = static_cast<uint32_t>((rawData_.size() - symoff) / 12);
+        if (nsyms == 0) return;
         machONlistNames_.resize(nsyms);
         for (uint32_t i = 0; i < nsyms; i++) {
             uint32_t entryOffset = symoff + i * 12;
@@ -1865,6 +2960,13 @@ private:
     }
 
     void parseMachONlist64(uint32_t symoff, uint32_t nsyms, uint32_t stroff, uint32_t strsize) {
+        // GP-7046: same corruption guards as parseMachONlist32.
+        if (nsyms == 0) return;
+        if (symoff >= rawData_.size() || rawData_.size() - symoff < 16) return;
+        uint64_t tableBytes = static_cast<uint64_t>(nsyms) * 16;
+        if (tableBytes > rawData_.size() - symoff)
+            nsyms = static_cast<uint32_t>((rawData_.size() - symoff) / 16);
+        if (nsyms == 0) return;
         machONlistNames_.resize(nsyms);
         for (uint32_t i = 0; i < nsyms; i++) {
             uint32_t entryOffset = symoff + i * 16;
@@ -1908,6 +3010,428 @@ private:
                 imports_.push_back(imp);
             }
         }
+    }
+
+    // Task 2.4 / GP-7088: COFF object files (.obj) and COFF archives (.lib) are
+    // unlinked: section VirtualAddress fields are 0, so sections are laid out
+    // cumulatively at 0x1000 alignment from image base 0 (mirrors Ghidra's
+    // CoffLoader), relocations are patched into the raw bytes so disassembly
+    // sees resolved addresses, and undefined externals surface as imports.
+    bool parseCOFF() {
+        if (rawData_.size() < 20) return false;
+        return parseCOFFBytes(0, rawData_.size(), 0, "");
+    }
+
+    bool parseCOFFArchive() {
+        // ar archive: "!<arch>\n" then 60-byte member headers; members are
+        // 2-byte aligned (odd sizes padded with '\n'). "/" (symbol table) and
+        // "//" (long name table) members are skipped; each COFF member is
+        // parsed into the same sections/symbols/imports with its own VA block.
+        formatName_ = "COFF Archive";
+        uint64_t pos = 8;
+        uint64_t nextVa = 0;
+        bool any = false;
+        while (pos + 60 <= rawData_.size()) {
+            char nameBuf[17] = {};
+            std::memcpy(nameBuf, rawData_.data() + pos, 16);
+            std::string name(nameBuf);
+            size_t slash = name.find('/');
+            if (slash != std::string::npos) name = name.substr(0, slash);
+            while (!name.empty() && name.back() == ' ') name.pop_back();
+
+            char sizeBuf[11] = {};
+            std::memcpy(sizeBuf, rawData_.data() + pos + 48, 10);
+            uint64_t memberSize = static_cast<uint64_t>(std::strtoul(sizeBuf, nullptr, 10));
+            uint64_t dataOff = pos + 60;
+            if (dataOff + memberSize > rawData_.size()) break;
+
+            if (!name.empty() && name != "/" && name != "//" && memberSize >= 20 + 40 &&
+                isCoffMachine(coff16(dataOff)) && coff16(dataOff + 2) > 0 &&
+                coff16(dataOff + 16) == 0) {
+                any = parseCOFFBytes(dataOff, memberSize, nextVa, name) || any;
+                uint64_t memberEnd = 0;
+                for (const auto& s : sections_) {
+                    memberEnd = std::max(memberEnd,
+                                         s.virtualAddress + std::max(s.virtualSize, s.fileSize));
+                }
+                nextVa = (memberEnd + 0xFFF) & ~0xFFFULL;
+            }
+
+            pos = dataOff + memberSize;
+            if (pos & 1) ++pos;
+        }
+        return any;
+    }
+
+    // Intel HEX format parser
+    // Records: :LLAAAATT[DD...]CC
+    // LL=byte count, AAAA=address, TT=type, DD=data, CC=checksum
+    bool parseIntelHex() {
+        formatName_ = "Intel HEX";
+        arch_ = "unknown";
+        bitness_ = 32;
+
+        std::string content(rawData_.begin(), rawData_.end());
+        std::istringstream stream(content);
+        std::string line;
+        uint32_t baseAddr = 0;
+        uint32_t minAddr = 0xFFFFFFFF;
+        uint32_t maxAddr = 0;
+        std::vector<uint8_t> data;
+
+        while (std::getline(stream, line)) {
+            while (!line.empty() && (line.back() == '\r' || line.back() == '\n'))
+                line.pop_back();
+            if (line.empty() || line[0] != ':') continue;
+            if (line.size() < 11) continue;
+
+            auto hexByte = [](const std::string& s, int pos) -> uint8_t {
+                return static_cast<uint8_t>(
+                    (std::stoi(s.substr(pos, 1), nullptr, 16) << 4) |
+                    std::stoi(s.substr(pos + 1, 1), nullptr, 16));
+            };
+
+            uint8_t byteCount = hexByte(line, 1);
+            uint16_t address = static_cast<uint16_t>(
+                (hexByte(line, 3) << 8) | hexByte(line, 5));
+            uint8_t recordType = hexByte(line, 7);
+
+            uint8_t checksum = 0;
+            for (size_t i = 1; i + 1 < line.size(); i += 2) {
+                checksum += hexByte(line, static_cast<int>(i));
+            }
+            if (checksum != 0) continue;
+
+            switch (recordType) {
+                case 0x00: {
+                    uint32_t addr = baseAddr + address;
+                    for (uint8_t i = 0; i < byteCount; ++i) {
+                        uint8_t val = hexByte(line, 9 + i * 2);
+                        uint32_t targetAddr = addr + i;
+                        if (targetAddr >= data.size()) data.resize(targetAddr + 1, 0);
+                        data[targetAddr] = val;
+                        minAddr = std::min(minAddr, targetAddr);
+                        maxAddr = std::max(maxAddr, targetAddr);
+                    }
+                    break;
+                }
+                case 0x01: break;
+                case 0x02: baseAddr = static_cast<uint32_t>((hexByte(line, 9) << 8) | hexByte(line, 11)) << 4; break;
+                case 0x04: baseAddr = static_cast<uint32_t>((hexByte(line, 9) << 8) | hexByte(line, 11)) << 16; break;
+                default: break;
+            }
+        }
+
+        if (data.empty() || minAddr > maxAddr) return false;
+
+        uint64_t size = maxAddr - minAddr + 1;
+        SectionInfo sec{};
+        sec.name = ".text";
+        sec.virtualAddress = minAddr;
+        sec.virtualSize = size;
+        sec.fileOffset = 0;
+        sec.fileSize = size;
+        sec.isReadable = true;
+        sec.isExecutable = true;
+        sections_.push_back(sec);
+
+        rawData_ = data;
+        entryPoint_ = minAddr;
+        return true;
+    }
+
+    // Motorola S-Record format parser
+    bool parseSRecord() {
+        formatName_ = "Motorola S-Record";
+        arch_ = "unknown";
+        bitness_ = 32;
+
+        std::string content(rawData_.begin(), rawData_.end());
+        std::istringstream stream(content);
+        std::string line;
+        uint32_t minAddr = 0xFFFFFFFF;
+        uint32_t maxAddr = 0;
+        std::vector<uint8_t> data;
+
+        while (std::getline(stream, line)) {
+            while (!line.empty() && (line.back() == '\r' || line.back() == '\n'))
+                line.pop_back();
+            if (line.empty() || line[0] != 'S') continue;
+            if (line.size() < 4) continue;
+
+            auto hexByte = [](const std::string& s, int pos) -> uint8_t {
+                return static_cast<uint8_t>(
+                    (std::stoi(s.substr(pos, 1), nullptr, 16) << 4) |
+                    std::stoi(s.substr(pos + 1, 1), nullptr, 16));
+            };
+
+            char recordType = line[1];
+            uint8_t byteCount = hexByte(line, 2);
+
+            uint8_t checksum = 0;
+            for (size_t i = 2; i + 1 < line.size(); i += 2) {
+                checksum += hexByte(line, static_cast<int>(i));
+            }
+            if ((checksum & 0xFF) != 0xFF) continue;
+
+            int addrSize = 0;
+            switch (recordType) {
+                case '0': case '5': case '9': addrSize = 2; break;
+                case '1': case '8': addrSize = 2; break;
+                case '2': case '6': addrSize = 3; break;
+                case '3': case '7': addrSize = 4; break;
+                default: continue;
+            }
+
+            uint32_t address = 0;
+            for (int i = 0; i < addrSize; ++i) {
+                address = (address << 8) | hexByte(line, 4 + i * 2);
+            }
+
+            int dataStart = 4 + addrSize * 2;
+            int dataBytes = byteCount - addrSize - 1;
+
+            if (recordType == '1' || recordType == '2' || recordType == '3') {
+                for (int i = 0; i < dataBytes; ++i) {
+                    uint8_t val = hexByte(line, dataStart + i * 2);
+                    uint32_t targetAddr = address + i;
+                    if (targetAddr >= data.size()) data.resize(targetAddr + 1, 0);
+                    data[targetAddr] = val;
+                    minAddr = std::min(minAddr, targetAddr);
+                    maxAddr = std::max(maxAddr, targetAddr);
+                }
+            } else if (recordType == '7' || recordType == '8' || recordType == '9') {
+                entryPoint_ = address;
+            }
+        }
+
+        if (data.empty() || minAddr > maxAddr) return false;
+
+        uint64_t size = maxAddr - minAddr + 1;
+        SectionInfo sec{};
+        sec.name = ".text";
+        sec.virtualAddress = minAddr;
+        sec.virtualSize = size;
+        sec.fileOffset = 0;
+        sec.fileSize = size;
+        sec.isReadable = true;
+        sec.isExecutable = true;
+        sections_.push_back(sec);
+
+        rawData_ = data;
+        if (entryPoint_ == 0) entryPoint_ = minAddr;
+        return true;
+    }
+
+    bool parseCOFFBytes(uint64_t base, uint64_t size, uint64_t baseVa,
+                        const std::string& memberTag) {
+        uint16_t machine = coff16(base);
+        uint16_t numSecs = coff16(base + 2);
+        uint32_t symTabOff = coff32(base + 8);
+        uint32_t numSyms = coff32(base + 12);
+        uint16_t optSize = coff16(base + 16);
+        if (size < 20 + static_cast<uint64_t>(numSecs) * 40 || numSecs == 0 || optSize != 0) {
+            return false;
+        }
+        if (formatName_.empty() || formatName_ == "COFF" || formatName_ == "COFF Archive") {
+            switch (machine) {
+                case 0x8664: arch_ = "x86"; bitness_ = 64; break;
+                case 0xAA64: arch_ = "AARCH64"; bitness_ = 64; break;
+                case 0x14C: arch_ = "x86"; bitness_ = 32; break;
+                case 0x1C0: case 0x1C4: case 0x1C2: arch_ = "ARM"; bitness_ = 32; break;
+                default: return false;
+            }
+            if (formatName_.empty()) formatName_ = "COFF";
+        }
+
+        uint64_t strTabOff = symTabOff + static_cast<uint64_t>(numSyms) * 18;
+        auto strAt = [&](uint64_t off) -> std::string {
+            if (off >= size) return "";
+            const char* p = reinterpret_cast<const char*>(rawData_.data() + base + off);
+            size_t len = 0;
+            while (len < size - off && p[len] != '\0') ++len;
+            return std::string(p, len);
+        };
+        auto secName = [&](uint64_t so) -> std::string {
+            char buf[9] = {};
+            std::memcpy(buf, rawData_.data() + so, 8);
+            if (buf[0] == '/') {
+                char* end = nullptr;
+                long off = std::strtol(buf + 1, &end, 10);
+                if (end != buf + 1 && off > 0) return strAt(static_cast<uint64_t>(off));
+            }
+            return std::string(buf);
+        };
+        auto symName = [&](uint64_t so) -> std::string {
+            uint32_t inlineOff = coff32(base + so + 4);
+            if (coff32(base + so) == 0 && inlineOff != 0) return strAt(inlineOff);
+            char buf[9] = {};
+            std::memcpy(buf, rawData_.data() + base + so, 8);
+            if (buf[0] == '/') {
+                char* end = nullptr;
+                long off = std::strtol(buf + 1, &end, 10);
+                if (end != buf + 1 && off > 0) return strAt(static_cast<uint64_t>(off));
+            }
+            return std::string(buf);
+        };
+
+        // Sections: cumulative 0x1000-aligned layout from baseVa.
+        struct CoffSection {
+            std::string name;
+            uint64_t va = 0;
+            uint64_t rawOff = 0;
+            uint64_t rawSize = 0;
+            uint32_t relocOff = 0;
+            uint32_t numRelocs = 0;
+        };
+        std::vector<CoffSection> coffSecs;
+        coffSecs.reserve(numSecs);
+        uint64_t nextVa = baseVa;
+        uint64_t secHdr = base + 20 + optSize;
+        for (uint16_t i = 0; i < numSecs; ++i) {
+            uint64_t so = secHdr + static_cast<uint64_t>(i) * 40;
+            CoffSection cs{};
+            cs.name = secName(so);
+            cs.rawOff = coff32(so + 20);
+            cs.rawSize = coff32(so + 16);
+            uint32_t virtSize = coff32(so + 8);
+            cs.relocOff = coff32(so + 24);
+            cs.numRelocs = coff16(so + 32);
+            uint32_t chars = coff32(so + 36);
+            cs.va = nextVa;
+
+            SectionInfo sec{};
+            sec.name = memberTag.empty() ? cs.name : memberTag + "_" + cs.name;
+            sec.virtualAddress = cs.va;
+            sec.fileOffset = base + cs.rawOff;
+            sec.fileSize = cs.rawSize;
+            sec.virtualSize = std::max<uint64_t>(virtSize, cs.rawSize);
+            sec.isReadable = true;
+            sec.isWritable = (chars & 0x80000000u) != 0;
+            sec.isExecutable = (chars & 0x20u) != 0;
+            sections_.push_back(sec);
+
+            uint64_t span = std::max<uint64_t>(sec.virtualSize, 1);
+            nextVa = (cs.va + span + 0xFFF) & ~0xFFFULL;
+            coffSecs.push_back(cs);
+        }
+
+        // Symbols (skip auxiliaries; section/file records have no real address).
+        struct CoffSymbol {
+            std::string name;
+            uint64_t value = 0;
+            int16_t secNum = 0;
+            uint16_t type = 0;
+            uint8_t storageClass = 0;
+        };
+        std::vector<CoffSymbol> syms;
+        std::vector<int> symAtPos;
+        for (uint32_t i = 0; i < numSyms;) {
+            uint64_t so = symTabOff + static_cast<uint64_t>(i) * 18;
+            uint8_t numAux = (so + 18 <= size) ? rawData_[base + so + 17] : 0;
+            symAtPos.push_back(static_cast<int>(syms.size()));
+            CoffSymbol s{};
+            s.name = symName(so);
+            s.value = coff32(base + so + 8);
+            s.secNum = static_cast<int16_t>(coff16(base + so + 12));
+            s.type = coff16(base + so + 14);
+            s.storageClass = rawData_[base + so + 16];
+            syms.push_back(s);
+            i += 1 + numAux;
+            for (uint8_t a = 0; a < numAux; ++a) symAtPos.push_back(-1);
+        }
+
+        for (const auto& s : syms) {
+            if (s.name.empty() || s.storageClass == 3) continue;
+            if (s.secNum > 0 && static_cast<size_t>(s.secNum) <= coffSecs.size()) {
+                SymbolInfo sym{};
+                sym.name = s.name;
+                sym.address = coffSecs[s.secNum - 1].va + s.value;
+                sym.isFunction = (s.type == 0x20);
+                sym.isExternal = (s.storageClass == 2);
+                symbols_.push_back(sym);
+                if (sym.isFunction &&
+                    (s.name == "main" || s.name == "_main" || s.name == "WinMain" ||
+                     s.name == "wmain" || s.name == "_WinMain")) {
+                    entryPoint_ = sym.address;
+                }
+            } else if (s.secNum == -1) {
+                SymbolInfo sym{};
+                sym.name = s.name;
+                sym.address = s.value;
+                sym.isFunction = (s.type == 0x20);
+                sym.isExternal = (s.storageClass == 2);
+                symbols_.push_back(sym);
+            } else if (s.secNum == 0 && s.storageClass == 2) {
+                ImportInfo imp{};
+                imp.libraryName = "(coff)";
+                imp.functionName = s.name;
+                imp.address = 0;
+                imports_.push_back(imp);
+            }
+        }
+
+        // Relocations: patch the supported types into the raw bytes.
+        auto put32 = [&](uint64_t off, uint32_t v) {
+            for (int b = 0; b < 4; ++b) rawData_[off + b] = static_cast<uint8_t>((v >> (8 * b)) & 0xFF);
+        };
+        auto put64 = [&](uint64_t off, uint64_t v) {
+            for (int b = 0; b < 8; ++b) rawData_[off + b] = static_cast<uint8_t>((v >> (8 * b)) & 0xFF);
+        };
+        for (const auto& cs : coffSecs) {
+            if (cs.numRelocs == 0 || cs.relocOff == 0) continue;
+            for (uint32_t j = 0; j < cs.numRelocs; ++j) {
+                uint64_t r = cs.relocOff + static_cast<uint64_t>(j) * 10;
+                if (r + 10 > size) break;
+                uint32_t relVa = coff32(base + r);
+                uint32_t symIdx = coff32(base + r + 4);
+                uint16_t rtype = coff16(base + r + 8);
+                if (symIdx >= symAtPos.size()) continue;
+                int realIdx = symAtPos[symIdx];
+                if (realIdx < 0 || static_cast<size_t>(realIdx) >= syms.size()) continue;
+                const CoffSymbol& s = syms[realIdx];
+                uint64_t target = 0;
+                bool resolved = false;
+                if (s.secNum > 0 && static_cast<size_t>(s.secNum) <= coffSecs.size()) {
+                    target = coffSecs[s.secNum - 1].va + s.value;
+                    resolved = true;
+                } else if (s.secNum == -1) {
+                    target = s.value;
+                    resolved = true;
+                }
+                uint64_t patchOff = base + cs.rawOff + relVa;
+                uint64_t insAddr = cs.va + relVa;
+                switch (rtype) {
+                    case 0x0001:  // AMD64 ADDR64
+                    case 0x000E:  // ARM64 ADDR64
+                        if (resolved && patchOff + 8 <= rawData_.size()) put64(patchOff, target);
+                        break;
+                    case 0x0002:  // ARM64 ADDR32
+                        if (resolved && patchOff + 4 <= rawData_.size()) put32(patchOff, static_cast<uint32_t>(target));
+                        break;
+                    case 0x0003: {  // ARM64 BRANCH26
+                        if (!resolved || patchOff + 4 > rawData_.size()) break;
+                        uint32_t u = coff32(patchOff);
+                        int32_t imm = static_cast<int32_t>(u & 0x03FFFFFFu);
+                        if (imm & 0x02000000) imm |= static_cast<int32_t>(~0x03FFFFFF);
+                        int64_t newImm = (static_cast<int64_t>(target) - static_cast<int64_t>(insAddr)) >> 2;
+                        put32(patchOff, (u & ~0x03FFFFFFu) |
+                                        (static_cast<uint32_t>(newImm) & 0x03FFFFFFu));
+                        break;
+                    }
+                    case 0x0004: {  // AMD64 REL32
+                        if (!resolved || patchOff + 4 > rawData_.size()) break;
+                        int64_t newDisp = static_cast<int64_t>(target) - static_cast<int64_t>(insAddr + 4);
+                        put32(patchOff, static_cast<uint32_t>(newDisp));
+                        break;
+                    }
+                    default:
+                        break;
+                }
+            }
+        }
+
+        return true;
     }
 
     uint64_t rvaToFileOffset(uint64_t rva) const {
@@ -1967,11 +3491,24 @@ private:
     uint32_t dysymtabIndirectSymOffset_ = 0;
     uint32_t dysymtabIndirectSymCount_ = 0;
     std::vector<std::string> machONlistNames_;
+    std::vector<std::string> machoDylibNames_;
+    struct MachOSegInfo {
+        std::string name;
+        uint64_t vmaddr;
+        uint64_t fileoff;
+    };
+    std::vector<MachOSegInfo> machoSegments_;
+    uint64_t machoTextAddr_ = 0;
+    uint32_t chainedFixupsOff_ = 0;
+    uint32_t chainedFixupsSize_ = 0;
+    std::vector<DyldCacheImageInfo> dyldCacheImages_;
+    bool isDyldCache_ = false;
     uint64_t entryPoint_ = 0;
     uint64_t imageBase_ = 0;
     size_t fileSize_ = 0;
     std::vector<uint8_t> rawData_;
     std::vector<SectionInfo> sections_;
+    std::vector<ElfPhdr> phdrs_;
     std::vector<SymbolInfo> symbols_;
     std::vector<ImportInfo> imports_;
     std::vector<ExportInfo> exports_;

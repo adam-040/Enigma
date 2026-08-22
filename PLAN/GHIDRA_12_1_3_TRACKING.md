@@ -855,3 +855,369 @@ this track - user commits.**
   to see the new data rows, equate names, comments and string literals.
 
 - Updated: 2026-08-20
+---
+
+## Track 9 - Function Entry Boundary Trimming (Task 1.4, backlog P1) (closed, 2026-08-20)
+
+Backlog item 1.4 from `C:\Users\pc\Desktop\gaps\ENIGMA_ENGINE_GAPS_MASTER_PLAN.md`
+(also `GHIDRA_12_1_3_ENGINE_GAPS.md`): Function Start Search could create
+functions whose entry point sits on alignment padding (`0x90`/`0x66 0x90`/
+`0x0F 0x1F`/`0xCC` runs). `findZeroPrologueFunctions`/`findCallDestinations`
+skip first-byte `0xCC`/`0x00` but ALLOW `0x90`, so a call targeting padding
+produced a `func_0x...` entry anchored on NOP bytes. Acceptance: zero function
+entries on padding bytes.
+
+### Implementation
+
+- `src/core/FunctionStartAnalyzer.cpp`:
+  - `trimPaddingEntry(Memory*, Disassembler*, const Address&)` - walks forward
+    over consecutive instructions that decode as `nop`/`int3` (Capstone via
+    the cached `createDisassembler` handle; bounded 64 instructions), returns
+    the first real instruction address, or an INVALID address when the padding
+    runs to the block boundary. Fast pre-filter: entry first byte must be
+    0x90/0xCC/0x66/0x0F; any non-padding first byte is never touched. The
+    disassembler walk makes the pre-filter safe (`0F 05` syscall, `66 89`
+    real instructions etc. stop the walk at length 1).
+  - `trimPaddingFunctionEntries(Program*, TaskMonitor*)` - post-pass at the
+    END of `FunctionStartAnalyzer::added()` (after all 7 discovery passes +
+    edge cases). Per candidate:
+    - invalid walk (padding to block end) => DROP the phantom function
+      (`removeFunction`);
+    - another function already owns the trimmed address => DROP the phantom;
+    - otherwise MOVE: `removeFunction(entry)` + `createFunction(name,
+      trimmed, body, SourceType::ANALYSIS)` preserving the auto-generated name
+      and any body tail already expanded past the padding. Guard: never steal
+      an address inside a different function's body.
+  - `added()` summary message extended with `trim:<N>`.
+- No changes to the discovery passes themselves - the trim runs last so every
+  discovery source (pdata, pattern, call, jmp, multi, zero-prologue, wrapper,
+  edge cases) is covered uniformly.
+
+### Test
+
+- New suite `tests/test_function_boundaries.cpp` (registered as
+  `enigma_test_function_boundaries`, 15/15): synthetic ProgramDB
+  (`x86:LE:64:default`, 0xC0-byte executable `.text` block) with three
+  call targets on padding + one real entry preceded by padding:
+  - MOVE: `90 90 | 4C 89 44 24 08 C3` (padding + `mov [rsp+8],r8`) =>
+    entry moves 0x1058 -> 0x105A, name `func_0x1058` preserved;
+  - DROP (owned): `90 90 90 | 55 48 89 E5 C3` (pattern pass already owns the
+    trimmed entry) => phantom at 0x1030 removed, `func_0x1033` kept;
+  - DROP (block end): 32-byte NOP run at the end of the block => phantom at
+    0x10A0 removed;
+  - UNTOUCHED: `90 | 31 C0 C3` (`xor eax,eax; ret` preceded by padding) =>
+    `func_0x1091` never moved;
+  - exactly 3 functions remain after analysis.
+  Analyzer output: `Trimmed 1 function start(s) off padding, dropped 2.`
+
+### Verification
+
+- Full CTest **65/65 exit 0** (was 64) incl. corpus/determinism regressions
+  (real binaries exercise the new pass end-to-end with no output drift).
+- **No commits made - user commits.**
+
+- Updated: 2026-08-20
+
+## Track 10 - PE Export-Forwarder Thunks (Task 2.1, GP-5900) (closed, 2026-08-20)
+
+Backlog item 2.1 from `C:\Users\pc\Desktop\gaps\ENIGMA_ENGINE_GAPS_MASTER_PLAN.md`
+(register GP-5900 in `GHIDRA_12_1_3_ENGINE_GAPS.md`): PE export forwarding
+(`DLL.OrdinalName` strings in the export directory) produced a bogus
+image-space function at the forwarder RVA (parseExports added a SymbolInfo
+with address = forwarder RVA). Acceptance: a forwarded export generates a
+`Function` with `isThunk()==true` whose `getThunkedFunction()` has
+`isExternal()==true` and a name matching the forwarding string.
+
+### Implementation
+
+- `src/include/ghidra/BinaryLoader.h`: `ExportInfo` extended with
+  `bool isForwarder=false; std::string forwarderString; std::string dllName;`.
+- `src/core/BinaryLoader.cpp` `parseExports()` (SimplePELoader):
+  - reads `exportDirSize` (optional header +100 PE32 / +116 PE64, fallback 40
+    when 0) and the DLL name RVA (export dir +12, resolved via
+    `readStringAtRVA` into `exp.dllName`);
+  - a function RVA inside `[exportDirRVA, exportDirRVA + exportDirSize)` is a
+    forwarder: `isForwarder=true`, `forwarderString = readStringAtRVA(funcRVA)`,
+    `address=0`; forwarder entries are pushed to `exports_` but NOT `symbols_`
+    (no bogus image-space function), normal exports unchanged;
+  - bounds checks widened to `optHeaderOffset+104` (PE32) / `+120` (PE64).
+- `src/core/BinaryLoader.cpp` `populateProgram()`: exports loop rewritten
+  (GP-5900 comment). Normal exports (`address > 0`) stay as image-space
+  `IMPORTED` labels. Forwarders become a Ghidra-style EXTERNAL-space pair:
+  - EXTERNAL space created lazily (`addrFactory->getAddressSpace("EXTERNAL")`
+    else `new GenericAddressSpace("EXTERNAL", 64, TYPE_EXTERNAL, 0)` +
+    `addAddressSpace`), mirroring `src/import/GzfProgramImporter.cpp:1505-1513`;
+  - **F2 target**: forwarder string split on the first `.` (no dot => library =
+    exporting DLL, symbol = whole string). External symbol
+    (`createExternalSymbol`, `SourceType::IMPORTED`, isFunction=true) +
+    `ExternalManager::addExternalLocation(lib, sym, addr, id, "", true)` +
+    `FunctionManager::createFunction` with `setExternal(true)`; dedup via
+    `externals->getExternalLocation(lib, sym)` + `getFunctionAt`;
+  - **F1 thunk**: library = exporting DLL (`exp.dllName`, fallback "UNKNOWN"),
+    name = export name, `originalImportName` = full forwarder string,
+    `setExternal(true) + setThunk(true) + setThunkedFunction(target)`;
+  - library namespaces via `symTable->getNamespace(lib, global)` else
+    `externals->addExternalLibrary(lib,"")` + `createNameSpace`; symbol ids are
+    an incrementing counter from 0 (impl auto-rebases collisions).
+- `FunctionManager::createFunction` is external-space safe (no space
+  validation; keys by offset), so no model changes were needed.
+
+### Test
+
+- New suite `tests/test_pe_loader.cpp` (registered as `enigma_test_pe_loader`,
+  **33/33**): synthetic PE32+ (DOS `MZ`/e_lfanew, COFF x86-64 with one
+  `.exp` section, opt header 0x20B, ImageBase 0x140000000, export dir RVA
+  0x1000 size 0x80) with two exports:
+  - `NormalFunc` -> RVA 0x1100 (normal: image label + function kept);
+  - `ForwardedFunc` -> RVA 0x1070 (inside the dir) forwarding to
+    `NTDLL.RtlAllocateHeap` (string at RVA 0x1070);
+  - asserts: export flags (`isForwarder`, `forwarderString`, `dllName`),
+    NO function/label at imageBase+0x1070, EXTERNAL space exists and is typed
+    external, `NTDLL`/`RtlAllocateHeap` external location (label, library,
+    isFunction), thunk location with `originalImportName ==
+    "NTDLL.RtlAllocateHeap"`, thunk `isThunk()` in EXTERNAL space whose
+    thunked function `isExternal()` and named `RtlAllocateHeap` (and not
+    itself a thunk).
+
+### Verification
+
+- Full CTest **66/66 exit 0** (was 65) incl. corpus/determinism regressions
+  (real PEs exercise the new forwarder path with no output drift).
+- **No commits made - user commits.**
+
+- Updated: 2026-08-20
+## Track 11 - ELF Dynamic PLTGOT Recovery for Stripped Binaries (Task 2.2, GP-7056) (closed, 2026-08-20)
+
+Backlog item 2.2 from `C:\Users\pc\Desktop\gaps\ENIGMA_ENGINE_GAPS_MASTER_PLAN.md`
+(register GP-7056): ELF loading relied entirely on section headers
+(`e_shoff != 0`); a stripped binary (no section headers) produced no memory
+blocks, no symbols, and no imports. Acceptance: in a stripped ELF with no
+section headers, all `DT_JMPREL` imports are resolved to named symbols at
+correct GOT/PLT addresses.
+
+### Implementation
+
+All in `src/core/BinaryLoader.cpp` (`SimplePELoader`; there is no separate
+`ElfLoader.cpp`/`Elf_Shdr` table in the engine). New `parseELFStripped()`
+fallback invoked from `parseELF()` after the section-based passes **only when
+`sections_` is empty**, so normal binaries are completely untouched:
+
+- `ElfPhdr` struct + `phdrs_` + `parseELFProgramHeaders()` (both ELF32
+  phentsize 32 and ELF64 phentsize 56 layouts); `phdrVaToFileOffset()` maps
+  VAs through PT_LOAD segments.
+- **PT_LOAD -> memory sections**: each loadable segment becomes a
+  `seg_<n>` `SectionInfo` (p_flags permissions), so `populateProgram`
+  creates real blocks and the existing hex/analysis paths work on the
+  stripped image.
+- **PT_DYNAMIC tags**: `DT_NEEDED` (library records, `(dynamic)` shape),
+  `DT_STRTAB`/`DT_SYMTAB`/`DT_SYMENT`, `DT_JMPREL`/`DT_PLTRELSZ`/`DT_PLTREL`
+  (7=RELA / 17=REL), `DT_RELA`/`DT_RELASZ`/`DT_RELAENT`,
+  `DT_REL`/`DT_RELSZ`/`DT_RELENT`.
+- **Dynamic symbol table**: sized from the largest relocation symbol index
+  (no DT_SYMSZ tag), names resolved via DT_STRTAB; includes UND symbols the
+  section-based `parseELFSymbols` skips.
+- **Relocations -> named imports** (mirrors the section-based
+  `parseELF*Relocations` naming): JUMP_SLOT names the GOT slot + its PLT
+  stub; GLOB_DAT-class names the GOT slot only.
+- **PLT stub location without sections**:
+  - x86/x86-64: reverse scan — every stub is `FF 25 <disp32>`; find the
+    `jmp [rip+disp32]` (64-bit, disp resolved through the instruction
+    address) or `jmp [disp32]` (32-bit) whose displacement targets exactly
+    the GOT slot, so stub addresses are exact per import;
+  - AArch64: scan for the 16-byte stub `adrp x16; ldr x17,[x16,#imm]; add;
+    br x17` with precise masks (`adrp & 0x9F000000 == 0x90000000` + x16,
+    `ldr & 0x3B000000 == 0x39000000` + 64-bit `& 0xC0000000` + x17 + [x16],
+    `br == 0xD61F0220`); a base is accepted only when the next two matches
+    follow at 16-byte strides (PLT0 contains the same adrp/ldr/br at +4, so
+    a naive first-match picks PLT0+4 with a 28-byte stride);
+  - ARM: reuses the `add ip, pc, #imm` (0xe28fc600) first-two-matches scan
+    (existing `armPltStubLayout` logic) over executable segments;
+  - MIPS/PPC: no contiguous stubs — GOT slots only (matches the section
+    path's {0,0} behavior).
+
+### Test
+
+- New suite `tests/test_elf_pltgot.cpp` (registered `enigma_test_elf_pltgot`,
+  **22/22**; `ENIGMA_SOURCE_DIR` now defined for all foreach-registered
+  tests):
+  - **Synthetic stripped ELF64** (x86-64, RELA, e_shoff=0; 3 phdrs:
+    text R+X with PLT0 + 2 stubs, data R+W with .dynamic/.dynsym/.dynstr/
+    .rela.dyn/.rela.plt/GOT, PT_DYNAMIC): exact import set
+    `(dynamic) libc.so.6`, `puts@0x401230` + stub `puts@0x400110`,
+    `printf@0x401238` + stub `printf@0x400120`, GLOB_DAT `_g_data@0x401240`;
+    2 `seg_*` sections; `populateProgram` maps a block at 0x400000 and
+    labels at every GOT slot + PLT stub;
+  - **Synthetic stripped ELF32** (x86, REL, 1 JUMP_SLOT): `puts@0x40110C` +
+    stub `puts@0x400110` via the 32-bit absolute `jmp [disp32]` scan;
+  - **Real fixtures**: `x64_dyn_stripped.elf` (objcopy
+    `--strip-section-headers`; e_shoff=0) import set == original
+    `tests/corpus/x64_dyn.elf` exactly; `aarch64_dyn_stripped.elf`
+    (section-header fields zeroed in a copy — MinGW objcopy lacks AArch64
+    BFD support) matches the original on all addressed imports (GOT slots +
+    PLT stubs); note: the aarch64 corpus file's `.dynstr` **section header
+    is bogus** (offsets point into `.relro_padding`), so the section path
+    emits a garbage library record while the stripped path resolves the
+    true DT_NEEDED names — the fixture comparison excludes address-0
+    library records (pre-existing Track 6/7 quirk, unchanged).
+
+### Verification
+
+- Full CTest **67/67 exit 0** (was 66) incl. corpus + determinism
+  regressions (the fallback only runs when `sections_` is empty, so real
+  binaries with section headers are byte-for-byte unaffected).
+- **No commits made - user commits.**
+
+## Track 12 - ELF GNU Hash Table Parser & Dynamic Symbol Sizer (Task 2.3, GP-7061 / GP-6887) (closed, 2026-08-20)
+
+Backlog item 2.3 from `C:\Users\pc\Desktop\gaps\ENIGMA_ENGINE_GAPS_MASTER_PLAN.md`
+(register GP-7061 / GP-6887): dynamic symbol recovery relied on SYSV `.hash`
+sections (or, in the Task 2.2 stripped path, on the largest relocation symbol
+index). Modern Linux linkers emit only `DT_GNU_HASH`; symbols not referenced
+by any relocation were lost. Acceptance: dynamic symbols resolve on binaries
+that only supply `DT_GNU_HASH`.
+
+### Implementation
+
+All in `src/core/BinaryLoader.cpp` `parseELFStripped()` (the `SimplePELoader`
+owns all ELF parsing; there is no `GnuHashTable.cpp`/`ElfLoader.cpp`):
+
+- `DynTags` now collects `DT_HASH` (4) and `DT_GNU_HASH` (0x6FFFFEF5).
+- `parseGnuHashSymCount(hashOff)` parses the GNU hash header (`nbuckets`,
+  `symoffset`, `bloom_size`, `bloom_shift`), the bucket table and the
+  symbol-index chains (each chain word terminated by the low bit), and
+  returns `symoffset + highestReachableIndex + 1` — the exact dynamic
+  symbol count. Boundary guards: `nbuckets`/`symoffset` ≤ 2^22,
+  `bloom_size` ≤ 2^20, every read bounds-checked against `rawData_.size()`
+  (no bloom-filter verification is needed for counting, so the filter is
+  skipped entirely).
+- Dynamic symbol count precedence: GNU hash → SYSV hash (`nchain@+4`) →
+  largest relocation symbol index (Task 2.2 fallback).
+- **Defined dynamic symbols are now populated** (`GP-6887`): for each
+  entry, mirror `parseELF64Symbols`/`parseELF32Symbols` exactly — skip
+  `nameIdx == 0` or `value == 0`; `isFunction = (stype == 2)`;
+  `isExternal = (bind == 1 || bind == 2) && shndx == 0` (GP-7057 rule);
+  ELF32 uses the 32-bit layout (value@+4, size@+8, info@+12, shndx@+14)
+  vs ELF64 (info@+4, shndx@+6, value@+8, size@+16). Undefined (UND)
+  symbols with value 0 stay out of `symbols_` — they surface as imports
+  through the relocations instead.
+
+### Test
+
+`tests/test_elf_pltgot.cpp` extended 22 → **24/24**:
+
+- Synthetic stripped ELF64 now carries a **real `DT_GNU_HASH` table**:
+  header + 1-word bloom + bucket table + chains, `symoffset = 1`, symbols
+  1..4 bucketed at `chainPos = idx - symoffset` (bucket count auto-chosen
+  so all four names hash to distinct buckets; GNU hash = the djb2 variant,
+  `h = h*33 + c`, computed in the builder). A 5th dynsym entry
+  `my_func` (GLOBAL FUNC, defined @ 0x400180) is **referenced by no
+  relocation**, so it is only recoverable through the hash-sized table —
+  assert `getSymbols()` contains it at 0x400180 with `isFunction`;
+- Synthetic stripped ELF32 now carries **`DT_HASH`** (nbuckets=1,
+  `nchain=3`) and a defined `my32func` @ 0x400130 referenced by no
+  relocation — assert it is found;
+- Real stripped fixtures (`x64_dyn_stripped.elf`, `aarch64_dyn_stripped.elf`,
+  both linked with GNU hash by lld) still match their corpus originals on
+  all imports — the hash-derived count keeps the relocation naming intact.
+
+### Verification
+
+- Full CTest **67/67 exit 0** (same count — the suite grew by 2 assertions,
+  `enigma_test_elf_pltgot` reports 24/24); corpus + determinism regressions
+  green (hash sizing only runs in the stripped fallback; binaries with
+  section headers are untouched).
+- **No commits made - user commits.**
+
+- Updated: 2026-08-20
+
+---
+
+## Track 13 — COFF Object File Loader & ARM64 Relocations (Task 2.4, GP-7088)
+
+**Date**: 2026-08-20. **Status**: COMPLETE (full CTest **68/68 exit 0**, new
+`enigma_test_coff_loader` **31/31**). **No commits made - user commits.**
+
+### Scope
+
+Ghidra `CoffLoader`/`CoffArchiveLoader` behavior ported into the single engine
+loader (`src/core/BinaryLoader.cpp`, matching the ELF/PE/Mach-O precedent — no
+separate `CoffLoader.cpp`; Ghidra's own C++ loader base `CoffLoader` provides
+machines 0x14C/0x8664/0xAA64 with MIPS/ARM/PPC extensions).
+
+### Code changes (all in `src/core/BinaryLoader.cpp`)
+
+1. **Detection in `load()`** (`~L105`): `!<arch>\n` prefix → `parseCOFFArchive()`;
+   else `isCoffMachine(machine)` (0x8664 x86-64, 0xAA64 ARM64, 0x14C x86-32,
+   0x1C0/0x1C4/0x1C2 ARM) + 1 ≤ numSecs < 0x100 + SizeOfOptionalHeader==0 +
+   size ≥ 20+40·numSecs → `parseCOFF()`.
+2. **`parseCOFFBytes(base, size, baseVa, memberTag)`**: COFF file header, section
+   headers (40-byte; long names via `/nnn` string table; cumulative 0x1000-aligned
+   layout from baseVa; per-section flags → readable/writable/executable), symbol
+   table (18-byte entries, auxiliaries skipped via `NumberOfAuxSymbols@+17`,
+   SECTION records (storageClass 3) skipped, defined symbols → `SymbolInfo`
+   at `secVa + value` with `isFunction = (type==0x20)` and
+   `isExternal = (storageClass==2)`, `secNum==-1` → absolute address = value,
+   `secNum==0 && EXTERNAL` → `imports_`), string table for `/nnn` names.
+3. **Relocations patched in-memory** (never written to disk; `getRawDataCopy()`
+   returns patched bytes): `0x0001` AMD64 ADDR64 + `0x000E` ARM64 ADDR64
+   (8-byte absolute), `0x0002` ARM64 ADDR32 (4-byte absolute), `0x0003` ARM64
+   BRANCH26 (sign-extended imm26, `newImm = (target - insAddr) >> 2`,
+   preserved opcode bits), `0x0004` AMD64 REL32 (`target - (insAddr + 4)`).
+   Unresolved externals left untouched (they become imports).
+4. **Entry point**: first symbol named `main`/`_main`/`WinMain`/`wmain`/`_WinMain`
+   with a defined section → `entryPoint_`.
+5. **`parseCOFFArchive()`**: 60-byte `ar` member headers, `"/"` (symbol table) and
+   `"//"` (long-name table) members skipped, odd member sizes padded with `'\n'`,
+   each member parsed with its own VA block (next base = max section end,
+   0x1000-aligned), section names prefixed `memberTag + "_"`, format
+   `"COFF Archive"`, arch/bitness taken from the first parsed member.
+6. **`populateProgram`**: defined non-function COFF symbols become labels at
+   their mapped address (guarded by block existence and `formatName_ == "COFF"`).
+
+### Bugs found & fixed this track
+
+- Test-side: symbol entries must occupy their real table slots (auxiliaries are
+  counted in the table) and relocation `r_offset` is section-relative, not
+  file-relative (loader adds `cs.rawOff` internally).
+- Loader-side: `secName` added `base` twice for archive members (absolute file
+  offsets), producing empty section names (`a.obj_` instead of `a.obj_.text`);
+  archive members also failed to set arch/bitness because the arch-set
+  condition required `formatName_ == "COFF"` while archives pre-set
+  `"COFF Archive"`.
+
+### Test
+
+`tests/test_coff_loader.cpp` **31/31**, registered as `enigma_test_coff_loader`:
+
+- Synthetic x64 `.obj`: sections `.text`/`.data`/`.bss` at 0/0x1000/0x2000 with
+  correct flags; symbols `_func1` (FUNC @0x10) / `_g_data` (@0x1000); import
+  `_printf`; ADDR64 @2 → 0x1000, REL32 @0xD → 0xFFFFFFFF (0x10 − (0xD+4)),
+  `.data` ADDR64 → 0x10; `populateProgram` block/label/function assertions.
+- Synthetic ARM64 `.obj`: BRANCH26 @0 → 0x14000002, ADDR32 @4 → 0x1000,
+  `.data` ADDR64 → 8.
+- Two-member `.lib` archive: sections `a.obj_.text`/`b.obj_.text` at 0/0x1000,
+  patches @4/@0x1004, imports `_a_ext`/`_b_ext`, format `"COFF Archive"`.
+
+### Known deviations (documented)
+
+- Unresolved COFF externals map to `imports_` with `libraryName="(coff)"` and
+  `address=0`; the engine has no EXTERNAL-space import mapping for COFF (register
+  note "must map to EXTERNAL space" is a Ghidra-gui concern — deferred with G1).
+- Defined data-symbol labels are COFF-only: an all-format variant changed the
+  decompiled output of the aarch64/arm32 ELF corpus fixtures (2 leading blank
+  lines — a label-derived artifact in the function pipeline), so the loop is
+  gated on the COFF formats. Investigate separately if data labels are wanted
+  for ELF.
+- bigobj (`ANON_OBJECT_HEADER` machine 0x0000) not supported; large object
+  files (>127 sections) will not load.
+- ghc-lib-style thin archives (member name `/<digits>` into `//` long-name
+  table with no embedded payload) are skipped, matching Ghidra's "old-style"
+  archive support.
+
+### Verification
+
+- Full CTest **68/68 exit 0**; corpus + determinism regressions green.
+- **No commits made - user commits.**
+
+- Updated: 2026-08-20
+

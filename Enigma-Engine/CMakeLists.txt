@@ -237,11 +237,11 @@ target_compile_definitions(enigma_test_patching_features PRIVATE ENIGMA_SLEIGH_D
 enigma_apply_warning_policy(enigma_test_patching_features)
 add_test(NAME enigma_test_patching_features COMMAND enigma_test_patching_features)
 
-foreach(test_name enigma_test_block_struct enigma_test_lang_classes enigma_test_batch_e enigma_test_batch_f enigma_test_batch_g enigma_test_batch_h enigma_test_batch_i enigma_test_batch_j enigma_test_batch_k enigma_test_batch_l enigma_test_batch_n enigma_test_batch_o enigma_test_batch_p enigma_test_batch_q enigma_test_batch_r enigma_test_batch_s enigma_test_batch_t enigma_test_analyzer_integration enigma_test_batch_u enigma_test_batch_v enigma_test_batch_w enigma_test_batch_x enigma_test_batch_y enigma_test_batch_z enigma_test_batch_aa enigma_test_batch_ab)
+foreach(test_name enigma_test_block_struct enigma_test_lang_classes enigma_test_batch_e enigma_test_batch_f enigma_test_batch_g enigma_test_batch_h enigma_test_batch_i enigma_test_batch_j enigma_test_batch_k enigma_test_batch_l enigma_test_batch_n enigma_test_batch_o enigma_test_batch_p enigma_test_batch_q enigma_test_batch_r enigma_test_batch_s enigma_test_batch_t enigma_test_analyzer_integration enigma_test_batch_u enigma_test_batch_v enigma_test_batch_w enigma_test_batch_x enigma_test_batch_y enigma_test_batch_z enigma_test_batch_aa enigma_test_batch_ab enigma_test_function_boundaries enigma_test_pe_loader enigma_test_elf_pltgot enigma_test_coff_loader enigma_test_datatype_merger enigma_test_golang_pipeline)
     string(REPLACE "enigma_" "" file_base ${test_name})
     add_executable(${test_name} tests/${file_base}.cpp)
     target_link_libraries(${test_name} PRIVATE enigma_engine)
-    target_compile_definitions(${test_name} PRIVATE ENIGMA_SLEIGH_DIR="${ENIGMA_SLEIGH_DIR}")
+    target_compile_definitions(${test_name} PRIVATE ENIGMA_SLEIGH_DIR="${ENIGMA_SLEIGH_DIR}" ENIGMA_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
     enigma_apply_warning_policy(${test_name})
     add_test(NAME ${test_name} COMMAND ${test_name})
 endforeach()

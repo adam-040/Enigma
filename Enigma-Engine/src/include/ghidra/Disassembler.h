@@ -58,6 +58,7 @@ public:
 
     virtual std::string getArchitecture() const = 0;
     virtual int getInstructionAlignment() const = 0;
+    virtual bool setMode(int newMode) = 0;
 
     static FlowType* determineFlowType(const std::string& mnemonic, const std::vector<std::string>& operands);
     void setProgram(ProgramDB* program);

@@ -74,6 +74,19 @@ GenericAddressSpace::GenericAddressSpace(const std::string& name, int size, int 
     }
 }
 
+GenericAddressSpace::GenericAddressSpace(const std::string& name, int size, int type, int unique,
+                                         int64_t minOffset, int64_t maxOffset)
+    : name_(name), size_(size), type_(type), unique_(unique),
+      unitSize_(1), offsetMask_(size == 64 ? ~0ULL : ((1ULL << size) - 1)),
+      signed_(false) {
+
+    int sizeEncoded = ((size > 0 ? (size - 1) / 8 : 0) << ID_SIZE_SHIFT) & ID_SIZE_MASK;
+    spaceID_ = (type & ID_TYPE_MASK) | sizeEncoded | (unique << ID_UNIQUE_SHIFT);
+
+    maxOffset_ = maxOffset;
+    minOffset_ = minOffset;
+}
+
 std::string GenericAddressSpace::getName() const { return name_; }
 int GenericAddressSpace::getSpaceID() const { return spaceID_; }
 int GenericAddressSpace::getSize() const { return size_; }

@@ -1506,7 +1506,8 @@ void GzfProgramImporter::importSymbols(ProgramDB* program) {
         const_cast<AddressSpace*>(factory->getDefaultAddressSpace());
     AddressSpace* externalSpace = const_cast<AddressSpace*>(factory->getAddressSpace("EXTERNAL"));
     if (!externalSpace) {
-        externalSpace = new GenericAddressSpace("EXTERNAL", 64, AddressSpace::TYPE_EXTERNAL, 0);
+        externalSpace = new GenericAddressSpace("EXTERNAL", 64, AddressSpace::TYPE_EXTERNAL, 0,
+                                                0, 0x7FFFFFFFLL);
         if (auto* paf = dynamic_cast<ProgramAddressFactory*>(factory)) {
             paf->addAddressSpace(externalSpace);
         }

@@ -8,6 +8,8 @@
 #include "PatchListWidget.h"
 #include "StringTableWidget.h"
 #include "CrossReferenceExplorer.h"
+#include "StructureEditorWidget.h"
+#include "DisasmSearchBar.h"
 #include "DisasmSearchBar.h"
 #include "CommandPaletteDialog.h"
 #include "AddressMinimap.h"
@@ -312,6 +314,10 @@ void MainWindow::createMenuBar() {
     explorerAct->setText(tr("&Explorer"));
     view->addAction(explorerAct);
 
+    auto* structAct = structureEditorDock_->toggleViewAction();
+    structAct->setText(tr("Data &Types"));
+    view->addAction(structAct);
+
     view->addSeparator();
     showBytesAction_ = view->addAction(tr("Show &Bytes"));
     showBytesAction_->setCheckable(true);
@@ -544,6 +550,25 @@ void MainWindow::createDockWidgets() {
         stringTableDock_ = createDock("STRING TABLE", stringContainer);
     }
 
+    // Structure/Union Editor dock
+    {
+        structureEditor_ = new ghidra::StructureEditorWidget(this);
+        structureEditorDock_ = createDock("DATA TYPES", structureEditor_);
+
+        connect(structureEditor_, &ghidra::StructureEditorWidget::typeModified,
+                this, [this](const QString& typeName) {
+                    if (decompView_ && decompView_->isVisible() && program_) {
+                        auto addr = decompView_->currentAddress();
+                        if (addr != 0) navigateTo(addr);
+                    }
+                });
+
+        connect(structureEditor_, &ghidra::StructureEditorWidget::typeSelected,
+                this, [this](const QString& typeName) {
+                    statusBar()->showMessage(tr("Type: %1").arg(typeName), 3000);
+                });
+    }
+
     // Full-width address-range minimap bar below the menu bar (File, Edit...).
     {
         addressMinimap_ = new AddressMinimap(this);
@@ -584,15 +609,15 @@ void MainWindow::createDockWidgets() {
 
         auto* donateBtn = new QToolButton(corner);
         donateBtn->setIcon(loadSvgIcon("donate.svg", 16));
-        donateBtn->setToolTip(tr("Donate"));
-        donateBtn->setAutoRaise(true);
+    donateBtn->setToolTip(tr("Donate to support Enigma IDE development"));
+    donateBtn->setAutoRaise(true);
         donateBtn->setToolButtonStyle(Qt::ToolButtonIconOnly);
         h->addWidget(donateBtn);
 
         auto* helpBtn = new QToolButton(corner);
         helpBtn->setIcon(loadSvgIcon("help.svg", 16));
-        helpBtn->setToolTip(tr("Help"));
-        helpBtn->setAutoRaise(true);
+    helpBtn->setToolTip(tr("Help and documentation"));
+    helpBtn->setAutoRaise(true);
         helpBtn->setToolButtonStyle(Qt::ToolButtonIconOnly);
         h->addWidget(helpBtn);
 
@@ -650,6 +675,10 @@ void MainWindow::createDockWidgets() {
     }
 
     addDockWidget(Qt::LeftDockWidgetArea, explorerDock_);
+    addDockWidget(Qt::LeftDockWidgetArea, structureEditorDock_);
+    splitDockWidget(explorerDock_, structureEditorDock_, Qt::Vertical);
+    resizeDocks({explorerDock_, structureEditorDock_}, {500, 170}, Qt::Vertical);
+    structureEditorDock_->setVisible(false);
     addDockWidget(Qt::RightDockWidgetArea, disasmDock_);
     syncExplorerIcon();
 
@@ -659,6 +688,7 @@ void MainWindow::createDockWidgets() {
     splitDockWidget(decompDock_, hexDock_, Qt::Vertical);
     splitDockWidget(hexDock_, patchListDock_, Qt::Vertical);
     splitDockWidget(patchListDock_, stringTableDock_, Qt::Vertical);
+    stringTableDock_->setVisible(false);
     connect(stringTableDock_, &QDockWidget::visibilityChanged, this, [this](bool visible) {
         if (showStringTableAction_)
             showStringTableAction_->setChecked(visible);
@@ -1096,7 +1126,14 @@ static FILE* logFile() {
 
 void MainWindow::onOpenBinary() {
     QString path = QFileDialog::getOpenFileName(this, tr("Open Binary"),
-        QString(), tr("Executables (*.exe *.dll *.elf *.so *.bin);;All Files (*)"));
+        QString(),
+        tr("All Supported (*.exe *.dll *.elf *.so *.bin *.o *.obj *.lib *.a *.dylib *.macho *.pdb *.pdb *.hex *.srec *.ihex);;"
+           "PE/COFF (*.exe *.dll *.obj *.lib *.pdb);;"
+           "ELF (*.elf *.so *.o *.a);;"
+           "Mach-O (*.dylib *.macho);;"
+           "Firmware (*.hex *.srec *.ihex);;"
+           "Raw Binary (*.bin);;"
+           "All Files (*)"));
     if (path.isEmpty()) return;
     DBG("[onOpenBinary] path=%s\n", path.toStdString().c_str());
     loadBinary(path);
@@ -1185,6 +1222,7 @@ void MainWindow::onOpenProject() {
     disasmView_->setProgram(program_.get());
     disasmView_->setDecompInterface(decompInterface_.get());
     decompView_->setProgram(program_.get());
+    structureEditor_->setProgram(program_.get());
     repoPath_ = repoDir;
 
     populateExplorer();
@@ -1352,6 +1390,7 @@ void MainWindow::onImportFinished() {
     disasmView_->setProgram(program_.get());
     disasmView_->setDecompInterface(decompInterface_.get());
     decompView_->setProgram(program_.get());
+    structureEditor_->setProgram(program_.get());
     if (!decompInterface_->openProgram(program_.get())) {
         QMessageBox::warning(this, tr("Error"),
             tr("Failed to open imported program in decompiler."));
@@ -1653,6 +1692,7 @@ void MainWindow::loadBinary(const QString& path) {
     disasmView_->setProgram(program_.get());
     disasmView_->setDecompInterface(decompInterface_.get());
     decompView_->setProgram(program_.get());
+    structureEditor_->setProgram(program_.get());
     // Log address factory details
     {
         auto* af = prog->getAddressFactory();
@@ -1804,6 +1844,7 @@ void MainWindow::populateExplorer() {
     NAVLOG("getting function list from decompInterface...\n");
     auto funcs = decompInterface_->getFunctions();
     NAVLOG("got %zu functions\n", funcs.size());
+
     for (auto& f : funcs) {
         uint64_t addr = f.entryAddress.getOffset();
         explorer_->addEntry(root, addr, QString::fromStdString(f.name));

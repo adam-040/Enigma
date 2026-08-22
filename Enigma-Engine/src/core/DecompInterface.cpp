@@ -70,6 +70,70 @@ static bool isKeywordPreceding(const std::string& raw, size_t i) {
     return false;
 }
 
+static std::string resolveStringRefsInMarkup(const std::string& markup,
+                                             ghidra::Memory* mem,
+                                             ghidra::AddressSpace* space,
+                                             uint64_t baseAddr) {
+    std::string s = markup;
+    // Match patterns like (char *)0xHEX — common string pointer args
+    // Also: (char const*)0xHEX, (const char *)0xHEX, (char const *)0xHEX
+    const char* patterns[] = {
+        "(char *)0x",
+        "(char const*)0x",
+        "(const char *)0x",
+        "(char const *)0x",
+    };
+    for (const char* prefix : patterns) {
+        size_t plen = std::strlen(prefix);
+        for (size_t pos = 0; (pos = s.find(prefix, pos)) != std::string::npos; ) {
+            size_t start = pos + plen;
+            size_t end = start;
+            while (end < s.size() && std::isxdigit(static_cast<unsigned char>(s[end])))
+                ++end;
+            if (end == start) { pos = end; continue; }
+            std::string hexStr = s.substr(start, end - start);
+            uint64_t addr = std::stoull(hexStr, nullptr, 16);
+            if (addr < baseAddr) { pos = end; continue; }
+            uint64_t delta = addr - baseAddr;
+            // Read null-terminated string, limit to 256 chars
+            std::string strContent;
+            bool printable = true;
+            for (uint64_t i = delta; i < delta + 256; ++i) {
+                uint8_t c = 0;
+                ghidra::Address readAddr(space, static_cast<int64_t>(i));
+                int n = 0;
+                try { n = mem->getBytes(readAddr, &c, 1); } catch (...) { break; }
+                if (n < 1 || c == 0) break;
+                if (c < 0x20 && c != '\t' && c != '\n' && c != '\r') { printable = false; break; }
+                strContent += static_cast<char>(c);
+            }
+            if (!printable || strContent.empty()) { pos = end; continue; }
+            // Build C string literal with escaping
+            std::string quoted = "\"";
+            for (char c : strContent) {
+                switch (c) {
+                case '\n': quoted += "\\n"; break;
+                case '\r': quoted += "\\r"; break;
+                case '\t': quoted += "\\t"; break;
+                case '\\': quoted += "\\\\"; break;
+                case '"':  quoted += "\\\""; break;
+                default:
+                    if (static_cast<unsigned char>(c) < 0x20) {
+                        char buf[8]; std::snprintf(buf, sizeof(buf), "\\x%02x", (unsigned char)c);
+                        quoted += buf;
+                    } else {
+                        quoted += c;
+                    }
+                }
+            }
+            quoted += '"';
+            s.replace(pos, end - pos, quoted);
+            pos = pos + quoted.size();
+        }
+    }
+    return s;
+}
+
 static std::string cleanCOutput(const std::string& raw) {
     std::string s;
     s.reserve(raw.size());
@@ -516,6 +580,16 @@ struct DecompInterface::Impl {
         }
         std::string markup = xmlStream.str();
         results.markupXml = markup;
+        // Resolve string literal references (char *)0xHEX -> "string"
+        uint64_t imgBase = program ? program->getImageBase().getOffset() : 0;
+        ghidra::Memory* mem = program ? program->getMemory() : nullptr;
+        ghidra::AddressSpace* defSpace = program
+            ? const_cast<ghidra::AddressSpace*>(
+                program->getAddressFactory()->getDefaultAddressSpace())
+            : nullptr;
+        if (mem && defSpace) {
+            markup = resolveStringRefsInMarkup(markup, mem, defSpace, imgBase);
+        }
         results.cCode = cleanCOutput(stripMarkup(markup));
 
         return results;

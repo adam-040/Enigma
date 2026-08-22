@@ -14,6 +14,8 @@
 #include <vector>
 #include <sstream>
 #include <cstdlib>
+#include <algorithm>
+#include <functional>
 
 namespace ghidra {
 
@@ -28,7 +30,6 @@ bool RustDemanglerAnalyzer::canAnalyze(Program* program) const {
 
 namespace {
 
-// Parse a base-62 digit: 0-9 a-z A-Z
 static int base62Val(char c) {
     if (c >= '0' && c <= '9') return c - '0';
     if (c >= 'a' && c <= 'z') return c - 'a' + 10;
@@ -36,8 +37,6 @@ static int base62Val(char c) {
     return -1;
 }
 
-// Decode a base-62 integer from the mangled string
-// Returns the value and advances the position
 static uint64_t parseBase62(const std::string& s, size_t& pos) {
     uint64_t val = 0;
     while (pos < s.size()) {
@@ -49,120 +48,197 @@ static uint64_t parseBase62(const std::string& s, size_t& pos) {
     return val;
 }
 
-// Demangle a Rust v0 symbol (_R...)
-// RFC 2603: https://github.com/rust-lang/rfcs/blob/master/text/2603-rust-symbol-name-mangling-v0.md
+static size_t parseDecimal(const std::string& s, size_t& pos) {
+    size_t val = 0;
+    while (pos < s.size() && s[pos] >= '0' && s[pos] <= '9') {
+        val = val * 10 + (s[pos] - '0');
+        ++pos;
+    }
+    return val;
+}
+
+static std::string decodePunycode(const std::string& label) {
+    size_t lastHyphen = label.rfind('-');
+    std::string basic;
+    std::string encoded;
+    if (lastHyphen != std::string::npos && lastHyphen > 0) {
+        basic = label.substr(0, lastHyphen);
+        encoded = label.substr(lastHyphen + 1);
+    } else {
+        encoded = label;
+    }
+
+    std::vector<uint32_t> codepoints;
+    for (char c : basic) codepoints.push_back(static_cast<uint32_t>(c));
+
+    if (encoded.empty()) {
+        std::string result;
+        for (uint32_t cp : codepoints) {
+            if (cp < 0x80) result += static_cast<char>(cp);
+            else if (cp < 0x800) { result += static_cast<char>(0xC0|(cp>>6)); result += static_cast<char>(0x80|(cp&0x3F)); }
+            else { result += static_cast<char>(0xE0|(cp>>12)); result += static_cast<char>(0x80|((cp>>6)&0x3F)); result += static_cast<char>(0x80|(cp&0x3F)); }
+        }
+        return result;
+    }
+
+    const uint32_t base = 36, tmin = 1, tmax = 26, skew = 38, initialBias = 72, initialN = 128;
+    uint32_t n = initialN, i = 0, bias = initialBias;
+    size_t pos = 0;
+
+    while (pos < encoded.size()) {
+        uint32_t delta = 0, w = 1, k;
+        for (k = 0; ; k++) {
+            if (pos >= encoded.size()) break;
+            uint32_t digit = static_cast<uint32_t>(base62Val(encoded[pos]));
+            if (digit == static_cast<uint32_t>(-1)) break;
+            ++pos;
+            delta += digit * w;
+            uint32_t t = (k <= bias) ? tmin : (k >= bias + tmax ? tmax : k - bias);
+            if (digit < t) break;
+            w *= (base - t);
+        }
+        uint32_t len = static_cast<uint32_t>(codepoints.size()) + 1;
+        bias = (delta == 0) ? 0 : initialBias + (36 * delta / (delta + skew));
+
+        uint32_t q = delta, si = 0;
+        for (uint32_t j = len; ; j++) {
+            uint32_t t2 = (j <= bias) ? tmin : (j >= bias + tmax ? tmax : j - bias);
+            if (q < t2) break;
+            codepoints.insert(codepoints.begin() + si, n);
+            ++si;
+            q = (q - t2) / (base - t2);
+        }
+        n += q;
+    }
+
+    std::string result;
+    for (uint32_t cp : codepoints) {
+        if (cp < 0x80) result += static_cast<char>(cp);
+        else if (cp < 0x800) { result += static_cast<char>(0xC0|(cp>>6)); result += static_cast<char>(0x80|(cp&0x3F)); }
+        else { result += static_cast<char>(0xE0|(cp>>12)); result += static_cast<char>(0x80|((cp>>6)&0x3F)); result += static_cast<char>(0x80|(cp&0x3F)); }
+    }
+    return result;
+}
+
+static std::string decodePunycodeInString(const std::string& input) {
+    std::string result = input;
+    size_t pos = 0;
+    while (pos < result.size()) {
+        size_t xnPos = result.find("xn--", pos);
+        if (xnPos == std::string::npos) xnPos = result.find("XN--", pos);
+        if (xnPos == std::string::npos) break;
+        size_t labelEnd = result.find("::", xnPos);
+        if (labelEnd == std::string::npos) labelEnd = result.size();
+        std::string label = result.substr(xnPos, labelEnd - xnPos);
+        std::string decoded = decodePunycode(label);
+        result.replace(xnPos, label.size(), decoded);
+        pos = xnPos + decoded.size();
+    }
+    return result;
+}
+
 static std::string demangleV0(const std::string& mangled) {
-    // Format: _R + <path> [<instantiating-crate>] [<type>...]
     if (mangled.size() < 3 || mangled[0] != '_' || mangled[1] != 'R') return "";
     size_t i = 2;
 
-    // Optional base-62 disambiguator followed by path
-    // Path starts with a tag:
-    // C = crate root, M = unnamed constant, N = nested path, s = suffix
-    std::string result;
-    while (i < mangled.size()) {
-        char tag = mangled[i];
+    auto parseIdent = [&](size_t& pos) -> std::string {
+        size_t len = parseDecimal(mangled, pos);
+        if (len > 0 && pos + len <= mangled.size()) {
+            std::string ident = mangled.substr(pos, len);
+            pos += len;
+            return ident;
+        }
+        return "";
+    };
+
+    // Skip type string at end (after path) - we only want the path part
+    std::function<std::string(size_t&)> parsePath;
+
+    parsePath = [&](size_t& pos) -> std::string {
+        if (pos >= mangled.size()) return "";
+        char tag = mangled[pos];
+        std::string path;
+
         if (tag == 'C') {
-            // Crate root: skip optional disambiguator, then identifier
-            ++i;
-            // Optional base-62 disambiguator
-            if (i < mangled.size() && mangled[i] >= '0' && mangled[i] <= '9') {
-                // This is ambiguous: base62 or length digit?
-                // In v0, after 'C', there may be a base-62 disambiguator + '_', or just a length+identifier
-                // The 'C' tag is followed by an optional base-62 _punctuated_ disambiguator
-                // then by a normal identifier (length-prefixed)
-                // Actually let's check: C<base62>_<identifier>
-                size_t saved = i;
-                while (i < mangled.size() && mangled[i] != '_' && mangled[i] >= '0' && mangled[i] <= '9') ++i;
-                if (i < mangled.size() && mangled[i] == '_') {
-                    // Disambiguator present, skip past '_'
-                    ++i;
-                } else {
-                    // No disambiguator, restore position
-                    i = saved;
-                }
+            ++pos;
+            if (pos < mangled.size() && mangled[pos] >= '0' && mangled[pos] <= '9') {
+                size_t saved = pos;
+                while (pos < mangled.size() && mangled[pos] != '_' &&
+                       mangled[pos] >= '0' && mangled[pos] <= '9') ++pos;
+                if (pos < mangled.size() && mangled[pos] == '_') ++pos;
+                else pos = saved;
             }
-            // Now parse identifier: <decimal-length><bytes>
-            size_t len = 0;
-            while (i < mangled.size() && mangled[i] >= '0' && mangled[i] <= '9') {
-                len = len * 10 + (mangled[i] - '0');
-                ++i;
-            }
-            if (len > 0 && i + len <= mangled.size()) {
-                if (!result.empty() && result.back() != ' ' && result.back() != '(') result += "::";
-                result += mangled.substr(i, len);
-                i += len;
-            }
+            path = parseIdent(pos);
         } else if (tag == 'N') {
-            // Nested path: N<path><path>...
-            // Skip 'N', parse sub-path
-            ++i;
-            // The nested path ends with 'E' or continues
-            // Parse until we hit 'E' or another path tag
-            while (i < mangled.size() && mangled[i] != 'E') {
-                char subTag = mangled[i];
-                if (subTag == 'C' || subTag == 'N' || subTag == 'M' || subTag == 's') {
-                    // Recursively handle but for simplicity just break the loop
+            ++pos;
+            std::string ns = parseIdent(pos);
+            if (!ns.empty()) path = ns;
+            while (pos < mangled.size() && mangled[pos] != 'E') {
+                char subTag = mangled[pos];
+                if (subTag == 'C' || subTag == 'N' || subTag == 'M') {
+                    std::string sub = parsePath(pos);
+                    if (!sub.empty()) path += "::" + sub;
+                } else if (subTag == 'B') {
+                    ++pos;
+                    if (pos < mangled.size() && mangled[pos] >= '0' && mangled[pos] <= '9')
+                        parseIdent(pos);
+                    else if (pos < mangled.size() && mangled[pos] == 'p') ++pos;
+                    std::string sub = parsePath(pos);
+                    if (!sub.empty()) path += "::" + sub;
+                } else if (subTag >= '0' && subTag <= '9') {
+                    std::string sub = parseIdent(pos);
+                    if (!sub.empty()) path += "::" + sub;
+                } else if (subTag == 'I' || subTag == 'K') {
+                    ++pos;
+                    while (pos < mangled.size() && mangled[pos] != 'E') ++pos;
+                    if (pos < mangled.size()) ++pos;
+                } else if (subTag == 'X' || subTag == 'Y') {
+                    ++pos;
+                    while (pos < mangled.size() && mangled[pos] != 'E') ++pos;
+                    if (pos < mangled.size()) ++pos;
+                } else {
                     break;
                 }
-                // It's an identifier directly (length-prefixed)
-                size_t len = 0;
-                while (i < mangled.size() && mangled[i] >= '0' && mangled[i] <= '9') {
-                    len = len * 10 + (mangled[i] - '0');
-                    ++i;
-                }
-                if (len > 0 && i + len <= mangled.size()) {
-                    if (!result.empty() && result.back() != ' ' && result.back() != '(' && result.back() != ':') result += "::";
-                    result += mangled.substr(i, len);
-                    i += len;
-                } else break;
             }
-            if (i < mangled.size() && mangled[i] == 'E') ++i;
+            if (pos < mangled.size() && mangled[pos] == 'E') ++pos;
         } else if (tag == 'M') {
-            // Unnamed constant (impl): M<base62>
-            ++i;
+            ++pos;
             std::stringstream ss;
-            ss << parseBase62(mangled, i);
-            if (!result.empty()) result += "::";
-            result += "impl$" + ss.str();
+            ss << parseBase62(mangled, pos);
+            path = "impl$" + ss.str();
+        } else if (tag == 'I' || tag == 'K') {
+            ++pos;
+            path = "impl";
+            while (pos < mangled.size() && mangled[pos] != 'E') ++pos;
+            if (pos < mangled.size()) ++pos;
         } else if (tag == 's') {
-            // Suffix: 's' + <identifier>
-            ++i;
-            size_t len = 0;
-            while (i < mangled.size() && mangled[i] >= '0' && mangled[i] <= '9') {
-                len = len * 10 + (mangled[i] - '0');
-                ++i;
-            }
-            if (len > 0 && i + len <= mangled.size()) {
-                if (!result.empty() && result.back() != ' ' && result.back() != '(') result += "::";
-                result += mangled.substr(i, len);
-                i += len;
-            }
+            ++pos;
+            path = parseIdent(pos);
+        } else if (tag == 'B') {
+            ++pos;
+            if (pos < mangled.size() && mangled[pos] >= '0' && mangled[pos] <= '9')
+                parseIdent(pos);
+            else if (pos < mangled.size() && mangled[pos] == 'p') ++pos;
+            path = parsePath(pos);
         } else if (tag >= '0' && tag <= '9') {
-            // Identifier directly at this level (no path tag)
-            size_t len = 0;
-            while (i < mangled.size() && mangled[i] >= '0' && mangled[i] <= '9') {
-                len = len * 10 + (mangled[i] - '0');
-                ++i;
-            }
-            if (len > 0 && i + len <= mangled.size()) {
-                if (!result.empty() && result.back() != ' ' && result.back() != '(' && result.back() != ':') result += "::";
-                result += mangled.substr(i, len);
-                i += len;
-            }
-        } else if (tag == 'E') {
-            ++i;
-            break;
+            path = parseIdent(pos);
         } else {
-            // Unknown tag or end of path — stop
-            break;
+            ++pos;
         }
+        return path;
+    };
+
+    std::string result = parsePath(i);
+    if (result.empty()) return "";
+
+    // Apply Punycode decoding
+    if (result.find("xn--") != std::string::npos || result.find("XN--") != std::string::npos) {
+        result = decodePunycodeInString(result);
     }
 
-    return result.empty() ? "" : result;
+    return result;
 }
 
-// Legacy Rust mangling (_RNv, _RNC, etc.)
 static std::string demangleLegacy(const std::string& mangled) {
     if (mangled.size() < 4) return "";
 
@@ -172,9 +248,6 @@ static std::string demangleLegacy(const std::string& mangled) {
         mangled.compare(0, 4, "_RNm") == 0 || mangled.compare(0, 4, "_RNb") == 0 ||
         mangled.compare(0, 4, "_RNF") == 0 || mangled.compare(0, 4, "_RNt") == 0) {
         start = 4;
-    } else if (mangled.compare(0, 2, "_R") == 0) {
-        // Could be v0 already handled, or legacy without path tag
-        return "";
     } else {
         return "";
     }
@@ -214,17 +287,10 @@ static std::string demangleLegacy(const std::string& mangled) {
 
 static std::string demangleRust(const std::string& mangled) {
     if (mangled.empty()) return "";
-
-    // Try CLI: rustfilt if available
-    // (deferred — requires subprocess, would slow down analysis)
-
-    // Try v0 demangling first
     if (mangled.size() >= 3 && mangled[0] == '_' && mangled[1] == 'R') {
         std::string v0 = demangleV0(mangled);
         if (!v0.empty()) return v0;
     }
-
-    // Fall back to legacy
     return demangleLegacy(mangled);
 }
 

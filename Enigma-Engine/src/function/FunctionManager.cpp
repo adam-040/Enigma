@@ -74,6 +74,10 @@ Function* FunctionManager::createFunction(const std::string& name, Address entry
     Function* raw = func.get();
     long id = nextFunctionId_++;
     raw->setID(id);
+    // Functions in EXTERNAL space are implicitly external
+    if (entryPoint.isExternalAddress()) {
+        raw->setExternal(true);
+    }
     idIndex_[id] = raw;
     functions_[static_cast<uint64_t>(entryPoint.getOffset())] = std::move(func);
     functionsDirty_ = true;
@@ -120,6 +124,10 @@ Function* FunctionManager::createFunction(const std::string& name, Namespace* na
     Function* raw = func.get();
     long id = nextFunctionId_++;
     raw->setID(id);
+    // Functions in EXTERNAL space are implicitly external
+    if (entryPoint.isExternalAddress()) {
+        raw->setExternal(true);
+    }
     idIndex_[id] = raw;
     functions_[static_cast<uint64_t>(entryPoint.getOffset())] = std::move(func);
     functionsDirty_ = true;

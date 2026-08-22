@@ -7,5 +7,6 @@
         <file>icons/settings.svg</file>
         <file>icons/help.svg</file>
         <file>icons/donate.svg</file>
+        <file>icons/shield.svg</file>
     </qresource>
 </RCC>

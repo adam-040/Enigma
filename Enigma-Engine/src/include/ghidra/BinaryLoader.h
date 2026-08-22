@@ -56,12 +56,28 @@ struct ImportInfo {
 struct ExportInfo {
     std::string name;
     uint64_t address;
+    // True when the export's function RVA points inside the export directory:
+    // the bytes there are an ASCII "DLLName.SymbolName" forwarder string.
+    bool isForwarder = false;
+    std::string forwarderString;
+    // Name of the exporting DLL (export directory Name RVA), used as the
+    // thunk's library namespace. Empty when the PE omits the name.
+    std::string dllName;
 };
 
 struct DelayLoadInfo {
     std::string name;
     std::string libraryName;
     uint64_t address;
+};
+
+// One dylib entry from a dyld shared cache image table
+// (dyld_cache_image_info).  address is the cache-relative vm address,
+// fileOffset is the offset of the embedded Mach-O within the cache file.
+struct DyldCacheImageInfo {
+    std::string name;
+    uint64_t address;
+    uint64_t fileOffset;
 };
 
 struct RelocationInfo {
@@ -96,6 +112,14 @@ public:
     virtual std::vector<uint8_t> getRawDataCopy() const = 0;
     virtual uint64_t virtualAddressToFileOffset(uint64_t vaddr) const = 0;
     virtual bool populateProgram(ProgramDB* program) = 0;
+
+    // True when the loaded file is a dyld shared cache (GP-7079).
+    virtual bool isDyldCache() const { return false; }
+    // Dylibs listed in the cache's image table.
+    virtual std::vector<DyldCacheImageInfo> getDyldCacheImages() const { return {}; }
+    // Re-parse the cache as the named dylib: its embedded Mach-O replaces the
+    // cache's sections/symbols/imports so analysis targets a single image.
+    virtual bool loadDyldCacheImage(const std::string& name) { (void)name; return false; }
 
     static std::string guessLanguageFromArch(const std::string& arch, int bitness, bool bigEndian = false);
     static std::string guessCompilerSpecFromArch(const std::string& arch, int bitness);

@@ -8,10 +8,17 @@
 #include <ghidra/Data.h>
 #include <ghidra/CodeUnit.h>
 #include <ghidra/Msg.h>
+#include <ghidra/Language.h>
+#include <ghidra/Processor.h>
+#include <ghidra/DataTypeManager.h>
+#include <ghidra/StructureDataType.h>
+#include <ghidra/PointerDataType.h>
+#include <ghidra/IntegerDataType.h>
 #include <cstdint>
 #include <string>
 #include <vector>
 #include <cctype>
+#include <algorithm>
 
 namespace ghidra {
 
@@ -237,6 +244,164 @@ static void processTypesSection(Memory* memory, SymbolTable* symTable,
     }
 }
 
+// Process a __swift5_fieldmd section block.
+// Field descriptors contain field records for struct/class/enum types.
+static void processFieldMetadataSection(Memory* memory, SymbolTable* symTable,
+                                         MemoryBlock* block, TaskMonitor* monitor,
+                                         int& fieldCount, int& labelCount) {
+    Address cur = block->getStart();
+    Address end = block->getEnd();
+    AddressSpace* space = cur.getAddressSpace();
+
+    while (cur <= end && !monitor->isCancelled()) {
+        // Each entry is a 32-bit relative pointer to a field descriptor
+        int32_t raw = readInt32LE(memory, cur);
+        if (raw == 0) {
+            cur = Address(space, cur.getOffset() + 4);
+            continue;
+        }
+
+        Address descAddr = resolveOffset(cur, raw);
+        if (!descAddr.isValid() || !memory->getBlock(descAddr)) {
+            cur = Address(space, cur.getOffset() + 4);
+            continue;
+        }
+
+        // Field descriptor layout:
+        // offset 0: uint32_t record kind (0=struct, 1=class, 2=enum, 3=composite)
+        // offset 4: int32_t mangled type name relative offset
+        // offset 8: uint16_t superclass relative offset (class only)
+        // offset 10: uint16_t reserved
+        // offset 12: uint32_t num fields
+        // offset 16: field record entries...
+
+        uint32_t recordKind = readUInt32LE(memory, descAddr);
+        Address nameRelAddr(space, descAddr.getOffset() + 4);
+        int32_t nameRel = readInt32LE(memory, nameRelAddr);
+
+        std::string typeName;
+        if (nameRel != 0) {
+            Address nameAddr = resolveOffset(nameRelAddr, nameRel);
+            if (memory->getBlock(nameAddr)) {
+                std::string mangled = readCString(memory, nameAddr);
+                typeName = demangleSwiftName(mangled);
+            }
+        }
+
+        uint32_t numFieldsAddr = descAddr.getOffset() + 12;
+        uint32_t numFields = readUInt32LE(memory, Address(space, static_cast<int64_t>(numFieldsAddr)));
+
+        // Create a label for the field descriptor itself
+        if (!typeName.empty()) {
+            std::string label = "swift_fields_" + sanitizeLabel(typeName);
+            symTable->createLabel(descAddr, label, SourceType::ANALYSIS);
+            ++labelCount;
+        }
+
+        // Parse field records (each field record is 16 bytes minimum)
+        Address fieldRecAddr(space, descAddr.getOffset() + 16);
+        for (uint32_t fi = 0; fi < numFields && fi < 256; ++fi) {
+            if (monitor->isCancelled()) break;
+
+            // Field record layout:
+            // offset 0: int32_t mangled field name relative offset
+            // offset 4: int32_t mangled type name relative offset
+            // offset 8: uint16_t flags
+            // offset 10: uint16_t reserved
+            // offset 12: int32_t field offset relative to (for class, fixed parts)
+            int32_t fieldNameRel = readInt32LE(memory, fieldRecAddr);
+            int32_t fieldTypeRel = readInt32LE(memory, Address(space, fieldRecAddr.getOffset() + 4));
+
+            std::string fieldName;
+            if (fieldNameRel != 0) {
+                Address fnAddr = resolveOffset(fieldRecAddr, fieldNameRel);
+                if (memory->getBlock(fnAddr)) {
+                    fieldName = readCString(memory, fnAddr);
+                }
+            }
+
+            std::string fieldTypeName;
+            if (fieldTypeRel != 0) {
+                Address ftAddr = resolveOffset(fieldRecAddr, fieldTypeRel);
+                if (memory->getBlock(ftAddr)) {
+                    std::string mangledType = readCString(memory, ftAddr);
+                    fieldTypeName = demangleSwiftName(mangledType);
+                }
+            }
+
+            if (!fieldName.empty() && !fieldTypeName.empty()) {
+                // Create a label for the field
+                std::string fieldLabel = typeName + "." + fieldName;
+                symTable->createLabel(fieldRecAddr, "swift_field_" + sanitizeLabel(fieldLabel),
+                                      SourceType::ANALYSIS);
+                ++labelCount;
+                ++fieldCount;
+            }
+
+            fieldRecAddr = Address(space, fieldRecAddr.getOffset() + 16);
+        }
+
+        cur = Address(space, cur.getOffset() + 4);
+    }
+}
+
+// Process a __swift5_assocty section block (associated type descriptors).
+static void processAssociatedTypeSection(Memory* memory, SymbolTable* symTable,
+                                          MemoryBlock* block, TaskMonitor* monitor,
+                                          int& assocCount) {
+    Address cur = block->getStart();
+    Address end = block->getEnd();
+    AddressSpace* space = cur.getAddressSpace();
+
+    while (cur <= end && !monitor->isCancelled()) {
+        int32_t raw = readInt32LE(memory, cur);
+        if (raw == 0) {
+            cur = Address(space, cur.getOffset() + 4);
+            continue;
+        }
+
+        Address descAddr = resolveOffset(cur, raw);
+        if (!descAddr.isValid() || !memory->getBlock(descAddr)) {
+            cur = Address(space, cur.getOffset() + 4);
+            continue;
+        }
+
+        // Associated type descriptor:
+        // offset 0: int32_t conforming type relative offset
+        // offset 4: int32_t protocol type relative offset
+        // offset 8: uint32_t num associated types
+        // offset 12: associated type records...
+
+        int32_t conformingRel = readInt32LE(memory, descAddr);
+        int32_t protocolRel = readInt32LE(memory, Address(space, descAddr.getOffset() + 4));
+
+        std::string conformingName;
+        if (conformingRel != 0) {
+            Address nameAddr = resolveOffset(descAddr, conformingRel);
+            if (memory->getBlock(nameAddr)) {
+                conformingName = demangleSwiftName(readCString(memory, nameAddr));
+            }
+        }
+
+        std::string protocolName;
+        if (protocolRel != 0) {
+            Address nameAddr = resolveOffset(descAddr, protocolRel);
+            if (memory->getBlock(nameAddr)) {
+                protocolName = demangleSwiftName(readCString(memory, nameAddr));
+            }
+        }
+
+        if (!conformingName.empty()) {
+            std::string label = "swift_assoc_" + sanitizeLabel(conformingName);
+            if (!protocolName.empty()) label += "_impl_" + sanitizeLabel(protocolName);
+            symTable->createLabel(descAddr, label, SourceType::ANALYSIS);
+            ++assocCount;
+        }
+
+        cur = Address(space, cur.getOffset() + 4);
+    }
+}
+
 } // anonymous namespace
 
 SwiftTypeMetadataAnalyzer::SwiftTypeMetadataAnalyzer()
@@ -248,7 +413,23 @@ SwiftTypeMetadataAnalyzer::SwiftTypeMetadataAnalyzer()
 }
 
 bool SwiftTypeMetadataAnalyzer::canAnalyze(Program* program) const {
-    return program != nullptr;
+    if (!program || !program->getLanguage()) return false;
+
+    // Check if compiler spec is Swift
+    std::string langId = program->getLanguageID().getIdAsString();
+    if (langId.find("swift") != std::string::npos ||
+        langId.find("Swift") != std::string::npos) return true;
+
+    // Check for Swift sections in memory
+    if (program->getMemory()) {
+        for (auto* block : program->getMemory()->getBlocks()) {
+            std::string name = block->getName();
+            if (name.find("__swift5_") != std::string::npos) return true;
+            if (name.find("swift5_") != std::string::npos) return true;
+        }
+    }
+
+    return false;
 }
 
 bool SwiftTypeMetadataAnalyzer::added(Program* program, const AddressSetView& set,
@@ -263,20 +444,26 @@ bool SwiftTypeMetadataAnalyzer::added(Program* program, const AddressSetView& se
 
     int typeCount = 0;
     int labelCount = 0;
+    int fieldCount = 0;
+    int assocCount = 0;
 
     for (auto* block : memory->getBlocks()) {
         if (monitor->isCancelled()) break;
         std::string name = block->getName();
         if (name == "__swift5_types" || name.find("__swift5_types") != std::string::npos) {
             processTypesSection(memory, symbolTable, block, monitor, typeCount, labelCount);
+        } else if (name == "__swift5_fieldmd" || name.find("__swift5_fieldmd") != std::string::npos) {
+            processFieldMetadataSection(memory, symbolTable, block, monitor, fieldCount, labelCount);
+        } else if (name == "__swift5_assocty" || name.find("__swift5_assocty") != std::string::npos) {
+            processAssociatedTypeSection(memory, symbolTable, block, monitor, assocCount);
         }
     }
 
-    if (typeCount > 0) {
+    if (typeCount > 0 || fieldCount > 0 || assocCount > 0) {
         Msg::info(getName(), "Discovered " + std::to_string(typeCount) +
-                  " Swift type" + (typeCount != 1 ? "s" : "") +
-                  ", created " + std::to_string(labelCount) + " label" +
-                  (labelCount != 1 ? "s" : "") + ".");
+                  " Swift types, " + std::to_string(fieldCount) +
+                  " field records, " + std::to_string(assocCount) +
+                  " associated types, created " + std::to_string(labelCount) + " labels.");
     }
 
     return true;

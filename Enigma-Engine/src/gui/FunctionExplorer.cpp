@@ -95,7 +95,6 @@ void FunctionExplorer::onItemClicked(QTreeWidgetItem* item, int) {
 }
 
 void FunctionExplorer::highlightAddress(uint64_t addr) {
-    // Walk all items and select the one matching addr, without emitting signals
     tree_->blockSignals(true);
     for (int i = 0; i < tree_->topLevelItemCount(); ++i) {
         QTreeWidgetItem* top = tree_->topLevelItem(i);

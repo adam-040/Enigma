@@ -954,6 +954,137 @@ static int findZeroPrologueFunctions(Program* program, TaskMonitor* monitor, int
     return found;
 }
 
+// Walk forward from `entry` over consecutive NOP/INT3 padding instructions.
+// Returns the address of the first non-padding instruction, or an invalid
+// address when the padding runs to a block boundary (no real code follows).
+static Address trimPaddingEntry(Memory* memory, Disassembler* disassembler, const Address& entry) {
+    if (!memory || !disassembler) return entry;
+    MemoryBlock* block = memory->getBlock(entry);
+    if (!block || !block->isExecute() || !block->isInitialized()) return entry;
+
+    uint8_t b0 = 0;
+    try {
+        if (memory->getBytes(entry, &b0, 1) < 1) return entry;
+    } catch (...) { return entry; }
+    if (b0 != 0x90 && b0 != 0xCC && b0 != 0x66 && b0 != 0x0F) return entry;
+
+    const uint64_t blockEnd = static_cast<uint64_t>(block->getEnd().getOffset());
+    uint64_t cur = static_cast<uint64_t>(entry.getOffset());
+    for (int guard = 0; guard < 64; ++guard) {
+        if (cur >= blockEnd) return Address();
+        std::vector<uint8_t> bytes(16);
+        int got = 0;
+        try {
+            got = memory->getBytes(Address(entry.getAddressSpace(), static_cast<int64_t>(cur)),
+                                   bytes.data(), 16);
+        } catch (...) { return Address(); }
+        if (got < 1) return Address();
+        size_t chunkSize = std::min(static_cast<size_t>(15), static_cast<size_t>(got));
+        std::vector<uint8_t> chunk(bytes.begin(),
+                                   bytes.begin() + static_cast<int64_t>(chunkSize));
+        auto di = disassembler->disassembleOne(chunk, cur);
+        if (di.length <= 0 || static_cast<size_t>(di.length) > chunkSize) return Address();
+        if (di.mnemonic != "nop" && di.mnemonic != "int3") {
+            return Address(entry.getAddressSpace(), static_cast<int64_t>(cur));
+        }
+        cur += static_cast<uint64_t>(di.length);
+    }
+    return Address();
+}
+
+// Post-pass: functions whose entry lands on alignment padding (NOP/INT3 runs)
+// are trimmed forward to the first real instruction, or dropped entirely when
+// the padding runs to a block boundary. Prevents phantom func_0x* entries
+// from anchoring on padding bytes. Returns the number of entries adjusted.
+static int trimPaddingFunctionEntries(Program* program, TaskMonitor* monitor) {
+    Memory* memory = program->getMemory();
+    FunctionManager* funcMgr = program->getFunctionManager();
+    if (!memory || !funcMgr) return 0;
+
+    LanguageID lid = program->getLanguageID();
+    std::string lidStr = lid.getIdAsString();
+    std::string arch = languageToArchShort(lidStr);
+    if (arch.empty()) return 0;
+    int bitness = (lidStr.find("64") != std::string::npos) ? 64 : 32;
+    auto disassembler = createDisassembler(arch, bitness, languageIsBigEndian(lidStr));
+    if (!disassembler) return 0;
+
+    // Collect candidates first: entries whose first byte can start a padding
+    // sequence. Entries already starting with a real opcode are never touched.
+    std::vector<Function*> candidates;
+    {
+        FunctionIterator fit = funcMgr->getFunctions(true);
+        while (fit.hasNext()) {
+            Function* f = fit.next();
+            if (!f || monitor->isCancelled()) continue;
+            Address entry = f->getEntryPoint();
+            if (!entry.isValid()) continue;
+            uint8_t b0 = 0;
+            try {
+                if (memory->getBytes(entry, &b0, 1) < 1) continue;
+            } catch (...) { continue; }
+            if (b0 != 0x90 && b0 != 0xCC && b0 != 0x66 && b0 != 0x0F) continue;
+            candidates.push_back(f);
+        }
+    }
+
+    int moved = 0, dropped = 0;
+    for (Function* f : candidates) {
+        if (monitor->isCancelled()) break;
+        Address entry = f->getEntryPoint();
+        const Address trimmed = trimPaddingEntry(memory, disassembler.get(), entry);
+        if (!trimmed.isValid()) {
+            // Padding runs to a block boundary: no real code follows, so the
+            // phantom function has nothing to anchor on — drop it.
+            try {
+                if (funcMgr->removeFunction(entry)) ++dropped;
+            } catch (const std::exception&) {}
+            continue;
+        }
+        if (trimmed == entry) continue;
+
+        // A different function already owns the trimmed entry: the phantom is
+        // redundant — just remove it.
+        if (funcMgr->getFunctionAt(trimmed)) {
+            try {
+                if (funcMgr->removeFunction(entry)) ++dropped;
+            } catch (const std::exception&) {}
+            continue;
+        }
+
+        // Never steal an address covered by another function's body.
+        Function* containing = funcMgr->getFunctionContaining(trimmed);
+        if (containing && containing != f && containing->getEntryPoint() != entry) continue;
+
+        // Move the entry forward to the first real instruction, preserving any
+        // body tail that may already have been expanded past the padding.
+        std::string name = f->getName();
+        AddressSet body(trimmed, trimmed);
+        const AddressSet& oldBody = f->getBody();
+        if (!oldBody.isEmpty()) {
+            Address bMax = oldBody.getMaxAddress();
+            if (bMax.isValid() &&
+                static_cast<uint64_t>(bMax.getOffset()) >=
+                    static_cast<uint64_t>(trimmed.getOffset())) {
+                body = AddressSet(trimmed, bMax);
+            }
+        }
+        try {
+            funcMgr->removeFunction(entry);
+            funcMgr->createFunction(name, trimmed, body, SourceType::ANALYSIS);
+            ++moved;
+        } catch (const std::exception&) {}
+    }
+
+    if (moved || dropped) {
+        Msg::info("Function Start Search",
+                  "Trimmed " + std::to_string(moved) +
+                  " function start(s) off padding, dropped " +
+                  std::to_string(dropped) + ".");
+    }
+    return moved + dropped;
+}
+
 FunctionStartAnalyzer::FunctionStartAnalyzer()
     : AbstractAnalyzer("Function Start Search",
                        "Finds generic function starts using byte patterns.",
@@ -971,7 +1102,7 @@ bool FunctionStartAnalyzer::added(Program* program, const AddressSetView& set,
                                    TaskMonitor* monitor, MessageLog& log) {
     if (!program || !monitor) return false;
     std::vector<Address> createdCandidates;
-    int total = 0, pdataC = 0, patC = 0, callC = 0, jmpC = 0, multiC = 0, zeroC = 0, wrapC = 0;
+    int total = 0, pdataC = 0, patC = 0, callC = 0, jmpC = 0, multiC = 0, zeroC = 0, wrapC = 0, trimC = 0;
     FunctionManager* funcMgr = program->getFunctionManager();
 
     {
@@ -1062,6 +1193,13 @@ bool FunctionStartAnalyzer::added(Program* program, const AddressSetView& set,
         }
     }
 
+    // Trim function entries that landed on alignment padding (NOP/INT3 runs).
+    // Runs last so every discovery pass (including edge cases) feeds it.
+    {
+        monitor->setMessage("Trimming function starts off padding...");
+        trimC = trimPaddingFunctionEntries(program, monitor);
+    }
+
     Msg::info(getName(), "Found " + std::to_string(total) +
               " function starts (pdata:" + std::to_string(pdataC) +
               " pattern:" + std::to_string(patC) +
@@ -1069,7 +1207,8 @@ bool FunctionStartAnalyzer::added(Program* program, const AddressSetView& set,
               " jmp:" + std::to_string(jmpC) +
               " multi:" + std::to_string(multiC) +
               " zero:" + std::to_string(zeroC) +
-              " wrapper:" + std::to_string(wrapC) + ").");
+              " wrapper:" + std::to_string(wrapC) +
+              " trim:" + std::to_string(trimC) + ").");
     return true;
 }
 

@@ -84,6 +84,13 @@ private:
     void mapFloatCmp(const DisassembledInstruction& di, Funcdata& fd, const Address& addr, int opcode);
     void mapFloatUnary(const DisassembledInstruction& di, Funcdata& fd, const Address& addr, int opcode);
 
+    // SIMD vector micro-op handlers
+    void mapPinsrw(const DisassembledInstruction& di, Funcdata& fd, const Address& addr);
+    void mapVpextrb(const DisassembledInstruction& di, Funcdata& fd, const Address& addr);
+    void mapPslld(const DisassembledInstruction& di, Funcdata& fd, const Address& addr);
+    void mapGf2p8affine(const DisassembledInstruction& di, Funcdata& fd, const Address& addr);
+    void mapVpermd(const DisassembledInstruction& di, Funcdata& fd, const Address& addr);
+
     // per-architecture dispatch tables
     using Handler = std::function<void(const DisassembledInstruction&, Funcdata&, const Address&)>;
     std::unordered_map<std::string, Handler> x86Handlers_;

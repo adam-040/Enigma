@@ -27,7 +27,13 @@
 #include <sstream>
 #include <iomanip>
 #include <algorithm>
+#include <cstdlib>
+#if defined(_WIN32)
 #include <direct.h>
+#else
+#include <sys/stat.h>
+#include <sys/types.h>
+#endif
 
 namespace ghidra {
 
@@ -120,10 +126,8 @@ static bool downloadPdbFromSymbolServer(const std::string& pdbFilename,
 
     Msg::info("PDB Universal", "Downloading PDB: " + url);
 
-    // Use URLDownloadToFile via COM (Windows)
-    // We use the simpler WinHTTP approach
 #if defined(_WIN32)
-    // Build a PowerShell download command that works on all modern Windows
+    // Use PowerShell on Windows
     std::string cmd = "powershell -Command \"$wc = New-Object System.Net.WebClient; try { $wc.DownloadFile('" +
                       url + "', '" + localPath + "'); Write-Output 'OK' } catch { Write-Output 'FAIL' }\" 2>nul";
 
@@ -133,12 +137,10 @@ static bool downloadPdbFromSymbolServer(const std::string& pdbFilename,
         if (fgets(buf, sizeof(buf), pipe)) {
             pclose(pipe);
             std::string result(buf);
-            // Trim whitespace
             while (!result.empty() && (result.back() == '\n' || result.back() == '\r' || result.back() == ' '))
                 result.pop_back();
             bool success = (result == "OK");
 
-            // Verify the downloaded file
             if (success) {
                 std::ifstream f(localPath, std::ios::binary | std::ios::ate);
                 if (f.good() && f.tellg() > 1024) {
@@ -148,6 +150,18 @@ static bool downloadPdbFromSymbolServer(const std::string& pdbFilename,
             }
         } else {
             pclose(pipe);
+        }
+    }
+#else
+    // Use curl on Linux/macOS
+    std::string cmd = "curl -sS -L -o \"" + localPath + "\" \"" + url + "\" 2>/dev/null";
+
+    int ret = std::system(cmd.c_str());
+    if (ret == 0) {
+        std::ifstream f(localPath, std::ios::binary | std::ios::ate);
+        if (f.good() && f.tellg() > 1024) {
+            Msg::info("PDB Universal", "PDB downloaded successfully: " + localPath);
+            return true;
         }
     }
 #endif
@@ -212,7 +226,11 @@ bool PdbUniversalAnalyzer::added(Program* program, const AddressSetView& set,
     if (!opened && info.hasRsds && !pdbFilename.empty() && !info.guidStr.empty()) {
         std::string downloadPath = "pdbs/" + pdbFilename;
         // Create pdbs directory
+#if defined(_WIN32)
         (void)_mkdir("pdbs");
+#else
+        (void)mkdir("pdbs", 0755);
+#endif
         if (downloadPdbFromSymbolServer(pdbFilename, info.guidStr, downloadPath)) {
             if (pdb.open(downloadPath)) {
                 opened = true;

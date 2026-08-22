@@ -47,6 +47,44 @@ static bool parseHexOperand(const std::string& op, uint64_t& out) {
     }
 }
 
+bool DisassemblyAnalyzer::isMips16eSwitchInstruction(const std::string& mnemonic) const {
+    // MIPS16e mode-switch instructions:
+    // - jalx: Jump and Link Exchange (switches to MIPS16e mode)
+    // - jr.hb / jrc: Jump Register with Hazard Barrier (switches back to MIPS32)
+    // - jalx with ISA_MODE context register change
+    std::string m = mnemonic;
+    std::transform(m.begin(), m.end(), m.begin(),
+                   [](unsigned char c) { return static_cast<unsigned char>(std::tolower(c)); });
+    return m == "jalx" || m == "jr.hb" || m == "jrc" || m == "jrc.hb" ||
+           m == "jalxc" || m == "jr.hb" || m == "jrc" || m == "restore" ||
+           m == "save";
+}
+
+void DisassemblyAnalyzer::handleMips16eContextSwitch(const DisassembledInstruction& di,
+                                                      Disassembler* disassembler,
+                                                      uint64_t addr) {
+    if (!isMips_) return;
+
+    std::string m = di.mnemonic;
+    std::transform(m.begin(), m.end(), m.begin(),
+                   [](unsigned char c) { return static_cast<unsigned char>(std::tolower(c)); });
+
+    int newMode = currentIsaMode_;
+    if (m == "jalx" || m == "jalxc") {
+        newMode = 1; // Switch to MIPS16e
+    } else if (m == "jr.hb" || m == "jrc" || m == "jrc.hb" || m == "restore" || m == "save") {
+        newMode = 0; // Switch back to MIPS32
+    }
+
+    if (newMode != currentIsaMode_) {
+        contextTable_[addr] = newMode;
+        currentIsaMode_ = newMode;
+        if (disassembler) {
+            disassembler->setMode(currentIsaMode_);
+        }
+    }
+}
+
 bool DisassemblyAnalyzer::canAnalyze(Program* program) const {
     if (!program) return false;
     return program->getMemory() && program->getAddressFactory() &&
@@ -75,7 +113,7 @@ bool DisassemblyAnalyzer::added(Program* program, const AddressSetView& set,
             arch = "x86";
         else if (lidStr.find("AARCH64") != std::string::npos) arch = "aarch64";
         else if (lidStr.find("ARM") != std::string::npos) arch = "arm";
-        else if (lidStr.find("MIPS") != std::string::npos) arch = "mips";
+        else if (lidStr.find("MIPS") != std::string::npos) { arch = "mips"; isMips_ = true; }
         else if (lidStr.find("PowerPC") != std::string::npos) arch = "ppc";
         if (lidStr.find(":BE:") != std::string::npos)
             bigEndian = true;
@@ -221,6 +259,11 @@ bool DisassemblyAnalyzer::added(Program* program, const AddressSetView& set,
             }
             listing->addInstruction(inst);
             ++totalInstructions;
+
+            // MIPS16e / microMIPS context-based ISA mode switching (GP-6766)
+            if (isMips_ && !di.mnemonic.empty()) {
+                handleMips16eContextSwitch(di, disassembler.get(), currentAddr);
+            }
 
             if (totalInstructions >= nextLogInstr) {
                 std::cerr << "[INFO] DisassemblyAnalyzer: " << totalInstructions

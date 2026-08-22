@@ -2182,6 +2182,188 @@ void PcodeCapstoneMapper::buildPPCHandlers() {
     ppcHandlers_["stvxl"] = [this](const auto& di, auto& fd, const auto& addr) { mapStore(di, fd, addr); };
 }
 
+// ---- SIMD Vector Micro-Op Handlers (GP-6061 / GP-6767) ----
+
+void PcodeCapstoneMapper::mapPinsrw(const DisassembledInstruction& di, Funcdata& fd, const Address& addr) {
+    int ptrSize = (architecture_.find("64") != std::string::npos) ? 8 : 4;
+    if (di.operands.size() < 2) return;
+    VarnodeAST* xmmDst = parseOperand(di.operands[0], fd, addr, 16);
+    if (!xmmDst) return;
+    VarnodeAST* xmmSrc = parseOperand(di.operands[0], fd, addr, 16);
+    if (!xmmSrc) return;
+
+    int immVal = 0;
+    const std::string& lastOp = di.operands.back();
+    if (!lastOp.empty()) {
+        if (lastOp[0] == '#') {
+            immVal = std::stoi(lastOp.substr(1));
+        } else if (std::isdigit(static_cast<unsigned char>(lastOp[0]))) {
+            immVal = std::stoi(lastOp);
+        } else if (lastOp.size() > 2 && lastOp[0] == '0' && (lastOp[1] == 'x' || lastOp[1] == 'X')) {
+            immVal = static_cast<int>(std::stoul(lastOp, nullptr, 16));
+        }
+    }
+    int immByte = immVal & 7;
+    int byteOff = immByte * 2;
+
+    VarnodeAST* gprSrc = parseOperand(di.operands[1], fd, addr, ptrSize);
+    if (!gprSrc) return;
+
+    VarnodeAST* word = makeUnique(fd, 2);
+    emitOp(fd, addr, 0, PcodeOp::SUBPIECE, {gprSrc, makeConst(fd, 0, ptrSize)}, word);
+
+    VarnodeAST* wordZ = makeUnique(fd, 16);
+    emitOp(fd, addr, 1, PcodeOp::PIECE, {makeConst(fd, 0, 14), word}, wordZ);
+    VarnodeAST* shifted = makeUnique(fd, 16);
+    emitOp(fd, addr, 2, PcodeOp::INT_LEFT, {wordZ, makeConst(fd, byteOff * 8, 16)}, shifted);
+
+    uint64_t loMask = (byteOff > 0) ? ((uint64_t(1) << (byteOff * 8)) - 1) : 0;
+    uint64_t hiShift = (byteOff + 2) * 8;
+    uint64_t hiMask = (hiShift < 128) ? ~((uint64_t(1) << hiShift) - 1) : 0;
+
+    if (loMask != 0) {
+        VarnodeAST* lo = makeUnique(fd, 16);
+        emitOp(fd, addr, 3, PcodeOp::INT_AND, {xmmSrc, makeConst(fd, loMask, 16)}, lo);
+        shifted = lo;
+    }
+    VarnodeAST* tmp = makeUnique(fd, 16);
+    emitOp(fd, addr, 4, PcodeOp::INT_OR, {shifted, wordZ}, tmp);
+    if (hiMask != 0) {
+        VarnodeAST* hi = makeUnique(fd, 16);
+        emitOp(fd, addr, 5, PcodeOp::INT_AND, {xmmSrc, makeConst(fd, hiMask, 16)}, hi);
+        tmp = hi;
+    }
+    emitOp(fd, addr, 6, PcodeOp::INT_OR, {tmp, wordZ}, xmmDst);
+}
+
+void PcodeCapstoneMapper::mapVpextrb(const DisassembledInstruction& di, Funcdata& fd, const Address& addr) {
+    int ptrSize = (architecture_.find("64") != std::string::npos) ? 8 : 4;
+    if (di.operands.size() < 2) return;
+    VarnodeAST* dst = parseOperand(di.operands[0], fd, addr, ptrSize);
+    VarnodeAST* xmmSrc = parseOperand(di.operands[1], fd, addr, 16);
+    if (!dst || !xmmSrc) return;
+
+    int immVal = 0;
+    if (di.operands.size() > 2) {
+        const std::string& immOp = di.operands[2];
+        if (!immOp.empty()) {
+            if (immOp[0] == '#') {
+                immVal = std::stoi(immOp.substr(1));
+            } else if (std::isdigit(static_cast<unsigned char>(immOp[0]))) {
+                immVal = std::stoi(immOp);
+            } else if (immOp.size() > 2 && immOp[0] == '0' && (immOp[1] == 'x' || immOp[1] == 'X')) {
+                immVal = static_cast<int>(std::stoul(immOp, nullptr, 16));
+            }
+        }
+    }
+    int byteOff = immVal & 15;
+
+    VarnodeAST* byte = makeUnique(fd, 1);
+    emitOp(fd, addr, 0, PcodeOp::SUBPIECE, {xmmSrc, makeConst(fd, byteOff, 16)}, byte);
+    emitOp(fd, addr, 1, PcodeOp::PIECE, {makeConst(fd, 0, ptrSize - 1), byte}, dst);
+}
+
+void PcodeCapstoneMapper::mapPslld(const DisassembledInstruction& di, Funcdata& fd, const Address& addr) {
+    int ptrSize = (architecture_.find("64") != std::string::npos) ? 8 : 4;
+    if (di.operands.size() < 2) return;
+    VarnodeAST* xmmDst = parseOperand(di.operands[0], fd, addr, 16);
+    if (!xmmDst) return;
+
+    const std::string& countOp = di.operands.back();
+    int immCount = 0;
+    bool isImmediate = false;
+    if (!countOp.empty()) {
+        if (countOp[0] == '#') {
+            immCount = std::stoi(countOp.substr(1));
+            isImmediate = true;
+        } else if (std::isdigit(static_cast<unsigned char>(countOp[0]))) {
+            immCount = std::stoi(countOp);
+            isImmediate = true;
+        } else if (countOp.size() > 2 && countOp[0] == '0' && (countOp[1] == 'x' || countOp[1] == 'X')) {
+            immCount = static_cast<int>(std::stoul(countOp, nullptr, 16));
+            isImmediate = true;
+        }
+    }
+
+    if (isImmediate) {
+        int shiftBits = immCount & 31;
+        emitOp(fd, addr, 0, PcodeOp::INT_LEFT, {xmmDst, makeConst(fd, shiftBits, 16)}, xmmDst);
+    } else {
+        VarnodeAST* xmmSrc = parseOperand(di.operands[1], fd, addr, 16);
+        if (!xmmSrc) return;
+        VarnodeAST* countByte = makeUnique(fd, 1);
+        emitOp(fd, addr, 0, PcodeOp::SUBPIECE, {xmmSrc, makeConst(fd, 0, 16)}, countByte);
+        VarnodeAST* countZext = makeUnique(fd, 16);
+        emitOp(fd, addr, 1, PcodeOp::PIECE, {makeConst(fd, 0, 15), countByte}, countZext);
+        VarnodeAST* masked = makeUnique(fd, 16);
+        emitOp(fd, addr, 2, PcodeOp::INT_AND, {countZext, makeConst(fd, 0x1F, 16)}, masked);
+        emitOp(fd, addr, 3, PcodeOp::INT_LEFT, {xmmDst, masked}, xmmDst);
+    }
+}
+
+void PcodeCapstoneMapper::mapGf2p8affine(const DisassembledInstruction& di, Funcdata& fd, const Address& addr) {
+    int ptrSize = (architecture_.find("64") != std::string::npos) ? 8 : 4;
+    if (di.operands.size() < 2) return;
+    VarnodeAST* xmmDst = parseOperand(di.operands[0], fd, addr, 16);
+    if (!xmmDst) return;
+    VarnodeAST* xmmSrc1 = parseOperand(di.operands[0], fd, addr, 16);
+    VarnodeAST* xmmSrc2 = parseOperand(di.operands[1], fd, addr, 16);
+    if (!xmmSrc1 || !xmmSrc2) return;
+
+    VarnodeAST* xorResult = makeUnique(fd, 16);
+    emitOp(fd, addr, 0, PcodeOp::INT_XOR, {xmmSrc1, xmmSrc2}, xorResult);
+
+    int immVal = 0;
+    if (di.operands.size() > 2) {
+        const std::string& immOp = di.operands[2];
+        if (!immOp.empty()) {
+            if (immOp[0] == '#') {
+                immVal = std::stoi(immOp.substr(1));
+            } else if (std::isdigit(static_cast<unsigned char>(immOp[0]))) {
+                immVal = std::stoi(immOp);
+            } else if (immOp.size() > 2 && immOp[0] == '0' && (immOp[1] == 'x' || immOp[1] == 'X')) {
+                immVal = static_cast<int>(std::stoul(immOp, nullptr, 16));
+            }
+        }
+    }
+
+    VarnodeAST* shifted = makeUnique(fd, 16);
+    int rotateAmt = (immVal & 7);
+    if (rotateAmt == 0) {
+        emitOp(fd, addr, 1, PcodeOp::COPY, {xorResult}, xmmDst);
+    } else {
+        emitOp(fd, addr, 1, PcodeOp::INT_LEFT, {xorResult, makeConst(fd, rotateAmt, 16)}, shifted);
+        VarnodeAST* xorShifted = makeUnique(fd, 16);
+        emitOp(fd, addr, 2, PcodeOp::INT_XOR, {shifted, xorResult}, xorShifted);
+        emitOp(fd, addr, 3, PcodeOp::COPY, {xorShifted}, xmmDst);
+    }
+}
+
+void PcodeCapstoneMapper::mapVpermd(const DisassembledInstruction& di, Funcdata& fd, const Address& addr) {
+    int ptrSize = (architecture_.find("64") != std::string::npos) ? 8 : 4;
+    if (di.operands.size() < 2) return;
+    VarnodeAST* ymmDst = parseOperand(di.operands[0], fd, addr, 32);
+    if (!ymmDst) return;
+
+    if (di.operands.size() >= 3) {
+        VarnodeAST* ymmIdx = parseOperand(di.operands[2], fd, addr, 32);
+        VarnodeAST* ymmSrc = parseOperand(di.operands[1], fd, addr, 32);
+        if (ymmIdx && ymmSrc) {
+            VarnodeAST* idxLo = makeUnique(fd, 16);
+            emitOp(fd, addr, 0, PcodeOp::SUBPIECE, {ymmIdx, makeConst(fd, 0, 32)}, idxLo);
+            VarnodeAST* srcLo = makeUnique(fd, 16);
+            emitOp(fd, addr, 1, PcodeOp::SUBPIECE, {ymmSrc, makeConst(fd, 0, 32)}, srcLo);
+            emitOp(fd, addr, 2, PcodeOp::COPY, {srcLo}, ymmDst);
+            return;
+        }
+    }
+
+    VarnodeAST* ymmSrc = parseOperand(di.operands[1], fd, addr, 32);
+    if (ymmSrc) {
+        emitOp(fd, addr, 0, PcodeOp::COPY, {ymmSrc}, ymmDst);
+    }
+}
+
 // ---- X86 Handler Table ----
 
 void PcodeCapstoneMapper::buildX86Handlers() {
@@ -2759,7 +2941,7 @@ void PcodeCapstoneMapper::buildX86Handlers() {
     x86Handlers_["pxor"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
     x86Handlers_["pandn"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
     x86Handlers_["psllw"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
-    x86Handlers_["pslld"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
+    x86Handlers_["pslld"] = [this](const auto& di, auto& fd, const auto& addr) { mapPslld(di, fd, addr); };
     x86Handlers_["psllq"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
     x86Handlers_["psrlw"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
     x86Handlers_["psrld"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
@@ -2855,7 +3037,7 @@ void PcodeCapstoneMapper::buildX86Handlers() {
     x86Handlers_["vpxor"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
     x86Handlers_["vpandn"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
     x86Handlers_["vpsllw"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
-    x86Handlers_["vpslld"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
+    x86Handlers_["vpslld"] = [this](const auto& di, auto& fd, const auto& addr) { mapPslld(di, fd, addr); };
     x86Handlers_["vpsllq"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
     x86Handlers_["vpsrlw"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
     x86Handlers_["vpsrld"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
@@ -2893,7 +3075,9 @@ void PcodeCapstoneMapper::buildX86Handlers() {
     x86Handlers_["vpinsrb"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
     x86Handlers_["vpinsrd"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
     x86Handlers_["vpinsrq"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
-    x86Handlers_["vpextrb"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
+    x86Handlers_["pinsrw"] = [this](const auto& di, auto& fd, const auto& addr) { mapPinsrw(di, fd, addr); };
+    x86Handlers_["vpinsrw"] = [this](const auto& di, auto& fd, const auto& addr) { mapPinsrw(di, fd, addr); };
+    x86Handlers_["vpextrb"] = [this](const auto& di, auto& fd, const auto& addr) { mapVpextrb(di, fd, addr); };
     x86Handlers_["vpextrd"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
     x86Handlers_["vpextrq"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
     x86Handlers_["vpmovsxbw"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
@@ -2952,6 +3136,7 @@ void PcodeCapstoneMapper::buildX86Handlers() {
     x86Handlers_["vpermpd"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
     x86Handlers_["vperm2i128"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
     x86Handlers_["vperm2f128"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
+    x86Handlers_["vpermd"] = [this](const auto& di, auto& fd, const auto& addr) { mapVpermd(di, fd, addr); };
     x86Handlers_["vinsertf128"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
     x86Handlers_["vextractf128"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
     x86Handlers_["vinserti128"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
@@ -3165,7 +3350,7 @@ void PcodeCapstoneMapper::buildX86Handlers() {
     x86Handlers_["vpclmulqdq"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
 
     // --- GFNI (GF2P8AFFINEQB, GF2P8MULB) ---
-    x86Handlers_["gf2p8affineqb"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
+    x86Handlers_["gf2p8affineqb"] = [this](const auto& di, auto& fd, const auto& addr) { mapGf2p8affine(di, fd, addr); };
     x86Handlers_["gf2p8affineinvqb"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
     x86Handlers_["gf2p8mulb"] = [this](const auto& di, auto& fd, const auto& addr) { mapCopyMov(di, fd, addr); };
 }

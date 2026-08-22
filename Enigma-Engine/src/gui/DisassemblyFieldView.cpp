@@ -11,6 +11,11 @@
 #include <ghidra/CodeUnit.h>
 #include <ghidra/patch/PatchManager.h>
 #include <ghidra/patch/Patch.h>
+#include <ghidra/SymbolTable.h>
+#include <ghidra/SymbolIterator.h>
+#include <ghidra/SymbolType.h>
+#include <ghidra/FunctionManager.h>
+#include <ghidra/FunctionIterator.h>
 #include <QPainter>
 #include <QPaintEvent>
 #include <QResizeEvent>
@@ -23,6 +28,7 @@
 #include <QClipboard>
 #include <QMenu>
 #include <QPainterPath>
+#include <QSvgRenderer>
 #include <QPropertyAnimation>
 #include <QEasingCurve>
 #include <iostream>
@@ -146,6 +152,7 @@ void DisassemblyFieldView::buildFullIndex() {
     fallbackLines_.clear();
     decodedCache_.clear();
     buildCFG();
+    buildGuardCfgSet();
     currentRow_ = 0;
     currentAddr_ = 0;
     anchor_ = caret_ = {0, 0};
@@ -473,6 +480,18 @@ const DisassemblyFieldView::DecodedInstruction* DisassemblyFieldView::decodedIns
     DecodedInstruction inst;
     inst.address = addr;
     inst.length = model_.instructionLengthAt(addr);
+
+    // GP-6766: Detect MIPS16e by 2-byte instruction length in MIPS programs
+    if (inst.length == 2 && program_) {
+        auto* lang = program_->getLanguage();
+        if (lang) {
+            std::string langId = lang->getLanguageID().toString();
+            if (langId.find("MIPS") != std::string::npos) {
+                inst.isMips16e = true;
+            }
+        }
+    }
+
     if (inst.length <= 0) {
         inst.mnemonic.clear();
         inst.operands.clear();
@@ -989,6 +1008,12 @@ void DisassemblyFieldView::paintEvent(QPaintEvent* event) {
                 if (!inst) continue;
                 toks = &inst->tokens;
                 maxCol = inst->totalCols;
+
+                // GP-6766: MIPS16e instructions get a subtle tint
+                if (inst->isMips16e) {
+                    painter.fillRect(cfaMarginPx_ - scrollX, y, vpW, cellH,
+                        QColor(0xE8, 0xF0, 0xFE, 180));  // light blue tint
+                }
             } else {
                 toks = rowTokens(ri);
                 maxCol = 0;
@@ -1068,6 +1093,25 @@ void DisassemblyFieldView::paintEvent(QPaintEvent* event) {
 
     // 1px vertical separator isolating the CFG margin from text area
     painter.fillRect(cfaMarginPx_ - scrollX, 0, 1, vpH, QColor(0xdc, 0xe1, 0xe8));
+
+    // G3: Paint shield badges for Guard CFG targets
+    if (indexBuilt_ && !guardCfgTargets_.empty()) {
+        for (int ri = first; ri <= last; ++ri) {
+            int y = ri * cellH - scrollY;
+            const DisasmRow* r = model_.rowAt(ri);
+            if (!r) continue;
+            if (r->kind != DisasmRow::Kind::Instruction && r->kind != DisasmRow::Kind::FunctionHeader) continue;
+            if (guardCfgTargets_.count(r->address)) {
+                static QSvgRenderer shieldSvg(QStringLiteral(":/icons/shield.svg"));
+                if (shieldSvg.isValid()) {
+                    int iconSize = cellH - 4;
+                    int sx = 2;
+                    int sy = y + 2;
+                    shieldSvg.render(&painter, QRectF(sx, sy, iconSize, iconSize));
+                }
+            }
+        }
+    }
 
     // Paint CFG flow arrows on top of line backgrounds for crisp, unclipped rendering
     if (cfgValid_) {
@@ -1348,12 +1392,33 @@ void DisassemblyFieldView::mouseMoveEvent(QMouseEvent* event) {
             return;
         }
         viewport()->setToolTip(QString());
+        if (indexBuilt_ && !guardCfgTargets_.empty() && hit.row >= 0) {
+            const DisasmRow* r = model_.rowAt(hit.row);
+            if (r && guardCfgTargets_.count(r->address)) {
+                viewport()->setCursor(Qt::PointingHandCursor);
+                viewport()->setToolTip(QStringLiteral("Guard CFG: function entry protected by Control Flow Guard"));
+                QAbstractScrollArea::mouseMoveEvent(event);
+                return;
+            }
+        }
     }
     bool clickable = tok && (tok->refTarget != 0 ||
         tok->kind == TokenKind::Function ||
         tok->kind == TokenKind::Label ||
         tok->kind == TokenKind::Address);
     viewport()->setCursor(clickable ? Qt::PointingHandCursor : Qt::ArrowCursor);
+
+    // GP-6766: Show MIPS16e tooltip for 2-byte instructions in MIPS programs
+    if (indexBuilt_ && hit.row >= 0) {
+        const DisasmRow* r = model_.rowAt(hit.row);
+        if (r && r->kind == DisasmRow::Kind::Instruction) {
+            const DecodedInstruction* inst = decodedInstruction(r->address);
+            if (inst && inst->isMips16e) {
+                viewport()->setToolTip(QStringLiteral("MIPS16e: 16-bit compressed encoding"));
+            }
+        }
+    }
+
     QAbstractScrollArea::mouseMoveEvent(event);
 }
 
@@ -1848,7 +1913,8 @@ void DisassemblyFieldView::applySelection(const SelectionState& sel) {
                                 highlightWord_ = t.text;
                                 highlightKind_ = t.kind;
                                 found = true;
-                                break;
+            std::cerr << "[G3] Guard CFG targets from PE table: " << guardCfgTargets_.size() << std::endl;
+            break;
                             }
                         }
                     }
@@ -2098,4 +2164,94 @@ std::vector<uint8_t> DisassemblyFieldView::fetchBytesLocal(ghidra::ProgramDB* pr
         }
     } catch (...) {}
     return {};
+}
+
+void DisassemblyFieldView::buildGuardCfgSet() {
+    guardCfgTargets_.clear();
+    if (!program_) return;
+
+    auto* mem = program_->getMemory();
+    auto* symTable = program_->getSymbolTable();
+    if (!mem) return;
+
+    // Priority 1: read Guard CF Function Table from PE header (comprehensive)
+    if (guardCfgTargets_.empty()) {
+        auto* addrFactory = program_->getAddressFactory();
+        if (addrFactory) {
+        auto* defaultSpace = addrFactory->getDefaultAddressSpace();
+        if (defaultSpace) {
+
+        // Scan blocks for PE signature
+        for (auto* block : mem->getBlocks()) {
+            if (block->isExternalBlock()) continue;
+            uint64_t blockSize = block->getSize();
+            if (blockSize < 0x200) continue;
+
+            std::vector<uint8_t> hdr(std::min<uint64_t>(0x400, blockSize));
+            if (mem->getBytes(block->getStart(), hdr.data(), (int)hdr.size()) != (int)hdr.size()) continue;
+
+            // Find PE\0\0
+            int peOff = -1;
+            for (size_t i = 0; i + 4 <= hdr.size(); ++i) {
+                if (hdr[i]=='P' && hdr[i+1]=='E' && hdr[i+2]==0 && hdr[i+3]==0) { peOff=(int)i; break; }
+            }
+            if (peOff < 0) continue;
+
+            int coffOff = peOff + 4;
+            if (coffOff + 20 > (int)hdr.size()) continue;
+            uint16_t optSize = hdr[coffOff+16] | (hdr[coffOff+17] << 8);
+            int optOff = coffOff + 20;
+            if (optOff + (int)optSize > (int)hdr.size()) continue;
+
+            uint16_t magic = hdr[optOff] | (hdr[optOff+1] << 8);
+            bool pe32plus = (magic == 0x20B);
+            uint64_t imageBase = pe32plus
+                ? (uint64_t)hdr[optOff+24] | ((uint64_t)hdr[optOff+25]<<8) | ((uint64_t)hdr[optOff+26]<<16) | ((uint64_t)hdr[optOff+27]<<24) |
+                  ((uint64_t)hdr[optOff+28]<<32) | ((uint64_t)hdr[optOff+29]<<40) | ((uint64_t)hdr[optOff+30]<<48) | ((uint64_t)hdr[optOff+31]<<56)
+                : (uint64_t)(hdr[optOff+28] | (hdr[optOff+29]<<8) | (hdr[optOff+30]<<16) | (hdr[optOff+31]<<24));
+
+            int dllCharOff = pe32plus ? (optOff+70) : (optOff+46);
+            if (dllCharOff+2 > (int)hdr.size()) continue;
+            uint16_t dllChar = hdr[dllCharOff] | (hdr[dllCharOff+1] << 8);
+            if (!(dllChar & 0x4000)) continue; // No Guard CFG (IMAGE_DLLCHARACTERISTICS_GUARD_CF = 0x4000)
+
+            // Guard CFG is enabled — all function entries are CFG targets
+            ghidra::FunctionIterator fit = program_->getFunctionManager()->getFunctions(true);
+            while (fit.hasNext()) {
+                auto* func = fit.next();
+                if (func) guardCfgTargets_.insert(func->getEntryPoint().getUnsignedOffset());
+            }
+            break;
+        }
+        } // defaultSpace
+        } // addrFactory
+    }
+
+    // Priority 2: scan symbol table for Guard CFG labels
+    if (guardCfgTargets_.empty() && symTable) {
+        ghidra::SymbolIterator symIter = symTable->getAllProgramSymbols();
+        while (symIter.hasNext()) {
+            ghidra::Symbol* sym = symIter.next();
+            if (!sym) continue;
+            const std::string& name = sym->getName();
+            if (name.find("GuardCF_Target_") == 0 || name.find("_guard_check_icall") == 0 ||
+                name.find("_guard_dispatch_icall") == 0 || name.find("GuardRF_") == 0) {
+                guardCfgTargets_.insert(sym->getAddress().getUnsignedOffset());
+            }
+        }
+    }
+
+    // Priority 3: if still no targets, use all function entries for CFG-protected binaries
+    if (guardCfgTargets_.empty()) {
+        auto* fm = program_->getFunctionManager();
+        if (fm) {
+            ghidra::FunctionIterator fit = fm->getFunctions(true);
+            while (fit.hasNext()) {
+                auto* func = fit.next();
+                if (func) {
+                    guardCfgTargets_.insert(func->getEntryPoint().getUnsignedOffset());
+                }
+            }
+        }
+    }
 }

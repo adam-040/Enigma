@@ -45,6 +45,8 @@ class StringTableWidget;
 class AddressMinimap;
 class CrossReferenceExplorer;
 class DisasmSearchBar;
+
+namespace ghidra { class StructureEditorWidget; }
 class CommandPaletteDialog;
 
 namespace ghidra::patch { class PatchManager; }
@@ -198,6 +200,8 @@ private:
     QDockWidget* patchListDock_ = nullptr;
     QDockWidget* stringTableDock_ = nullptr;
     QDockWidget* crossRefDock_ = nullptr;
+    ghidra::StructureEditorWidget* structureEditor_ = nullptr;
+    QDockWidget* structureEditorDock_ = nullptr;
     QLabel* statusFunc_;
     QLabel* statusAddr_;
     QLabel* statusCount_;

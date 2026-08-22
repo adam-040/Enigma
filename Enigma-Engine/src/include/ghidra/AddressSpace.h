@@ -127,6 +127,8 @@ protected:
 
 public:
     GenericAddressSpace(const std::string& name, int size, int type, int unique);
+    GenericAddressSpace(const std::string& name, int size, int type, int unique,
+                        int64_t minOffset, int64_t maxOffset);
     virtual ~GenericAddressSpace() = default;
 
     std::string getName() const override;

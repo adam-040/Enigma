@@ -43,6 +43,7 @@
 #include <ghidra/X86FunctionPurgeAnalyzer.h>
 #include <ghidra/SegmentedCallingConventionAnalyzer.h>
 #include <ghidra/PEExceptionAnalyzer.h>
+#include <ghidra/GuardCfgAnalyzer.h>
 #include <ghidra/WindowsResourceReferenceAnalyzer.h>
 #include <ghidra/TEBAnalyzer.h>
 #include <ghidra/RttiAnalyzer.h>
@@ -267,6 +268,7 @@ void AutoAnalysisManager::initializeDefaultAnalyzers() {
     registerAnalyzer(std::make_unique<X86FunctionPurgeAnalyzer>());
     registerAnalyzer(std::make_unique<SegmentedCallingConventionAnalyzer>());
     registerAnalyzer(std::make_unique<PEExceptionAnalyzer>());
+    registerAnalyzer(std::make_unique<GuardCfgAnalyzer>());
     registerAnalyzer(std::make_unique<WindowsResourceReferenceAnalyzer>());
     registerAnalyzer(std::make_unique<TEBAnalyzer>());
     registerAnalyzer(std::make_unique<RttiAnalyzer>());

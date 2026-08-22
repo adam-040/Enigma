@@ -21,6 +21,11 @@
 #include <capstone/arm64.h>
 #include <unordered_map>
 
+// Capstone 4.x defines CS_MODE_MIPS16; provide fallback if missing
+#ifndef CS_MODE_MIPS16
+#define CS_MODE_MIPS16 0x10
+#endif
+
 namespace ghidra {
 
 // Extract address-relevant scalar values from a Capstone instruction.
@@ -156,7 +161,8 @@ static void extractOperandScalars(const cs_insn* insn, DisassembledInstruction& 
 
 FlowType* Disassembler::determineFlowType(const std::string& mnemonic, const std::vector<std::string>& operands) {
     if (mnemonic == "jmp" || mnemonic == "b" || mnemonic == "br" || mnemonic == "jr" ||
-        mnemonic == "bctr" || mnemonic == "b" ||
+        mnemonic == "bctr" || mnemonic == "b" || mnemonic == "jr.hb" || mnemonic == "jrc" ||
+        mnemonic == "jrc.hb" || mnemonic == "jrc" ||
         (mnemonic == "jmpq" && !operands.empty() && operands[0].find('*') == 0)) {
         return const_cast<FlowType*>(&RefTypes::UNCONDITIONAL_JUMP);
     }
@@ -178,7 +184,7 @@ FlowType* Disassembler::determineFlowType(const std::string& mnemonic, const std
         return const_cast<FlowType*>(&RefTypes::CONDITIONAL_JUMP);
     }
     if (mnemonic == "call" || mnemonic == "bl" || mnemonic == "blx" || mnemonic == "jal" ||
-        mnemonic == "jalr" || mnemonic == "blr") {
+        mnemonic == "jalr" || mnemonic == "blr" || mnemonic == "jalx") {
         return const_cast<FlowType*>(&RefTypes::UNCONDITIONAL_CALL);
     }
     if (mnemonic == "ret" || mnemonic == "bx" || mnemonic == "eret" ||
@@ -375,6 +381,31 @@ public:
 
     std::string getArchitecture() const override { return arch_; }
     int getInstructionAlignment() const override { return alignment_; }
+
+    bool setMode(int newMode) override {
+        if (handle_ != 0) {
+            cs_close(&handle_);
+            handle_ = 0;
+        }
+        cs_mode csMode = CS_MODE_LITTLE_ENDIAN;
+        if (arch_ == "x86" || arch_ == "i386") {
+            csMode = (bitness_ == 64) ? CS_MODE_64 : CS_MODE_32;
+        } else if (arch_ == "aarch64" || arch_ == "arm64") {
+            csMode = CS_MODE_ARM;
+        } else if (arch_.find("arm") != std::string::npos || arch_.find("ARM") != std::string::npos) {
+            csMode = CS_MODE_ARM;
+        } else if (arch_.find("mips") != std::string::npos || arch_.find("MIPS") != std::string::npos) {
+            csMode = (bitness_ == 64) ? CS_MODE_MIPS64 : CS_MODE_MIPS32;
+            if (newMode == 1) csMode = static_cast<cs_mode>(csMode | CS_MODE_MIPS16);
+        } else if (arch_.find("ppc") != std::string::npos || arch_.find("PowerPC") != std::string::npos) {
+            csMode = (bitness_ == 64) ? CS_MODE_64 : CS_MODE_32;
+        }
+        if (cs_open(csArch_, csMode, &handle_) != CS_ERR_OK) {
+            return false;
+        }
+        cs_option(handle_, CS_OPT_DETAIL, CS_OPT_ON);
+        return true;
+    }
 
 private:
     csh handle_;

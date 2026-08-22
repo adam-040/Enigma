@@ -64,9 +64,12 @@ ObjcMessageAnalyzer::ObjcMessageAnalyzer()
 bool ObjcMessageAnalyzer::canAnalyze(Program* program) const {
     if (!program || !program->getLanguage()) return false;
     std::string processorName = program->getLanguage()->getProcessor().getName();
-    if (processorName == "AARCH64" || processorName == "ARM") return true;
+    if (processorName == "AARCH64" || processorName == "ARM" ||
+        processorName == "x86" || processorName == "x86-64") return true;
     std::string langId = program->getLanguageID().getIdAsString();
-    if (langId.find("ARM") != std::string::npos || langId.find("AARCH64") != std::string::npos) return true;
+    if (langId.find("ARM") != std::string::npos ||
+        langId.find("AARCH64") != std::string::npos ||
+        langId.find("x86") != std::string::npos) return true;
     return false;
 }
 
@@ -245,6 +248,57 @@ bool ObjcMessageAnalyzer::added(Program* program, const AddressSetView& set,
                 // Simpler: check if any operand address falls in selrefs
                 for (int opIdx = 0; opIdx < prevInstr->getNumOperands(); ++opIdx) {
                     // Can't easily check operand values without more infrastructure
+                }
+            }
+
+            // x86_64: LEA RSI, [rip + offset] loads selector into rsi (2nd arg)
+            // x86_64 LEA r64, m: REX.W + 0x8D /r mod=00 r/m=101
+            // Encoding: 48 8D 35 xx xx xx xx (LEA RSI, [RIP+disp32])
+            if (is64 && ibuf[0] == 0x48 && ibuf[1] == 0x8D && (ibuf[2] & 0xC7) == 0x35) {
+                int32_t disp32 = static_cast<int32_t>(
+                    (static_cast<uint32_t>(ibuf[3]) << 0) |
+                    (static_cast<uint32_t>(ibuf[4]) << 8) |
+                    (static_cast<uint32_t>(ibuf[5]) << 16) |
+                    (static_cast<uint32_t>(ibuf[6]) << 24));
+                uint64_t leaEnd = prevAddr.add(7).getOffset();
+                uint64_t targetAddr = leaEnd + disp32;
+
+                auto it = selRefMap.find(targetAddr);
+                if (it != selRefMap.end()) {
+                    resolvedSel = it->second;
+                    break;
+                }
+            }
+
+            // x86_64: MOV RSI, [rip + offset] (48 8B 35 xx xx xx xx)
+            if (is64 && ibuf[0] == 0x48 && ibuf[1] == 0x8B && (ibuf[2] & 0xC7) == 0x35) {
+                int32_t disp32 = static_cast<int32_t>(
+                    (static_cast<uint32_t>(ibuf[3]) << 0) |
+                    (static_cast<uint32_t>(ibuf[4]) << 8) |
+                    (static_cast<uint32_t>(ibuf[5]) << 16) |
+                    (static_cast<uint32_t>(ibuf[6]) << 24));
+                uint64_t movEnd = prevAddr.add(7).getOffset();
+                uint64_t targetAddr = movEnd + disp32;
+
+                auto it = selRefMap.find(targetAddr);
+                if (it != selRefMap.end()) {
+                    resolvedSel = it->second;
+                    break;
+                }
+            }
+
+            // x86_32: MOV ESI, [disp32] (8B 35 xx xx xx xx)
+            if (!is64 && ibuf[0] == 0x8B && ibuf[1] == 0x35) {
+                uint32_t targetAddr = static_cast<uint32_t>(
+                    (static_cast<uint32_t>(ibuf[2]) << 0) |
+                    (static_cast<uint32_t>(ibuf[3]) << 8) |
+                    (static_cast<uint32_t>(ibuf[4]) << 16) |
+                    (static_cast<uint32_t>(ibuf[5]) << 24));
+
+                auto it = selRefMap.find(targetAddr);
+                if (it != selRefMap.end()) {
+                    resolvedSel = it->second;
+                    break;
                 }
             }
         }
