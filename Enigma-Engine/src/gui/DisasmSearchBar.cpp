@@ -20,12 +20,14 @@ DisasmSearchBar::DisasmSearchBar(DisassemblyFieldView* disasmView, QWidget* pare
 
     searchInput_ = new QLineEdit(this);
     searchInput_->setPlaceholderText(tr("Find in disassembly (mnemonic, operand, address, string)..."));
+    searchInput_->setToolTip(tr("Search disassembly by mnemonic, operand value, address, or string"));
     searchInput_->setMinimumWidth(220);
     connect(searchInput_, &QLineEdit::textChanged, this, &DisasmSearchBar::onTextChanged);
     connect(searchInput_, &QLineEdit::returnPressed, this, &DisasmSearchBar::findNext);
     layout->addWidget(searchInput_);
 
     matchCaseCheck_ = new QCheckBox(tr("Match Case"), this);
+    matchCaseCheck_->setToolTip(tr("When enabled, search is case-sensitive"));
     connect(matchCaseCheck_, &QCheckBox::toggled, this, &DisasmSearchBar::onMatchCaseToggled);
     layout->addWidget(matchCaseCheck_);
 

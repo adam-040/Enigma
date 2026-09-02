@@ -33,6 +33,7 @@ AddressMinimap::AddressMinimap(QWidget* parent)
 {
     setFixedHeight(kHeight);
     setMouseTracking(true);
+    setToolTip(tr("Address Minimap — click to navigate, drag to scroll"));
 }
 
 void AddressMinimap::setData(ghidra::Memory* memory, ghidra::FunctionManager* fm,

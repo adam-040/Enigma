@@ -44,6 +44,7 @@ public:
     // ids carry a 2^56 type tag plus an ordinal (Ghidra DataTypeDB ids), which
     // does not fit in a 32-bit long.
     DataType* addDataType(DataType* dt);
+    DataType* addDataType(DataType* dt, DataTypeConflictHandler* handler) override;
     DataType* addDataTypeWithId(DataType* dt, int64_t id);
     void removeDataType(DataType* dt);
     void clearAllDataTypes();

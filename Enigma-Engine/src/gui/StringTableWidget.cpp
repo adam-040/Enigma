@@ -316,6 +316,7 @@ StringTableFilterBar::StringTableFilterBar(StringTableWidget* table, QWidget* pa
     auto* filter = new QLineEdit(this);
     filter->setClearButtonEnabled(true);
     filter->setPlaceholderText(tr("Search strings..."));
+    filter->setToolTip(tr("Type to filter strings by content, address, or length"));
     layout->addWidget(label);
     layout->addWidget(filter, 1);
 

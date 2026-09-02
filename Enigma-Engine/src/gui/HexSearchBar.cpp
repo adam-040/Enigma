@@ -20,24 +20,29 @@ HexSearchBar::HexSearchBar(HexView* hexView, QWidget* parent)
 
     closeBtn_ = new QPushButton("X", this);
     closeBtn_->setFixedSize(20, 20);
+    closeBtn_->setToolTip(tr("Close hex search bar"));
     connect(closeBtn_, &QPushButton::clicked, this, &HexSearchBar::deactivate);
 
     patternEdit_ = new QLineEdit(this);
     patternEdit_->setPlaceholderText(tr("Search hex or text..."));
+    patternEdit_->setToolTip(tr("Enter hex bytes (e.g. 90 90) or ASCII text to search for"));
     patternEdit_->setFixedWidth(200);
     connect(patternEdit_, &QLineEdit::textChanged, this, &HexSearchBar::onPatternChanged);
     connect(patternEdit_, &QLineEdit::returnPressed, this, &HexSearchBar::searchNext);
 
     modeCombo_ = new QComboBox(this);
     modeCombo_->addItems({ "Hex", "ASCII" });
+    modeCombo_->setToolTip(tr("Switch between hex and ASCII search mode"));
     modeCombo_->setFixedWidth(60);
 
     prevBtn_ = new QPushButton("<", this);
     prevBtn_->setFixedSize(24, 20);
+    prevBtn_->setToolTip(tr("Previous match"));
     connect(prevBtn_, &QPushButton::clicked, this, &HexSearchBar::searchPrev);
 
     nextBtn_ = new QPushButton(">", this);
     nextBtn_->setFixedSize(24, 20);
+    nextBtn_->setToolTip(tr("Next match"));
     connect(nextBtn_, &QPushButton::clicked, this, &HexSearchBar::searchNext);
 
     matchLabel_ = new QLabel(this);

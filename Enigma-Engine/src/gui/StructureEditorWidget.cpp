@@ -1,322 +1,296 @@
 #include "StructureEditorWidget.h"
+#include "GuiConflictHandler.h"
 #include <ghidra/Program.h>
 #include <ghidra/DataTypeManager.h>
 #include <ghidra/Category.h>
-#include <ghidra/CategoryPath.h>
 #include <ghidra/Structure.h>
 #include <ghidra/Union.h>
 #include <ghidra/StructureDataType.h>
 #include <ghidra/UnionDataType.h>
 #include <ghidra/DataTypeComponent.h>
-#include <ghidra/Msg.h>
-#include <QVBoxLayout>
-#include <QHBoxLayout>
+#include <ghidra/DataType.h>
 #include <QHeaderView>
 #include <QMessageBox>
 #include <QInputDialog>
+#include <QMenu>
+#include <QAction>
 
 namespace ghidra {
 
-StructureEditorWidget::StructureEditorWidget(QWidget* parent)
-    : QWidget(parent) {
-    setupUI();
+StructureEditorWidget::StructureEditorWidget(QWidget* parent) : QWidget(parent) {
+    auto* lay = new QVBoxLayout(this);
+    lay->setContentsMargins(4, 4, 4, 4);
+    lay->setSpacing(4);
+
+    // row 1: filter + buttons
+    auto* row = new QHBoxLayout;
+    row->setSpacing(4);
+    filter_ = new QLineEdit;
+    filter_->setPlaceholderText("Filter types...");
+    filter_->setClearButtonEnabled(true);
+    connect(filter_, &QLineEdit::textChanged, this, &StructureEditorWidget::onFilter);
+    row->addWidget(filter_, 1);
+
+    auto* btnS = new QPushButton("+S");
+    btnS->setToolTip("New structure");
+    btnS->setFixedWidth(30);
+    connect(btnS, &QPushButton::clicked, this, &StructureEditorWidget::onAddStruct);
+    row->addWidget(btnS);
+
+    auto* btnU = new QPushButton("+U");
+    btnU->setToolTip("New union");
+    btnU->setFixedWidth(30);
+    connect(btnU, &QPushButton::clicked, this, &StructureEditorWidget::onAddUnion);
+    row->addWidget(btnU);
+
+    lay->addLayout(row);
+
+    // row 2: horizontal splitter — tree left, table right
+    auto* split = new QSplitter(Qt::Horizontal);
+    split->setHandleWidth(3);
+
+    tree_ = new QTreeView;
+    tree_->setHeaderHidden(true);
+    tree_->setContextMenuPolicy(Qt::CustomContextMenu);
+    tree_->setAlternatingRowColors(true);
+    model_ = new QStandardItemModel;
+    tree_->setModel(model_);
+    connect(tree_, &QTreeView::customContextMenuRequested, this, &StructureEditorWidget::onTreeMenu);
+    connect(tree_->selectionModel(), &QItemSelectionModel::currentChanged, this, [this]() { onTreeSelect(); });
+    split->addWidget(tree_);
+
+    auto* right = new QWidget;
+    auto* rlay = new QVBoxLayout(right);
+    rlay->setContentsMargins(0, 0, 0, 0);
+    rlay->setSpacing(0);
+
+    info_ = new QLabel("Select a type");
+    info_->setContentsMargins(4, 2, 4, 2);
+    rlay->addWidget(info_);
+
+    table_ = new QTableWidget;
+    table_->setColumnCount(4);
+    table_->setHorizontalHeaderLabels({"Offset", "Size", "Type", "Name"});
+    table_->horizontalHeader()->setStretchLastSection(true);
+    table_->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+    table_->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
+    table_->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Stretch);
+    table_->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Stretch);
+    table_->verticalHeader()->setVisible(false);
+    table_->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    table_->setSelectionBehavior(QAbstractItemView::SelectRows);
+    rlay->addWidget(table_);
+
+    split->addWidget(right);
+    split->setStretchFactor(0, 1);
+    split->setStretchFactor(1, 2);
+    lay->addWidget(split, 1);
+
+    // row 3: status
+    status_ = new QLabel;
+    lay->addWidget(status_);
 }
 
-void StructureEditorWidget::setupUI() {
-    auto* mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(2, 2, 2, 2);
-    mainLayout->setSpacing(2);
-
-    // Toolbar row: filter + buttons in a single line
-    auto* toolbar = new QHBoxLayout();
-    toolbar->setSpacing(2);
-    filterEdit_ = new QLineEdit(this);
-    filterEdit_->setPlaceholderText("Filter...");
-    filterEdit_->setClearButtonEnabled(true);
-    connect(filterEdit_, &QLineEdit::textChanged, this, &StructureEditorWidget::onFilterChanged);
-    toolbar->addWidget(filterEdit_, 1);
-
-    auto* addStructBtn = new QPushButton("+S", this);
-    addStructBtn->setToolTip("Add Structure");
-    addStructBtn->setFixedWidth(32);
-    connect(addStructBtn, &QPushButton::clicked, this, &StructureEditorWidget::onAddStructure);
-    toolbar->addWidget(addStructBtn);
-
-    auto* addUnionBtn = new QPushButton("+U", this);
-    addUnionBtn->setToolTip("Add Union");
-    addUnionBtn->setFixedWidth(32);
-    connect(addUnionBtn, &QPushButton::clicked, this, &StructureEditorWidget::onAddUnion);
-    toolbar->addWidget(addUnionBtn);
-
-    mainLayout->addLayout(toolbar);
-
-    // Tree view
-    treeView_ = new QTreeView(this);
-    treeView_->setHeaderHidden(true);
-    treeView_->setContextMenuPolicy(Qt::CustomContextMenu);
-    treeView_->setAlternatingRowColors(true);
-    treeView_->setSelectionMode(QAbstractItemView::SingleSelection);
-
-    treeModel_ = new QStandardItemModel(this);
-    treeView_->setModel(treeModel_);
-
-    connect(treeView_, &QTreeView::customContextMenuRequested, this, &StructureEditorWidget::onTreeContextMenu);
-    connect(treeView_, &QTreeView::doubleClicked, this, &StructureEditorWidget::onTreeDoubleClicked);
-
-    mainLayout->addWidget(treeView_);
-
-    // Status bar
-    statusLabel_ = new QLabel("No program loaded", this);
-    mainLayout->addWidget(statusLabel_);
+void StructureEditorWidget::setProgram(Program* p) {
+    program_ = p;
+    dtm_ = p ? p->getDataTypeManager() : nullptr;
+    rebuild();
 }
 
-void StructureEditorWidget::setProgram(Program* program) {
-    program_ = program;
-    dtm_ = program ? program->getDataTypeManager() : nullptr;
-    refreshTree();
-}
+void StructureEditorWidget::rebuild() {
+    model_->clear();
+    table_->setRowCount(0);
+    info_->setText("Select a type");
 
-void StructureEditorWidget::refreshTree() {
-    treeModel_->clear();
-
-    if (!program_ || !dtm_) {
-        statusLabel_->setText("No program loaded");
+    if (!dtm_) {
+        status_->setText("No program loaded");
         return;
     }
 
-    int structCount = 0;
-    int unionCount = 0;
-    int totalTypes = 0;
-
-    // Add root categories
-    Category* rootCat = dtm_->getRootCategory();
-    if (rootCat) {
-        populateCategories(treeModel_->invisibleRootItem(), rootCat);
+    Category* root = dtm_->getRootCategory();
+    if (root) {
+        std::function<void(QStandardItem*, Category*)> addCat = [&](QStandardItem* par, Category* cat) {
+            QString name = QString::fromStdString(cat->getName());
+            if (name.isEmpty()) name = "Root";
+            auto* item = new QStandardItem(name);
+            item->setIcon(QIcon(":/icons/folder-free.svg"));
+            par->appendRow(item);
+            for (auto* sub : cat->getCategories())
+                addCat(item, sub);
+            for (auto* dt : cat->getDataTypes()) {
+                if (!dt) continue;
+                auto* ti = new QStandardItem(QString::fromStdString(dt->getName()));
+                ti->setIcon(QIcon(":/icons/type.svg"));
+                ti->setData(QVariant::fromValue(reinterpret_cast<quintptr>(dt)), Qt::UserRole);
+                item->appendRow(ti);
+            }
+        };
+        addCat(model_->invisibleRootItem(), root);
     }
 
-    // Count types
-    auto allTypes = dtm_->getDataTypes();
-    for (auto* dt : allTypes) {
-        if (!dt) continue;
-        totalTypes++;
-        std::string name = dt->getName();
-        if (name.find("struct ") != std::string::npos) structCount++;
-        else if (name.find("union ") != std::string::npos) unionCount++;
-    }
-
-    statusLabel_->setText(QString("%1 types (%2 structs, %3 unions)")
-        .arg(totalTypes).arg(structCount).arg(unionCount));
-
-    treeView_->expandAll();
+    int n = dtm_->getDataTypes().size();
+    status_->setText(QString("%1 types").arg(n));
+    tree_->expandAll();
 }
 
-void StructureEditorWidget::populateCategories(QStandardItem* parent, void* category) {
-    Category* cat = static_cast<Category*>(category);
-    if (!cat) return;
+void StructureEditorWidget::onTreeSelect() {
+    QModelIndex idx = tree_->currentIndex();
+    if (!idx.isValid()) { table_->setRowCount(0); info_->setText("Select a type"); return; }
+    QVariant v = idx.data(Qt::UserRole);
+    if (!v.isValid()) { table_->setRowCount(0); info_->setText("Select a type"); return; }
+    showFields(reinterpret_cast<DataType*>(v.value<quintptr>()));
+}
 
-    QString catName = QString::fromStdString(cat->getName());
-    if (catName.isEmpty()) catName = "Root";
+void StructureEditorWidget::showFields(DataType* dt) {
+    if (!dt) { table_->setRowCount(0); info_->setText("Select a type"); return; }
 
-    auto* catItem = new QStandardItem(catName);
-    catItem->setIcon(QIcon(":/resources/folder-free.svg"));
-    catItem->setData(QVariant::fromValue(reinterpret_cast<quintptr>(category)), Qt::UserRole);
-    parent->appendRow(catItem);
+    QString name = QString::fromStdString(dt->getName());
+    Structure* s = dynamic_cast<Structure*>(dt);
+    Union* u = dynamic_cast<Union*>(dt);
 
-    // Populate sub-categories
-    auto subCats = cat->getCategories();
-    for (auto* subCat : subCats) {
-        populateCategories(catItem, subCat);
-    }
-
-    // Populate data types in this category
-    auto dataTypes = cat->getDataTypes();
-    for (auto* dt : dataTypes) {
-        if (!dt) continue;
-        QString typeName = QString::fromStdString(dt->getName());
-        auto* typeItem = new QStandardItem(typeName);
-        typeItem->setData(QVariant::fromValue(reinterpret_cast<quintptr>(dt)), Qt::UserRole);
-
-        // Different icons for different types
-        Structure* asStruct = dynamic_cast<Structure*>(dt);
-        Union* asUnion = dynamic_cast<Union*>(dt);
-        if (asStruct) {
-            typeItem->setIcon(QIcon(":/resources/type.svg"));
-        } else if (asUnion) {
-            typeItem->setIcon(QIcon(":/resources/type.svg"));
-        } else {
-            typeItem->setIcon(QIcon(":/resources/type.svg"));
+    if (s) {
+        int n = s->getNumComponents();
+        info_->setText(QString("%1 — %2 fields, %3 bytes").arg(name).arg(n).arg(dt->getLength()));
+        table_->setRowCount(n);
+        for (int i = 0; i < n; ++i) {
+            auto* c = s->getComponent(i);
+            if (!c) continue;
+            auto* a = new QTableWidgetItem(QString::number(c->getOffset()));
+            a->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
+            auto* b = new QTableWidgetItem(QString::number(c->getLength()));
+            b->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
+            QString typ = c->getDataType() ? QString::fromStdString(c->getDataType()->getName()) : "?";
+            QString fn = QString::fromStdString(c->getFieldName());
+            if (fn.isEmpty()) fn = typ;
+            table_->setItem(i, 0, a);
+            table_->setItem(i, 1, b);
+            table_->setItem(i, 2, new QTableWidgetItem(typ));
+            table_->setItem(i, 3, new QTableWidgetItem(fn));
         }
-
-        catItem->appendRow(typeItem);
-    }
-}
-
-void StructureEditorWidget::populateTypeChildren(QStandardItem* parent, void* dataType) {
-    DataType* dt = static_cast<DataType*>(dataType);
-    Structure* asStruct = dynamic_cast<Structure*>(dt);
-    Union* asUnion = dynamic_cast<Union*>(dt);
-
-    if (asStruct) {
-        for (int i = 0; i < asStruct->getNumComponents(); ++i) {
-            auto* comp = asStruct->getComponent(i);
-            if (!comp) continue;
-            QString fieldName = QString::fromStdString(comp->getFieldName());
-            if (fieldName.isEmpty()) fieldName = QString::fromStdString(comp->getDataType()->getName());
-            auto* fieldItem = new QStandardItem(fieldName);
-            fieldItem->setData(QVariant::fromValue(reinterpret_cast<quintptr>(comp)), Qt::UserRole);
-            parent->appendRow(fieldItem);
+    } else if (u) {
+        int n = u->getNumComponents();
+        info_->setText(QString("%1 (union) — %2 fields, %3 bytes").arg(name).arg(n).arg(dt->getLength()));
+        table_->setRowCount(n);
+        for (int i = 0; i < n; ++i) {
+            auto* c = u->getComponent(i);
+            if (!c) continue;
+            auto* a = new QTableWidgetItem("0");
+            a->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
+            auto* b = new QTableWidgetItem(QString::number(c->getLength()));
+            b->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
+            QString typ = c->getDataType() ? QString::fromStdString(c->getDataType()->getName()) : "?";
+            QString fn = QString::fromStdString(c->getFieldName());
+            if (fn.isEmpty()) fn = typ;
+            table_->setItem(i, 0, a);
+            table_->setItem(i, 1, b);
+            table_->setItem(i, 2, new QTableWidgetItem(typ));
+            table_->setItem(i, 3, new QTableWidgetItem(fn));
         }
-    } else if (asUnion) {
-        for (int i = 0; i < asUnion->getNumComponents(); ++i) {
-            auto* comp = asUnion->getComponent(i);
-            if (!comp) continue;
-            QString fieldName = QString::fromStdString(comp->getFieldName());
-            if (fieldName.isEmpty()) fieldName = QString::fromStdString(comp->getDataType()->getName());
-            auto* fieldItem = new QStandardItem(fieldName);
-            fieldItem->setData(QVariant::fromValue(reinterpret_cast<quintptr>(comp)), Qt::UserRole);
-            parent->appendRow(fieldItem);
-        }
+    } else {
+        info_->setText(name + " — " + QString::number(dt->getLength()) + " bytes");
+        table_->setRowCount(0);
     }
 }
 
-void StructureEditorWidget::onTreeContextMenu(const QPoint& pos) {
-    QModelIndex index = treeView_->indexAt(pos);
-    if (!index.isValid()) return;
+void StructureEditorWidget::onTreeMenu(const QPoint& pos) {
+    QModelIndex idx = tree_->indexAt(pos);
+    if (!idx.isValid()) return;
+    QVariant v = idx.data(Qt::UserRole);
+    if (!v.isValid()) return;
+    DataType* dt = reinterpret_cast<DataType*>(v.value<quintptr>());
 
-    QMenu menu(this);
-    QAction* addFieldAction = menu.addAction("Add Field");
-    QAction* deleteAction = menu.addAction("Delete");
-
-    QAction* selectedAction = menu.exec(treeView_->viewport()->mapToGlobal(pos));
-    if (selectedAction == addFieldAction) {
-        onAddField();
-    } else if (selectedAction == deleteAction) {
-        onDeleteType();
+    QMenu m(this);
+    if (dynamic_cast<Structure*>(dt) || dynamic_cast<Union*>(dt)) {
+        auto* a = m.addAction("Add Field...");
+        connect(a, &QAction::triggered, this, &StructureEditorWidget::onAddField);
+        m.addSeparator();
     }
+    auto* d = m.addAction("Delete");
+    connect(d, &QAction::triggered, this, &StructureEditorWidget::onDelete);
+    m.exec(tree_->viewport()->mapToGlobal(pos));
 }
 
-void StructureEditorWidget::onAddStructure() {
-    if (!dtm_ || !program_) return;
-
+void StructureEditorWidget::onAddStruct() {
+    if (!dtm_) return;
     bool ok;
-    QString name = QInputDialog::getText(this, "New Structure", "Structure name:", QLineEdit::Normal, "", &ok);
-    if (!ok || name.isEmpty()) return;
-
-    std::string structName = name.toStdString();
-
-    // Check if name already exists
-    std::vector<DataType*> existingTypes;
-    dtm_->findDataTypes(structName, existingTypes);
-    if (!existingTypes.empty()) {
-        QMessageBox::warning(this, "Error", "A type with this name already exists.");
-        return;
-    }
-
-    auto* newStruct = new StructureDataType(structName, 0, dtm_);
-    dtm_->addDataType(newStruct, nullptr);
-
-    refreshTree();
-    emit typeModified(name);
+    QString n = QInputDialog::getText(this, "New Structure", "Name:", QLineEdit::Normal, "", &ok);
+    if (!ok || n.isEmpty()) return;
+    GuiConflictHandler h;
+    dtm_->addDataType(new StructureDataType(n.toStdString(), 0, dtm_), &h);
+    rebuild();
+    emit typeModified(n);
 }
 
 void StructureEditorWidget::onAddUnion() {
-    if (!dtm_ || !program_) return;
-
+    if (!dtm_) return;
     bool ok;
-    QString name = QInputDialog::getText(this, "New Union", "Union name:", QLineEdit::Normal, "", &ok);
-    if (!ok || name.isEmpty()) return;
-
-    std::string unionName = name.toStdString();
-
-    std::vector<DataType*> existingTypes;
-    dtm_->findDataTypes(unionName, existingTypes);
-    if (!existingTypes.empty()) {
-        QMessageBox::warning(this, "Error", "A type with this name already exists.");
-        return;
-    }
-
-    auto* newUnion = new UnionDataType(unionName, dtm_);
-    dtm_->addDataType(newUnion, nullptr);
-
-    refreshTree();
-    emit typeModified(name);
+    QString n = QInputDialog::getText(this, "New Union", "Name:", QLineEdit::Normal, "", &ok);
+    if (!ok || n.isEmpty()) return;
+    GuiConflictHandler h;
+    dtm_->addDataType(new UnionDataType(n.toStdString(), dtm_), &h);
+    rebuild();
+    emit typeModified(n);
 }
 
 void StructureEditorWidget::onAddField() {
-    QModelIndex index = treeView_->currentIndex();
-    if (!index.isValid() || !dtm_) return;
-
-    // Get the selected item's data
-    QVariant data = index.data(Qt::UserRole);
-    if (!data.isValid()) return;
-
-    void* ptr = reinterpret_cast<void*>(data.value<quintptr>());
-    Structure* asStruct = dynamic_cast<Structure*>(static_cast<DataType*>(ptr));
-    Union* asUnion = dynamic_cast<Union*>(static_cast<DataType*>(ptr));
-
-    if (!asStruct && !asUnion) return;
+    QModelIndex idx = tree_->currentIndex();
+    if (!idx.isValid() || !dtm_) return;
+    QVariant v = idx.data(Qt::UserRole);
+    if (!v.isValid()) return;
+    DataType* dt = reinterpret_cast<DataType*>(v.value<quintptr>());
+    Structure* s = dynamic_cast<Structure*>(dt);
+    Union* u = dynamic_cast<Union*>(dt);
+    if (!s && !u) return;
 
     bool ok;
-    QString fieldName = QInputDialog::getText(this, "Add Field", "Field name:", QLineEdit::Normal, "", &ok);
-    if (!ok || fieldName.isEmpty()) return;
+    QString fn = QInputDialog::getText(this, "Add Field", "Field name:", QLineEdit::Normal, "", &ok);
+    if (!ok || fn.isEmpty()) return;
 
-    // Create a default int field
-    auto* fieldDt = dtm_->getDataType("int32");
-    if (!fieldDt) return;
+    QStringList types = {"int8","int16","int32","int64","uint8","uint16","uint32","uint64","float","double","bool","char"};
+    for (auto* t : dtm_->getDataTypes())
+        if (t) types.append(QString::fromStdString(t->getName()));
+    types.removeDuplicates();
 
-    if (asStruct) {
-        asStruct->add(fieldDt, fieldName.toStdString(), "");
-    } else if (asUnion) {
-        asUnion->add(fieldDt, fieldName.toStdString(), "");
-    }
+    QString tn = QInputDialog::getItem(this, "Type", "Field type:", types, 2, false, &ok);
+    if (!ok || tn.isEmpty()) tn = "int32";
 
-    refreshTree();
-    emit typeModified(fieldName);
+    DataType* fdt = dtm_->getDataType(tn.toStdString());
+    if (!fdt) fdt = dtm_->getDataType("int32");
+    if (!fdt) return;
+
+    if (s) s->add(fdt, fn.toStdString(), "");
+    else u->add(fdt, fn.toStdString(), "");
+    rebuild();
+    emit typeModified(fn);
 }
 
-void StructureEditorWidget::onDeleteType() {
-    QModelIndex index = treeView_->currentIndex();
-    if (!index.isValid() || !dtm_) return;
-
-    QVariant data = index.data(Qt::UserRole);
-    if (!data.isValid()) return;
-
-    void* ptr = reinterpret_cast<void*>(data.value<quintptr>());
-    DataType* dt = static_cast<DataType*>(ptr);
+void StructureEditorWidget::onDelete() {
+    QModelIndex idx = tree_->currentIndex();
+    if (!idx.isValid() || !dtm_) return;
+    QVariant v = idx.data(Qt::UserRole);
+    if (!v.isValid()) return;
+    DataType* dt = reinterpret_cast<DataType*>(v.value<quintptr>());
     if (!dt) return;
-
-    QMessageBox::StandardButton reply = QMessageBox::question(this, "Delete Type",
-        "Delete type \"" + QString::fromStdString(dt->getName()) + "\"?",
-        QMessageBox::Yes | QMessageBox::No);
-
-    if (reply == QMessageBox::Yes) {
+    if (QMessageBox::question(this, "Delete", "Delete \"" + QString::fromStdString(dt->getName()) + "\"?") == QMessageBox::Yes) {
         dtm_->remove(dt);
-        refreshTree();
+        rebuild();
     }
 }
 
-void StructureEditorWidget::onFilterChanged(const QString& text) {
-    if (!treeModel_) return;
-
-    QString filter = text.toLower();
-    for (int i = 0; i < treeModel_->rowCount(); ++i) {
-        QModelIndex index = treeModel_->index(i, 0);
-        QString name = index.data(Qt::DisplayRole).toString().toLower();
-        treeView_->setRowHidden(i, QModelIndex(), !filter.isEmpty() && !name.contains(filter));
-    }
-}
-
-void StructureEditorWidget::onTreeDoubleClicked(const QModelIndex& index) {
-    if (!index.isValid()) return;
-
-    QVariant data = index.data(Qt::UserRole);
-    if (!data.isValid()) return;
-
-    void* ptr = reinterpret_cast<void*>(data.value<quintptr>());
-    DataType* dt = static_cast<DataType*>(ptr);
-    if (dt) {
-        emit typeSelected(QString::fromStdString(dt->getName()));
-    }
+void StructureEditorWidget::onFilter(const QString& text) {
+    QString f = text.toLower();
+    std::function<bool(QStandardItem*)> filter = [&](QStandardItem* item) -> bool {
+        bool vis = false;
+        for (int i = 0; i < item->rowCount(); ++i)
+            if (filter(item->child(i))) vis = true;
+        bool match = f.isEmpty() || item->text().toLower().contains(f) || vis;
+        QModelIndex idx = model_->indexFromItem(item);
+        if (idx.parent().isValid())
+            tree_->setRowHidden(idx.row(), idx.parent(), !match);
+        return match;
+    };
+    for (int i = 0; i < model_->rowCount(); ++i)
+        filter(model_->item(i));
 }
 
 } // namespace ghidra

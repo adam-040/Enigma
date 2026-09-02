@@ -11,6 +11,7 @@
 /// \brief Concrete standard data type manager implementation
 #include <ghidra/DataTypeManagerImpl.h>
 #include <ghidra/Category.h>
+#include <ghidra/DataTypeConflictHandler.h>
 #include <ghidra/VoidDataType.h>
 #include <ghidra/BooleanDataType.h>
 #include <ghidra/ByteDataType.h>
@@ -283,6 +284,54 @@ DataType* DataTypeManagerImpl::addDataType(DataType* dt) {
     typesByPath_[key] = dt;
     getOrCreateCategory(dt->getCategoryPath())->registerDataType(dt);
     return dt;
+}
+
+DataType* DataTypeManagerImpl::addDataType(DataType* dt, DataTypeConflictHandler* handler) {
+    if (!dt) return nullptr;
+
+    std::string key = dt->getCategoryPath().getPath(dt->getName());
+    auto it = typesByPath_.find(key);
+    if (it != typesByPath_.end()) {
+        DataType* existing = it->second;
+        if (existing == dt) return dt;
+        if (!handler) return existing;
+        auto result = handler->resolveConflict(dt, existing);
+        switch (result) {
+            case DataTypeConflictHandler::ConflictResult::USE_EXISTING:
+                return existing;
+            case DataTypeConflictHandler::ConflictResult::REPLACE_EXISTING: {
+                typesByPath_.erase(key);
+                auto* cat = getOrCreateCategory(dt->getCategoryPath());
+                cat->removeDataType(existing);
+                types_.push_back(std::unique_ptr<DataType>(dt));
+                int64_t id = getNextId();
+                typesById_[id] = dt;
+                typesByPath_[key] = dt;
+                cat->registerDataType(dt);
+                return dt;
+            }
+            case DataTypeConflictHandler::ConflictResult::RENAME_AND_ADD: {
+                std::string baseName = dt->getName();
+                int suffix = 1;
+                while (true) {
+                    std::string newName = baseName + "_conflict" + std::to_string(suffix);
+                    dt->setName(newName);
+                    std::string newKey = dt->getCategoryPath().getPath(newName);
+                    if (typesByPath_.find(newKey) == typesByPath_.end()) {
+                        types_.push_back(std::unique_ptr<DataType>(dt));
+                        int64_t id = getNextId();
+                        typesById_[id] = dt;
+                        typesByPath_[newKey] = dt;
+                        getOrCreateCategory(dt->getCategoryPath())->registerDataType(dt);
+                        return dt;
+                    }
+                    ++suffix;
+                }
+            }
+        }
+        return existing;
+    }
+    return addDataType(dt);
 }
 
 DataType* DataTypeManagerImpl::addDataTypeWithId(DataType* dt, int64_t id) {

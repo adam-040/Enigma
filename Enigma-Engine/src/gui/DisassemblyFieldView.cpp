@@ -1107,7 +1107,8 @@ void DisassemblyFieldView::paintEvent(QPaintEvent* event) {
                     int iconSize = cellH - 4;
                     int sx = 2;
                     int sy = y + 2;
-                    shieldSvg.render(&painter, QRectF(sx, sy, iconSize, iconSize));
+                    if (sx >= 0 && sx + iconSize <= vpW)
+                        shieldSvg.render(&painter, QRectF(sx, sy, iconSize, iconSize));
                 }
             }
         }
@@ -1913,8 +1914,7 @@ void DisassemblyFieldView::applySelection(const SelectionState& sel) {
                                 highlightWord_ = t.text;
                                 highlightKind_ = t.kind;
                                 found = true;
-            std::cerr << "[G3] Guard CFG targets from PE table: " << guardCfgTargets_.size() << std::endl;
-            break;
+                                break;
                             }
                         }
                     }
@@ -2237,20 +2237,6 @@ void DisassemblyFieldView::buildGuardCfgSet() {
             if (name.find("GuardCF_Target_") == 0 || name.find("_guard_check_icall") == 0 ||
                 name.find("_guard_dispatch_icall") == 0 || name.find("GuardRF_") == 0) {
                 guardCfgTargets_.insert(sym->getAddress().getUnsignedOffset());
-            }
-        }
-    }
-
-    // Priority 3: if still no targets, use all function entries for CFG-protected binaries
-    if (guardCfgTargets_.empty()) {
-        auto* fm = program_->getFunctionManager();
-        if (fm) {
-            ghidra::FunctionIterator fit = fm->getFunctions(true);
-            while (fit.hasNext()) {
-                auto* func = fit.next();
-                if (func) {
-                    guardCfgTargets_.insert(func->getEntryPoint().getUnsignedOffset());
-                }
             }
         }
     }

@@ -15,6 +15,7 @@ CrossReferenceExplorer::CrossReferenceExplorer(QWidget* parent)
 
     tree_ = new QTreeWidget(this);
     tree_->setHeaderLabels({tr("Type"), tr("From"), tr("To")});
+    tree_->setToolTip(tr("Cross-references — double-click to navigate to a reference"));
     tree_->setRootIsDecorated(false);
     tree_->setAlternatingRowColors(true);
     tree_->setSelectionMode(QAbstractItemView::SingleSelection);

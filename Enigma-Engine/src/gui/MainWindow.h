@@ -201,7 +201,6 @@ private:
     QDockWidget* stringTableDock_ = nullptr;
     QDockWidget* crossRefDock_ = nullptr;
     ghidra::StructureEditorWidget* structureEditor_ = nullptr;
-    QDockWidget* structureEditorDock_ = nullptr;
     QLabel* statusFunc_;
     QLabel* statusAddr_;
     QLabel* statusCount_;

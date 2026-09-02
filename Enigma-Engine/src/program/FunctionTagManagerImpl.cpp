@@ -2,7 +2,6 @@
 #include <ghidra/Program.h>
 #include <ghidra/FunctionManager.h>
 #include <algorithm>
-#include <iostream>
 
 namespace ghidra {
 
@@ -38,24 +37,14 @@ std::vector<FunctionTag*> FunctionTagManagerImpl::getAllFunctionTags() {
 
 bool FunctionTagManagerImpl::isTagAssigned(const std::string& name) {
     auto* funcMgr = program_ ? program_->getFunctionManager() : nullptr;
-    if (!program_) {
-        std::cout << "[DEBUG isTagAssigned] program_ is null!" << std::endl;
-    } else if (!funcMgr) {
-        std::cout << "[DEBUG isTagAssigned] funcMgr is null!" << std::endl;
-    } else {
-        auto iter = funcMgr->getFunctions();
-        std::cout << "[DEBUG isTagAssigned] iter.hasNext() = " << iter.hasNext() << std::endl;
-        while (iter.hasNext()) {
-            auto* func = iter.next();
-            if (func) {
-                std::cout << "[DEBUG isTagAssigned] func=" << func->getName() << " tags=" << func->getTags().size() << std::endl;
-                for (auto* t : func->getTags()) {
-                    if (t) {
-                        std::cout << "[DEBUG isTagAssigned]   tag=" << t->getName() << std::endl;
-                        if (t->getName() == name) {
-                            return true;
-                        }
-                    }
+    if (!funcMgr) return false;
+    auto iter = funcMgr->getFunctions();
+    while (iter.hasNext()) {
+        auto* func = iter.next();
+        if (func) {
+            for (auto* t : func->getTags()) {
+                if (t && t->getName() == name) {
+                    return true;
                 }
             }
         }
@@ -80,24 +69,14 @@ int FunctionTagManagerImpl::getUseCount(FunctionTag* tag) {
     if (!tag) return 0;
     int count = 0;
     auto* funcMgr = program_ ? program_->getFunctionManager() : nullptr;
-    if (!program_) {
-        std::cout << "[DEBUG getUseCount] program_ is null!" << std::endl;
-    } else if (!funcMgr) {
-        std::cout << "[DEBUG getUseCount] funcMgr is null!" << std::endl;
-    } else {
-        auto iter = funcMgr->getFunctions();
-        std::cout << "[DEBUG getUseCount] iter.hasNext() = " << iter.hasNext() << std::endl;
-        while (iter.hasNext()) {
-            auto* func = iter.next();
-            if (func) {
-                std::cout << "[DEBUG getUseCount] func=" << func->getName() << " tagId=" << tag->getId() << std::endl;
-                for (auto* t : func->getTags()) {
-                    if (t) {
-                        std::cout << "[DEBUG getUseCount]   t->getId()=" << t->getId() << " t->getName()=" << t->getName() << std::endl;
-                        if (t->getId() == tag->getId()) {
-                            count++;
-                        }
-                    }
+    if (!funcMgr) return 0;
+    auto iter = funcMgr->getFunctions();
+    while (iter.hasNext()) {
+        auto* func = iter.next();
+        if (func) {
+            for (auto* t : func->getTags()) {
+                if (t && t->getId() == tag->getId()) {
+                    count++;
                 }
             }
         }

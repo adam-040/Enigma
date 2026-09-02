@@ -166,6 +166,7 @@ CommandPaletteDialog::CommandPaletteDialog(MainWindow* mainWindow, ghidra::Progr
 
     searchEdit_ = new QLineEdit(container);
     searchEdit_->setPlaceholderText(tr("Type a command, function, address (0x...), or action..."));
+    searchEdit_->setToolTip(tr("Quick access: type a function name, address, or command to navigate"));
     searchEdit_->setStyleSheet(
         QStringLiteral("QLineEdit {"
                        "  background: #f8f9fa;"

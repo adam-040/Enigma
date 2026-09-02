@@ -25,6 +25,7 @@ PatchListWidget::PatchListWidget(QWidget* parent)
 {
     setColumnCount(ColCount);
     setHorizontalHeaderLabels({"Address", "From", "To", "Name", "Status"});
+    setToolTip(tr("Patches — double-click to navigate to patched instruction"));
     setWordWrap(false);
     setShowGrid(false);
     setAlternatingRowColors(true);

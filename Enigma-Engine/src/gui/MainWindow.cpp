@@ -10,7 +10,6 @@
 #include "CrossReferenceExplorer.h"
 #include "StructureEditorWidget.h"
 #include "DisasmSearchBar.h"
-#include "DisasmSearchBar.h"
 #include "CommandPaletteDialog.h"
 #include "AddressMinimap.h"
 #include "SelectionManager.h"
@@ -314,10 +313,6 @@ void MainWindow::createMenuBar() {
     explorerAct->setText(tr("&Explorer"));
     view->addAction(explorerAct);
 
-    auto* structAct = structureEditorDock_->toggleViewAction();
-    structAct->setText(tr("Data &Types"));
-    view->addAction(structAct);
-
     view->addSeparator();
     showBytesAction_ = view->addAction(tr("Show &Bytes"));
     showBytesAction_->setCheckable(true);
@@ -401,6 +396,17 @@ void MainWindow::createMenuBar() {
     auto* importMenu = menuBar()->addMenu(tr("&Import"));
     auto* importGhz = importMenu->addAction(tr("&Import from Ghidra..."));
     connect(importGhz, &QAction::triggered, this, &MainWindow::onImportGhidraProject);
+
+    auto* dataTypesAct = importMenu->addAction(tr("&Data Types..."));
+    connect(dataTypesAct, &QAction::triggered, this, [this]() {
+        if (!structureEditor_) return;
+        structureEditor_->setProgram(program_.get());
+        if (!structureEditor_->isVisible()) {
+            structureEditor_->show();
+        }
+        structureEditor_->raise();
+        structureEditor_->activateWindow();
+    });
 
     menuBar()->addMenu(tr("&Help"));
 }
@@ -488,6 +494,7 @@ void MainWindow::createDockWidgets() {
     explorerTitleBtn->setFocusPolicy(Qt::NoFocus);
     explorerTitleBtn->setIconSize(QSize(16, 16));
     explorerTitleBtn->setToolButtonStyle(Qt::ToolButtonIconOnly);
+    explorerTitleBtn->setToolTip(tr("Toggle Explorer panel visibility"));
     explorerTitleLayout->addWidget(explorerTitleBtn);
     explorerDock_->setTitleBarWidget(explorerTitleBar);
 
@@ -550,10 +557,12 @@ void MainWindow::createDockWidgets() {
         stringTableDock_ = createDock("STRING TABLE", stringContainer);
     }
 
-    // Structure/Union Editor dock
+    // Structure/Union Editor — opened as standalone dialog from menu
     {
-        structureEditor_ = new ghidra::StructureEditorWidget(this);
-        structureEditorDock_ = createDock("DATA TYPES", structureEditor_);
+        structureEditor_ = new ghidra::StructureEditorWidget(nullptr);
+        structureEditor_->setWindowFlags(Qt::Window);
+        structureEditor_->setWindowTitle("Data Types");
+        structureEditor_->resize(600, 500);
 
         connect(structureEditor_, &ghidra::StructureEditorWidget::typeModified,
                 this, [this](const QString& typeName) {
@@ -623,8 +632,8 @@ void MainWindow::createDockWidgets() {
 
         auto* settingsBtn = new QToolButton(corner);
         settingsBtn->setIcon(loadSvgIcon("settings.svg", 16));
-        settingsBtn->setToolTip(tr("Settings"));
-        settingsBtn->setAutoRaise(true);
+    settingsBtn->setToolTip(tr("Configure application settings"));
+    settingsBtn->setAutoRaise(true);
         settingsBtn->setToolButtonStyle(Qt::ToolButtonIconOnly);
         h->addWidget(settingsBtn);
 
@@ -675,10 +684,6 @@ void MainWindow::createDockWidgets() {
     }
 
     addDockWidget(Qt::LeftDockWidgetArea, explorerDock_);
-    addDockWidget(Qt::LeftDockWidgetArea, structureEditorDock_);
-    splitDockWidget(explorerDock_, structureEditorDock_, Qt::Vertical);
-    resizeDocks({explorerDock_, structureEditorDock_}, {500, 170}, Qt::Vertical);
-    structureEditorDock_->setVisible(false);
     addDockWidget(Qt::RightDockWidgetArea, disasmDock_);
     syncExplorerIcon();
 
@@ -2093,17 +2098,15 @@ void MainWindow::navigateTo(uint64_t addr, const QString& name, bool pushHistory
 }
 
 void MainWindow::doNavigate(uint64_t addr, const QString& name, bool pushHistory) {
-    std::cerr << "[doNavigate] ENTER addr=0x" << std::hex << addr << std::dec
-              << " name='" << name.toStdString() << "' navBusy_=" << navBusy_ << std::endl;
     GUARD_ENTER("navigateTo");
     NAVLOG("addr=0x%llx name='%s' currentAddr_=0x%llx currentFunction_=%p program_=%p navSkipFlags_=%d\n",
         addr, name.toStdString().c_str(), currentAddr_, (void*)currentFunction_, (void*)program_.get(), navSkipFlags_);
 
-    if (!program_) { std::cerr << "[doNavigate] abort: program_ null" << std::endl; NAVLOG("abort: program_ null\n"); GUARD_EXIT("navigateTo"); return; }
-    if (addr == 0) { std::cerr << "[doNavigate] abort: addr==0" << std::endl; NAVLOG("abort: addr==0\n"); GUARD_EXIT("navigateTo"); return; }
+    if (!program_) { NAVLOG("abort: program_ null\n"); GUARD_EXIT("navigateTo"); return; }
+    if (addr == 0) { NAVLOG("abort: addr==0\n"); GUARD_EXIT("navigateTo"); return; }
 
     // Blocking re-entrancy guard: drop if already navigating.
-    if (navBusy_) { std::cerr << "[doNavigate] REENTRANT DROPPED" << std::endl; NAVLOG("WARNING: re-entrant navigateTo - DROPPED\n"); GUARD_EXIT("navigateTo"); return; }
+    if (navBusy_) { NAVLOG("WARNING: re-entrant navigateTo - DROPPED\n"); GUARD_EXIT("navigateTo"); return; }
     navBusy_ = true;
 
     // Read-lock program while navigating (shared with analysis worker).
@@ -2227,34 +2230,19 @@ void MainWindow::doNavigate(uint64_t addr, const QString& name, bool pushHistory
 
     // ── STEP 5: Disassemble ──────────────────────────────────────────────
     if (!(navSkipFlags_ & NavSkip_Disasm)) {
-        std::cerr << "[doNavigate] STEP5: START addr=0x" << std::hex << addr << std::dec << std::endl;
-
         try {
             bool disasmOk = decompInterface_ && decompInterface_->isOpen();
-            std::cerr << "[doNavigate] STEP5: disasmOk=" << disasmOk
-                      << " decompInterface_=" << (void*)decompInterface_.get() << std::endl;
             if (disasmOk) {
                 bool needBuild = !disasmView_->isIndexBuilt();
-                std::cerr << "[doNavigate] STEP5: needBuild=" << needBuild << std::endl;
                 if (needBuild) {
-                    std::cerr << "[doNavigate] STEP5: calling buildFullIndex..." << std::endl;
                     disasmView_->buildFullIndex();
-                    std::cerr << "[doNavigate] STEP5: buildFullIndex done, indexBuilt="
-                              << disasmView_->isIndexBuilt()
-                              << " rowCount="
-                              << disasmView_->rowCount()
-                              << std::endl;
                 }
-                std::cerr << "[doNavigate] STEP5: calling seekToAddress..." << std::endl;
                 disasmView_->seekToAddress(addr);
-                std::cerr << "[doNavigate] STEP5: seekToAddress done" << std::endl;
             } else {
-                std::cerr << "[doNavigate] STEP5: SKIPPED (decompInterface not open)" << std::endl;
                 disasmView_->showDisassembly(QString(
                     "; Disassembler not open for 0x%1\n").arg(addr, 0, 16));
             }
         } catch (const std::exception& e) {
-            std::cerr << "[doNavigate] STEP5 CRASHED: " << e.what() << std::endl;
             // Fall back to 50-instruction disassembly
             try {
                 QString fallback = QString::fromStdString(
@@ -2262,30 +2250,18 @@ void MainWindow::doNavigate(uint64_t addr, const QString& name, bool pushHistory
                 if (!fallback.isEmpty())
                     disasmView_->showDisassembly(fallback);
             } catch (...) {
-                std::cerr << "[doNavigate] STEP5 fallback also failed" << std::endl;
             }
         } catch (...) {
-            std::cerr << "[doNavigate] STEP5 CRASHED: unknown" << std::endl;
         }
-    } else {
-        std::cerr << "[doNavigate] STEP5: SKIPPED (NavSkip_Disasm)" << std::endl;
     }
 
     // GUARANTEE: ensure the disassembly view has content, even if everything above failed
-    std::cerr << "[doNavigate] PRE-GUARANTEE: rowCount="
-              << disasmView_->rowCount()
-              << std::endl;
     if (disasmView_->rowCount() == 0) {
-        std::cerr << "[doNavigate] WARNING: disassembly view has no content after STEP5!" << std::endl;
         disasmView_->showDisassembly(QString(
             "; NO DISASSEMBLY\n"
-            "; doNavigate reached addr=0x%1\n"
-            "; Check stderr\n")
+            "; doNavigate reached addr=0x%1\n")
             .arg(addr, 0, 16));
     }
-    std::cerr << "[doNavigate] POST-GUARANTEE: rowCount="
-              << disasmView_->rowCount()
-              << std::endl;
 
     // ── STEP 6: Decompile ─────────────────────────────────────────────────
     if (!(navSkipFlags_ & NavSkip_Decompile)) {

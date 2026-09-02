@@ -1,33 +1,26 @@
 #pragma once
 
 #include <QWidget>
-#include <QTreeView>
-#include <QStandardItemModel>
 #include <QSplitter>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QTreeView>
+#include <QStandardItemModel>
+#include <QTableWidget>
+#include <QLineEdit>
 #include <QPushButton>
 #include <QLabel>
-#include <QLineEdit>
-#include <QHeaderView>
-#include <QMenu>
-#include <QAction>
-#include <QModelIndex>
-#include <memory>
 
 namespace ghidra {
 
 class Program;
 class DataTypeManager;
-class Structure;
-class Union;
+class DataType;
 
 class StructureEditorWidget : public QWidget {
     Q_OBJECT
-
 public:
     explicit StructureEditorWidget(QWidget* parent = nullptr);
-    virtual ~StructureEditorWidget() = default;
 
     void setProgram(Program* program);
 
@@ -36,28 +29,27 @@ signals:
     void typeModified(const QString& typeName);
 
 private slots:
-    void onTreeContextMenu(const QPoint& pos);
-    void onAddStructure();
+    void onAddStruct();
     void onAddUnion();
     void onAddField();
-    void onDeleteType();
-    void onFilterChanged(const QString& text);
-    void onTreeDoubleClicked(const QModelIndex& index);
+    void onDelete();
+    void onFilter(const QString& text);
+    void onTreeSelect();
+    void onTreeMenu(const QPoint& pos);
 
 private:
-    void setupUI();
-    void refreshTree();
-    void populateCategories(QStandardItem* parent, void* category);
-    void populateTypeChildren(QStandardItem* parent, void* dataType);
-
     Program* program_ = nullptr;
     DataTypeManager* dtm_ = nullptr;
 
-    QTreeView* treeView_ = nullptr;
-    QStandardItemModel* treeModel_ = nullptr;
-    QLineEdit* filterEdit_ = nullptr;
-    QLabel* statusLabel_ = nullptr;
-    QMenu* contextMenu_ = nullptr;
+    QLineEdit* filter_ = nullptr;
+    QTreeView* tree_ = nullptr;
+    QStandardItemModel* model_ = nullptr;
+    QLabel* info_ = nullptr;
+    QTableWidget* table_ = nullptr;
+    QLabel* status_ = nullptr;
+
+    void rebuild();
+    void showFields(DataType* dt);
 };
 
 } // namespace ghidra

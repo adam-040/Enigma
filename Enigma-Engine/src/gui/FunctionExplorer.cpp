@@ -9,6 +9,7 @@ FunctionExplorer::FunctionExplorer(QWidget* parent)
 
     tree_ = new QTreeWidget(this);
     tree_->setHeaderLabels({tr("Name"), tr("Address")});
+    tree_->setToolTip(tr("Function Explorer — double-click to navigate to a function"));
     tree_->setAlternatingRowColors(true);
     tree_->header()->setStretchLastSection(false);
     tree_->header()->setSectionResizeMode(0, QHeaderView::Stretch);
@@ -17,13 +18,16 @@ FunctionExplorer::FunctionExplorer(QWidget* parent)
 
     filter_ = new QLineEdit(this);
     filter_->setPlaceholderText(tr("Filter..."));
+    filter_->setToolTip(tr("Type to filter functions by name"));
     filter_->setContentsMargins(4, 0, 4, 0);
     layout->addWidget(filter_);
 
     auto* toolsLayout = new QHBoxLayout;
     toolsLayout->setContentsMargins(4, 0, 4, 0);
     autoClearCb_ = new QCheckBox(tr("Auto clear index"), this);
+    autoClearCb_->setToolTip(tr("Automatically clear function index when loading a new binary"));
     clearBtn_ = new QPushButton(tr("Clear index"), this);
+    clearBtn_->setToolTip(tr("Manually clear the cached function index"));
     clearBtn_->setFixedHeight(24);
     toolsLayout->addWidget(autoClearCb_);
     toolsLayout->addWidget(clearBtn_);

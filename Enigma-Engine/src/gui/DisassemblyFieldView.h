@@ -9,6 +9,7 @@
 #include <vector>
 #include <map>
 #include <unordered_map>
+#include <unordered_set>
 #include <memory>
 #include "FieldView.h" // Token, TokenKind
 #include "DisassemblyModel.h"
